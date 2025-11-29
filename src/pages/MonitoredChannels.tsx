@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Download, Filter, TrendingUp, BarChart3 } from "lucide-react";
+import { Plus, Download, Filter, TrendingUp, BarChart3, Lock, RefreshCw, Tag } from "lucide-react";
 import { ChannelCard } from "@/components/ChannelCard";
 import { ChannelGrowthChart } from "@/components/ChannelGrowthChart";
 import { useMonitoredChannels, ChannelMonitorData } from "@/hooks/use-monitored-channels";
@@ -26,6 +27,7 @@ const MonitoredChannels = () => {
   // Dialogs
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [chartChannel, setChartChannel] = useState<{ id: string; title: string } | null>(null);
+  const [showComingSoon, setShowComingSoon] = useState(false);
   
   // Form
   const [channelUrl, setChannelUrl] = useState("");
@@ -166,6 +168,14 @@ const MonitoredChannels = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => toast.info("Atualizando todos os canais...")}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Atualizar Canais
+          </Button>
+          <Button variant="outline" onClick={() => toast.info("Gerenciamento de nichos em breve...")}>
+            <Tag className="w-4 h-4 mr-2" />
+            Gerenciar Nichos
+          </Button>
           <Button variant="outline" onClick={exportToCSV}>
             <Download className="w-4 h-4 mr-2" />
             Exportar CSV
@@ -218,6 +228,20 @@ const MonitoredChannels = () => {
           </Dialog>
         </div>
       </div>
+
+      <Card className="shadow-card cursor-pointer hover:shadow-glow transition-all" onClick={() => setShowComingSoon(true)}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-muted-foreground">
+            <Lock className="w-5 h-5" />
+            Buscar Canais
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Pesquise e encontre novos canais para monitorar
+          </p>
+        </CardContent>
+      </Card>
 
       {explodingChannels.length > 0 && (
         <Card className="shadow-card border-primary/50">
@@ -323,6 +347,25 @@ const MonitoredChannels = () => {
           onClose={() => setChartChannel(null)}
         />
       )}
+
+      <AlertDialog open={showComingSoon} onOpenChange={setShowComingSoon}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Lock className="w-5 h-5" />
+              Disponível em breve...
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta funcionalidade estará disponível em breve. Continue monitorando seus canais favoritos!
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex justify-end">
+            <Button onClick={() => setShowComingSoon(false)}>
+              Entendi
+            </Button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
