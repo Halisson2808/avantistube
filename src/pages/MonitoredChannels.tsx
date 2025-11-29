@@ -16,7 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const MonitoredChannels = () => {
   const { channels, addChannel, updateChannelStats, removeChannel, updateNotes, updateNiche, updateContentType } = useMonitoredChannels();
-  const { niches } = useNiches();
+  const { niches, renameNiche } = useNiches();
   
   // Filtros
   const [nicheFilter, setNicheFilter] = useState<string>("all");
@@ -202,30 +202,15 @@ const MonitoredChannels = () => {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const success = await renameNiche(oldNiche, newNiche);
 
-      // Atualizar monitored_channels
-      const { error: monitoredError } = await supabase
-        .from('monitored_channels')
-        .update({ niche: newNiche })
-        .eq('user_id', user.id)
-        .eq('niche', oldNiche);
-
-      if (monitoredError) throw monitoredError;
-
-      // Atualizar my_channels
-      const { error: myChannelsError } = await supabase
-        .from('my_channels')
-        .update({ niche: newNiche })
-        .eq('user_id', user.id)
-        .eq('niche', oldNiche);
-
-      if (myChannelsError) throw myChannelsError;
-
-      toast.success(`Nicho "${oldNiche}" renomeado para "${newNiche}"`);
-      setEditingNiche(null);
-      window.location.reload();
+      if (success) {
+        toast.success(`Nicho "${oldNiche}" renomeado para "${newNiche}"`);
+        setEditingNiche(null);
+        window.location.reload();
+      } else {
+        toast.error("Erro ao renomear nicho");
+      }
     } catch (error) {
       console.error('Erro ao renomear nicho:', error);
       toast.error("Erro ao renomear nicho");
