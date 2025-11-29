@@ -5,12 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search as SearchIcon, Loader2, Filter, X } from "lucide-react";
+import { Search as SearchIcon, Loader2, Filter, X, Lock } from "lucide-react";
 import { VideoCard, VideoData } from "@/components/VideoCard";
 import { searchYouTube } from "@/lib/youtube-api";
 import { useSearchHistory } from "@/hooks/use-search-history";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 const Search = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -18,6 +19,7 @@ const Search = () => {
   const [results, setResults] = useState<VideoData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [showLockedDialog, setShowLockedDialog] = useState(false);
   const { history, addToHistory, clearHistory } = useSearchHistory();
 
   // Filtros avançados
@@ -126,7 +128,18 @@ const Search = () => {
     <div className="space-y-6">
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>Buscar no YouTube</CardTitle>
+          <div className="flex items-center gap-2">
+            <SearchIcon className="w-5 h-5" />
+            <CardTitle>Buscar Canais</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowLockedDialog(true)}
+              className="ml-auto"
+            >
+              <Lock className="w-4 h-4 text-muted-foreground" />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleSearch} className="space-y-4">
@@ -349,6 +362,25 @@ const Search = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Dialog de Funcionalidade Bloqueada */}
+      <Dialog open={showLockedDialog} onOpenChange={setShowLockedDialog}>
+        <DialogContent className="relative">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center">
+            <div className="bg-card p-6 rounded-lg shadow-lg border border-border max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-xl">
+                  <Lock className="w-5 h-5" />
+                  Funcionalidade em Breve
+                </DialogTitle>
+                <DialogDescription className="text-center mt-4">
+                  Esta funcionalidade estará disponível em breve!
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

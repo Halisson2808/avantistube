@@ -23,23 +23,19 @@ const items = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
-  const collapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
 
   const isActive = (path: string) => currentPath === path;
 
   return (
-    <Sidebar className={collapsed ? "w-14" : "w-64"} collapsible="icon">
+    <Sidebar className="w-64" collapsible="none">
       <SidebarContent>
         <div className="p-4 flex items-center gap-2 border-b border-border">
           <img src={logo} alt="Logo" className="w-8 h-8" />
-          {!collapsed && (
-            <span className="font-bold text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              AvantisTube
-            </span>
-          )}
+          <span className="font-bold text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            AvantisTube
+          </span>
         </div>
 
         <SidebarGroup>
@@ -55,8 +51,8 @@ export function AppSidebar() {
                       className="hover:bg-muted/50 transition-smooth"
                       activeClassName="bg-accent/20 text-primary font-medium"
                     >
-                      <item.icon className={collapsed ? "" : "mr-2"} />
-                      {!collapsed && <span>{item.title}</span>}
+                      <item.icon className="mr-2" />
+                      <span>{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
