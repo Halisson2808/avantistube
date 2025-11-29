@@ -9,6 +9,7 @@ export interface ChannelMonitorData {
   channelThumbnail?: string;
   currentSubscribers: number;
   currentViews: number;
+  currentVideos: number;
   initialSubscribers: number;
   initialViews: number;
   addedAt: string;
@@ -92,6 +93,7 @@ export const useMonitoredChannels = () => {
             channelThumbnail: channel.channel_thumbnail || undefined,
             currentSubscribers: channel.subscriber_count || 0,
             currentViews: channel.view_count || 0,
+            currentVideos: channel.video_count || 0,
             initialSubscribers: initialHistory?.subscriber_count || channel.subscriber_count || 0,
             initialViews: initialHistory?.view_count || channel.view_count || 0,
             addedAt: channel.added_at,

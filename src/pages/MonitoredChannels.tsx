@@ -28,6 +28,8 @@ const MonitoredChannels = () => {
   // Dialogs
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [chartChannel, setChartChannel] = useState<{ id: string; title: string } | null>(null);
+  const [isManageNichesOpen, setIsManageNichesOpen] = useState(false);
+  const [editingNiche, setEditingNiche] = useState<{ old: string; new: string } | null>(null);
   
   // Form
   const [channelUrl, setChannelUrl] = useState("");
@@ -152,14 +154,31 @@ const MonitoredChannels = () => {
 
   const exportToCSV = () => {
     const csv = [
-      ["Canal", "Inscritos", "Visualizações", "Crescimento 7d", "Nicho", "Data Adicionado"].join(","),
+      [
+        "Nome do Canal",
+        "Tipo de Conteúdo", 
+        "Nicho",
+        "URL do Canal",
+        "Inscritos Totais",
+        "Views Totais",
+        "Vídeos Totais",
+        "Crescimento 7d (Inscritos)",
+        "Views 7d",
+        "Data Adicionado",
+        "Notas"
+      ].join(","),
       ...filteredChannels.map(ch => [
-        `"${ch.channelTitle}"`,
-        ch.currentSubscribers,
-        ch.currentViews,
+        `"${ch.channelTitle.replace(/"/g, '""')}"`,
+        ch.contentType === "shorts" ? "Shorts" : "Vídeos Longos",
+        `"${(ch.niche || "").replace(/"/g, '""')}"`,
+        `"https://youtube.com/channel/${ch.channelId}"`,
+        ch.currentSubscribers || 0,
+        ch.currentViews || 0,
+        ch.currentVideos || 0,
         ch.subscribersLast7Days || 0,
-        `"${ch.niche || ""}"`,
-        new Date(ch.addedAt).toLocaleDateString()
+        ch.viewsLast7Days || 0,
+        new Date(ch.addedAt).toLocaleDateString("pt-BR"),
+        `"${(ch.notes || "").replace(/"/g, '""')}"`
       ].join(","))
     ].join("\n");
 
@@ -167,9 +186,50 @@ const MonitoredChannels = () => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "canais-monitorados.csv";
+    a.download = `canais-monitorados-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
-    toast.success("Exportado com sucesso!");
+    toast.success("CSV exportado com sucesso!");
+  };
+
+  const handleRenameNiche = async (oldNiche: string, newNiche: string) => {
+    if (!newNiche.trim()) {
+      toast.error("Digite um nome válido");
+      return;
+    }
+    if (oldNiche === newNiche) {
+      toast.error("O nome não foi alterado");
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Atualizar monitored_channels
+      const { error: monitoredError } = await supabase
+        .from('monitored_channels')
+        .update({ niche: newNiche })
+        .eq('user_id', user.id)
+        .eq('niche', oldNiche);
+
+      if (monitoredError) throw monitoredError;
+
+      // Atualizar my_channels
+      const { error: myChannelsError } = await supabase
+        .from('my_channels')
+        .update({ niche: newNiche })
+        .eq('user_id', user.id)
+        .eq('niche', oldNiche);
+
+      if (myChannelsError) throw myChannelsError;
+
+      toast.success(`Nicho "${oldNiche}" renomeado para "${newNiche}"`);
+      setEditingNiche(null);
+      window.location.reload();
+    } catch (error) {
+      console.error('Erro ao renomear nicho:', error);
+      toast.error("Erro ao renomear nicho");
+    }
   };
 
   return (
@@ -194,10 +254,67 @@ const MonitoredChannels = () => {
             <RefreshCw className="w-4 h-4 mr-2" />
             Atualizar Canais
           </Button>
-          <Button variant="outline" onClick={() => toast.info("Gerenciamento de nichos em breve...")}>
-            <Tag className="w-4 h-4 mr-2" />
-            Gerenciar Nichos
-          </Button>
+          <Dialog open={isManageNichesOpen} onOpenChange={setIsManageNichesOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Tag className="w-4 h-4 mr-2" />
+                Gerenciar Nichos
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Gerenciar Nichos</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                {uniqueNiches.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Nenhum nicho cadastrado ainda.
+                  </p>
+                ) : (
+                  uniqueNiches.map((niche) => (
+                    <div key={niche} className="flex items-center gap-2">
+                      {editingNiche?.old === niche ? (
+                        <>
+                          <Input
+                            value={editingNiche.new}
+                            onChange={(e) => setEditingNiche({ old: niche, new: e.target.value })}
+                            className="flex-1"
+                            placeholder="Novo nome do nicho"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => handleRenameNiche(editingNiche.old, editingNiche.new)}
+                          >
+                            Salvar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingNiche(null)}
+                          >
+                            Cancelar
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex-1 px-3 py-2 rounded-md bg-muted text-sm">
+                            {niche}
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingNiche({ old: niche, new: niche })}
+                          >
+                            Renomear
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
           <Button variant="outline" onClick={exportToCSV}>
             <Download className="w-4 h-4 mr-2" />
             Exportar CSV
