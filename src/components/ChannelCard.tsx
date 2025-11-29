@@ -1,19 +1,24 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, Users, Eye, RefreshCw, Trash2, Edit } from "lucide-react";
+import { TrendingUp, Users, Eye, RefreshCw, Trash2, BarChart3, StickyNote } from "lucide-react";
 import { formatNumber } from "@/lib/youtube-api";
 import { ChannelMonitorData } from "@/hooks/use-monitored-channels";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ChannelCardProps {
   channel: ChannelMonitorData;
   onUpdate?: (channelId: string) => void;
   onRemove?: (channelId: string) => void;
   onEdit?: (channel: ChannelMonitorData) => void;
+  onShowChart?: (channelId: string, channelTitle: string) => void;
   metricsFilter?: "7days" | "lastday";
 }
 
-export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, metricsFilter = "7days" }: ChannelCardProps) => {
+export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, metricsFilter = "7days" }: ChannelCardProps) => {
+  const [showNotesDialog, setShowNotesDialog] = useState(false);
+  
   // Cálculos dos quadros superiores (totais desde que foi adicionado)
   const totalSubsGained = (channel.currentSubscribers || 0) - (channel.initialSubscribers || 0);
   const totalViewsGained = (channel.currentViews || 0) - (channel.initialViews || 0);
@@ -150,20 +155,34 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, metricsFilter
           </div>
         </div>
 
-        {/* Notas */}
-        {channel.notes && (
-          <div className="pt-2 border-t border-border">
-            <p className="text-xs text-muted-foreground line-clamp-2">{channel.notes}</p>
-          </div>
-        )}
-
         {/* Rodapé com informações de data */}
         <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border">
           <span>Adicionado há {daysAdded} {daysAdded === 1 ? 'dia' : 'dias'}</span>
           <span>Atualizado: {lastUpdatedDate}</span>
         </div>
 
-        <div className="flex gap-2 pt-2">
+        {/* Botões de ação compactos */}
+        <div className="flex gap-1 pt-2">
+          {onShowChart && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onShowChart(channel.channelId, channel.channelTitle)}
+              className="flex-1"
+            >
+              <BarChart3 className="w-3 h-3" />
+            </Button>
+          )}
+          {channel.notes && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowNotesDialog(true)}
+              className="flex-1"
+            >
+              <StickyNote className="w-3 h-3" />
+            </Button>
+          )}
           {onUpdate && (
             <Button
               variant="outline"
@@ -171,17 +190,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, metricsFilter
               onClick={() => onUpdate(channel.channelId)}
               className="flex-1"
             >
-              <RefreshCw className="w-3 h-3 mr-1" />
-              Atualizar
-            </Button>
-          )}
-          {onEdit && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onEdit(channel)}
-            >
-              <Edit className="w-3 h-3" />
+              <RefreshCw className="w-3 h-3" />
             </Button>
           )}
           {onRemove && (
@@ -189,12 +198,27 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, metricsFilter
               variant="destructive"
               size="sm"
               onClick={() => onRemove(channel.channelId)}
+              className="flex-1"
             >
               <Trash2 className="w-3 h-3" />
             </Button>
           )}
         </div>
       </CardContent>
+
+      {/* Dialog de Notas */}
+      <Dialog open={showNotesDialog} onOpenChange={setShowNotesDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{channel.channelTitle} - Notas</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+              {channel.notes || "Nenhuma nota disponível."}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
