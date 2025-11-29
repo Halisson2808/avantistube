@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const MonitoredChannels = () => {
-  const { channels, addChannel, updateChannelStats, removeChannel, updateNotes } = useMonitoredChannels();
+  const { channels, addChannel, updateChannelStats, removeChannel, updateNotes, updateNiche, updateContentType } = useMonitoredChannels();
   const { niches } = useNiches();
   
   // Filtros
@@ -299,6 +299,8 @@ const MonitoredChannels = () => {
                   onRemove={removeChannel}
                   onShowChart={(channelId, channelTitle) => setChartChannel({ id: channelId, title: channelTitle })}
                   onUpdateNotes={updateNotes}
+                  onUpdateNiche={updateNiche}
+                  onUpdateContentType={updateContentType}
                   metricsFilter={metricsFilter as "7days" | "lastday"}
                 />
               ))}
@@ -376,6 +378,8 @@ const MonitoredChannels = () => {
             onRemove={removeChannel}
             onShowChart={(channelId, channelTitle) => setChartChannel({ id: channelId, title: channelTitle })}
             onUpdateNotes={updateNotes}
+            onUpdateNiche={updateNiche}
+            onUpdateContentType={updateContentType}
             metricsFilter={metricsFilter as "7days" | "lastday"}
           />
         ))}

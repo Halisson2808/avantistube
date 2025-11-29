@@ -16,7 +16,13 @@ const Dashboard = () => {
   const totalMyChannels = myChannels.length;
   const explodingChannels = monitoredChannels.filter(ch => ch.isExploding).length;
 
-  const top3ByViewsLastDay = [...monitoredChannels]
+  const top3LongformByViewsLastDay = [...monitoredChannels]
+    .filter(ch => ch.contentType === 'longform')
+    .sort((a, b) => (b.viewsLastDay || 0) - (a.viewsLastDay || 0))
+    .slice(0, 3);
+  
+  const top3ShortsByViewsLastDay = [...monitoredChannels]
+    .filter(ch => ch.contentType === 'shorts')
     .sort((a, b) => (b.viewsLastDay || 0) - (a.viewsLastDay || 0))
     .slice(0, 3);
   const recentMy = myChannels.slice(0, 3);
@@ -79,17 +85,34 @@ const Dashboard = () => {
             </Card>
           </div>
 
-          {/* Top 3 Channels by Views Last Day */}
-          {top3ByViewsLastDay.length > 0 && (
+          {/* Top 3 Longform Channels by Views Last Day */}
+          {top3LongformByViewsLastDay.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold">Top 3 Canais - Views do Último Dia</h2>
+                <h2 className="text-2xl font-bold">Top 3 Vídeos Longos - Views do Último Dia</h2>
                 <Button variant="outline" onClick={() => navigate("/monitored")}>
                   Ver Todos
                 </Button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {top3ByViewsLastDay.map((channel) => (
+                {top3LongformByViewsLastDay.map((channel) => (
+                  <ChannelCard key={channel.id} channel={channel} metricsFilter="lastday" />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Top 3 Shorts Channels by Views Last Day */}
+          {top3ShortsByViewsLastDay.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold">Top 3 Shorts - Views do Último Dia</h2>
+                <Button variant="outline" onClick={() => navigate("/monitored")}>
+                  Ver Todos
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {top3ShortsByViewsLastDay.map((channel) => (
                   <ChannelCard key={channel.id} channel={channel} metricsFilter="lastday" />
                 ))}
               </div>
