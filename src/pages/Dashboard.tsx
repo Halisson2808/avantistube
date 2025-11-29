@@ -16,7 +16,9 @@ const Dashboard = () => {
   const totalMyChannels = myChannels.length;
   const explodingChannels = monitoredChannels.filter(ch => ch.isExploding).length;
 
-  const recentMonitored = monitoredChannels.slice(0, 3);
+  const top3ByViewsLastDay = [...monitoredChannels]
+    .sort((a, b) => (b.viewsLastDay || 0) - (a.viewsLastDay || 0))
+    .slice(0, 3);
   const recentMy = myChannels.slice(0, 3);
 
   const totalSubscribers = myChannels.reduce((acc, ch) => acc + ch.currentSubscribers, 0);
@@ -77,18 +79,18 @@ const Dashboard = () => {
             </Card>
           </div>
 
-          {/* Recent Monitored Channels */}
-          {recentMonitored.length > 0 && (
+          {/* Top 3 Channels by Views Last Day */}
+          {top3ByViewsLastDay.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold">Canais Monitorados Recentes</h2>
+                <h2 className="text-2xl font-bold">Top 3 Canais - Views do Último Dia</h2>
                 <Button variant="outline" onClick={() => navigate("/monitored")}>
                   Ver Todos
                 </Button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {recentMonitored.map((channel) => (
-                  <ChannelCard key={channel.id} channel={channel} />
+                {top3ByViewsLastDay.map((channel) => (
+                  <ChannelCard key={channel.id} channel={channel} metricsFilter="lastday" />
                 ))}
               </div>
             </div>
