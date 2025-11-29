@@ -1,5 +1,9 @@
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY || '';
 
+if (!YOUTUBE_API_KEY) {
+  console.error('VITE_YOUTUBE_API_KEY não está configurada. Configure no arquivo .env');
+}
+
 interface YouTubeSearchParams {
   q: string;
   type?: string;
@@ -97,13 +101,20 @@ export const searchYouTube = async (params: YouTubeSearchParams) => {
 };
 
 export const getChannelDetails = async (channelId: string) => {
+  if (!YOUTUBE_API_KEY) {
+    throw new Error('API Key do YouTube não configurada. Configure VITE_YOUTUBE_API_KEY no arquivo .env');
+  }
+
   const url = new URL('https://www.googleapis.com/youtube/v3/channels');
   url.searchParams.append('key', YOUTUBE_API_KEY);
   url.searchParams.append('id', channelId);
   url.searchParams.append('part', 'snippet,statistics,contentDetails');
 
   const response = await fetch(url.toString());
-  if (!response.ok) throw new Error(`YouTube API error: ${response.status}`);
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error?.message || `YouTube API error: ${response.status}`);
+  }
 
   const data = await response.json();
   const channel = data.items[0];
