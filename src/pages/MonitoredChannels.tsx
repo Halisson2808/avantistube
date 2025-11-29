@@ -6,33 +6,80 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Download, Filter, TrendingUp } from "lucide-react";
+import { Plus, Download, Filter, TrendingUp, BarChart3 } from "lucide-react";
 import { ChannelCard } from "@/components/ChannelCard";
+import { ChannelGrowthChart } from "@/components/ChannelGrowthChart";
 import { useMonitoredChannels, ChannelMonitorData } from "@/hooks/use-monitored-channels";
 import { useNiches } from "@/hooks/use-niches";
 import { getChannelDetails } from "@/lib/youtube-api";
 import { toast } from "sonner";
 
 const MonitoredChannels = () => {
-  const { channels, addChannel, updateChannelStats, removeChannel, updateNotes, updateNiche } = useMonitoredChannels();
+  const { channels, addChannel, updateChannelStats, removeChannel } = useMonitoredChannels();
   const { niches } = useNiches();
-  const [filterNiche, setFilterNiche] = useState<string>("all");
+  
+  // Filtros
+  const [nicheFilter, setNicheFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("recent");
+  const [metricsFilter, setMetricsFilter] = useState<string>("7days");
+  
+  // Dialogs
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [chartChannel, setChartChannel] = useState<{ id: string; title: string } | null>(null);
+  
+  // Form
   const [channelUrl, setChannelUrl] = useState("");
   const [newNiche, setNewNiche] = useState("");
   const [newNotes, setNewNotes] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const filteredChannels = channels.filter(ch => 
-    filterNiche === "all" || ch.niche === filterNiche
-  ).sort((a, b) => {
-    if (sortBy === "recent") return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
-    if (sortBy === "subscribers") return b.currentSubscribers - a.currentSubscribers;
-    if (sortBy === "growth") return (b.subscribersLast7Days || 0) - (a.subscribersLast7Days || 0);
-    return 0;
-  });
+  // Função para filtrar e ordenar
+  const getFilteredAndSortedChannels = () => {
+    let filtered = [...channels];
 
+    // Filtrar por nicho
+    if (nicheFilter !== "all") {
+      filtered = filtered.filter(c => 
+        c.niche?.toLowerCase() === nicheFilter.toLowerCase()
+      );
+    }
+
+    // Ordenar
+    switch (sortBy) {
+      case "recent":
+        return filtered.sort((a, b) => 
+          new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
+        );
+      case "subscribers":
+        return filtered.sort((a, b) => b.currentSubscribers - a.currentSubscribers);
+      case "views":
+        if (metricsFilter === "lastday") {
+          return filtered.sort((a, b) => (b.viewsLastDay || 0) - (a.viewsLastDay || 0));
+        } else {
+          return filtered.sort((a, b) => (b.viewsLast7Days || 0) - (a.viewsLast7Days || 0));
+        }
+      case "growth":
+        return filtered.sort((a, b) => {
+          const growthA = a.initialSubscribers > 0 
+            ? ((a.currentSubscribers - a.initialSubscribers) / a.initialSubscribers) * 100 
+            : 0;
+          const growthB = b.initialSubscribers > 0
+            ? ((b.currentSubscribers - b.initialSubscribers) / b.initialSubscribers) * 100
+            : 0;
+          return growthB - growthA;
+        });
+      case "exploding":
+        return filtered.sort((a, b) => {
+          if (a.isExploding && !b.isExploding) return -1;
+          if (!a.isExploding && b.isExploding) return 1;
+          return 0;
+        });
+      default:
+        return filtered;
+    }
+  };
+
+  const filteredChannels = getFilteredAndSortedChannels();
   const explodingChannels = channels.filter(ch => ch.isExploding);
 
   const handleAddChannel = async () => {
@@ -91,16 +138,16 @@ const MonitoredChannels = () => {
     const csv = [
       ["Canal", "Inscritos", "Visualizações", "Crescimento 7d", "Nicho", "Data Adicionado"].join(","),
       ...filteredChannels.map(ch => [
-        ch.channelTitle,
+        `"${ch.channelTitle}"`,
         ch.currentSubscribers,
         ch.currentViews,
         ch.subscribersLast7Days || 0,
-        ch.niche || "",
+        `"${ch.niche || ""}"`,
         new Date(ch.addedAt).toLocaleDateString()
       ].join(","))
     ].join("\n");
 
-    const blob = new Blob([csv], { type: "text/csv" });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -195,8 +242,8 @@ const MonitoredChannels = () => {
         </Card>
       )}
 
-      <div className="flex gap-4">
-        <Select value={filterNiche} onValueChange={setFilterNiche}>
+      <div className="flex gap-4 flex-wrap">
+        <Select value={nicheFilter} onValueChange={setNicheFilter}>
           <SelectTrigger className="w-48">
             <Filter className="w-4 h-4 mr-2" />
             <SelectValue />
@@ -218,19 +265,40 @@ const MonitoredChannels = () => {
           <SelectContent>
             <SelectItem value="recent">Mais Recentes</SelectItem>
             <SelectItem value="subscribers">Mais Inscritos</SelectItem>
+            <SelectItem value="views">Mais Visualizações</SelectItem>
             <SelectItem value="growth">Maior Crescimento</SelectItem>
+            <SelectItem value="exploding">Em Explosão</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={metricsFilter} onValueChange={setMetricsFilter}>
+          <SelectTrigger className="w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7days">Últimos 7 Dias</SelectItem>
+            <SelectItem value="lastday">Último Dia</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredChannels.map((channel) => (
-          <ChannelCard
-            key={channel.id}
-            channel={channel}
-            onUpdate={updateChannelStats}
-            onRemove={removeChannel}
-          />
+          <div key={channel.id} className="relative">
+            <ChannelCard
+              channel={channel}
+              onUpdate={updateChannelStats}
+              onRemove={removeChannel}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="absolute top-2 right-2"
+              onClick={() => setChartChannel({ id: channel.channelId, title: channel.channelTitle })}
+            >
+              <BarChart3 className="w-3 h-3" />
+            </Button>
+          </div>
         ))}
       </div>
 
@@ -239,10 +307,21 @@ const MonitoredChannels = () => {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <TrendingUp className="w-16 h-16 text-muted-foreground mb-4" />
             <p className="text-muted-foreground text-center">
-              Nenhum canal monitorado ainda. Adicione um canal para começar!
+              {nicheFilter !== "all" 
+                ? "Nenhum canal encontrado com este filtro."
+                : "Nenhum canal monitorado ainda. Adicione um canal para começar!"}
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {chartChannel && (
+        <ChannelGrowthChart
+          channelId={chartChannel.id}
+          channelTitle={chartChannel.title}
+          isOpen={!!chartChannel}
+          onClose={() => setChartChannel(null)}
+        />
       )}
     </div>
   );
