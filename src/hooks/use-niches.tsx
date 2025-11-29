@@ -1,34 +1,54 @@
 import { useState, useEffect } from 'react';
-import { useLocalStorage } from './use-local-storage';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useNiches = () => {
-  const [monitoredChannels] = useLocalStorage<any[]>('monitored-channels', []);
-  const [myChannels] = useLocalStorage<any[]>('my-channels', []);
   const [niches, setNiches] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const loadNiches = () => {
-    const allNiches = new Set<string>();
+  const loadNiches = async () => {
+    setIsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    monitoredChannels.forEach((channel: any) => {
-      if (channel.niche) allNiches.add(channel.niche);
-    });
+      const allNiches = new Set<string>();
 
-    myChannels.forEach((channel: any) => {
-      if (channel.niche) allNiches.add(channel.niche);
-    });
+      // Buscar nichos dos canais monitorados
+      const { data: monitoredChannels } = await supabase
+        .from('monitored_channels')
+        .select('niche')
+        .eq('user_id', user.id);
 
-    setNiches(Array.from(allNiches).sort());
+      monitoredChannels?.forEach((channel) => {
+        if (channel.niche) allNiches.add(channel.niche);
+      });
+
+      // Buscar nichos dos meus canais
+      const { data: myChannels } = await supabase
+        .from('my_channels')
+        .select('niche')
+        .eq('user_id', user.id);
+
+      myChannels?.forEach((channel) => {
+        if (channel.niche) allNiches.add(channel.niche);
+      });
+
+      setNiches(Array.from(allNiches).sort());
+    } catch (error) {
+      console.error('Erro ao carregar nichos:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const renameNiche = async (oldNiche: string, newNiche: string): Promise<boolean> => {
-    loadNiches();
+    await loadNiches();
     return true;
   };
 
   useEffect(() => {
     loadNiches();
-  }, [monitoredChannels, myChannels]);
+  }, []);
 
   return { niches, isLoading, renameNiche, loadNiches };
 };
