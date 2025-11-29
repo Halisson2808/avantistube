@@ -56,9 +56,9 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
     : (channel.viewsLast7Days || 0);
 
   // Calcular dias desde adição
-  const daysAdded = Math.floor(
+  const daysAdded = Math.max(0, Math.floor(
     (new Date().getTime() - new Date(channel.addedAt).getTime()) / (1000 * 60 * 60 * 24)
-  );
+  ));
 
   // Formatar data de atualização
   const lastUpdatedDate = new Date(channel.lastUpdated).toLocaleDateString('pt-BR', {
