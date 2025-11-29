@@ -57,7 +57,7 @@ const Index = () => {
               <Youtube className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">AvantisTube Pro</h1>
+              <h1 className="text-2xl font-bold">AvantisTube Channels</h1>
               <p className="text-sm text-muted-foreground">{user?.email}</p>
             </div>
           </div>
@@ -67,7 +67,7 @@ const Index = () => {
         </div>
 
         <div className="glass-effect shadow-card rounded-2xl p-8 max-w-2xl mx-auto text-center animate-fade-in">
-          <h2 className="text-3xl font-bold mb-4">Bem-vindo ao AvantisTube Pro</h2>
+          <h2 className="text-3xl font-bold mb-4">Bem-vindo ao AvantisTube Channels</h2>
           <p className="text-muted-foreground mb-6">
             Sua plataforma profissional para monitorar e analisar canais do YouTube
           </p>
