@@ -42,8 +42,30 @@ export const useNiches = () => {
   };
 
   const renameNiche = async (oldNiche: string, newNiche: string): Promise<boolean> => {
-    await loadNiches();
-    return true;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+
+      // Atualizar monitored_channels
+      await supabase
+        .from('monitored_channels')
+        .update({ niche: newNiche })
+        .eq('user_id', user.id)
+        .eq('niche', oldNiche);
+
+      // Atualizar my_channels
+      await supabase
+        .from('my_channels')
+        .update({ niche: newNiche })
+        .eq('user_id', user.id)
+        .eq('niche', oldNiche);
+
+      await loadNiches();
+      return true;
+    } catch (error) {
+      console.error('Erro ao renomear nicho:', error);
+      return false;
+    }
   };
 
   useEffect(() => {
