@@ -235,6 +235,23 @@ export const useMonitoredChannels = () => {
     }
   };
 
+  const updateContentType = async (channelId: string, contentType: 'longform' | 'shorts') => {
+    try {
+      const { error } = await supabase
+        .from('monitored_channels')
+        .update({ content_type: contentType })
+        .eq('channel_id', channelId);
+
+      if (error) throw error;
+      
+      await loadChannels();
+      toast.success('Tipo de conteúdo atualizado!');
+    } catch (error) {
+      console.error('Error updating content type:', error);
+      toast.error('Erro ao atualizar tipo de conteúdo');
+    }
+  };
+
   return {
     channels,
     isLoading,
@@ -244,5 +261,6 @@ export const useMonitoredChannels = () => {
     updateNotes,
     updateNiche,
     updateChannelStats,
+    updateContentType,
   };
 };

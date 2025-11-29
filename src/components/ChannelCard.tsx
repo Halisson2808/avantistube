@@ -1,12 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, Users, Eye, RefreshCw, Trash2, BarChart3, StickyNote } from "lucide-react";
+import { TrendingUp, Users, Eye, RefreshCw, Trash2, BarChart3, StickyNote, Pencil } from "lucide-react";
 import { formatNumber } from "@/lib/youtube-api";
 import { ChannelMonitorData } from "@/hooks/use-monitored-channels";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { useNiches } from "@/hooks/use-niches";
 
 interface ChannelCardProps {
   channel: ChannelMonitorData;
@@ -15,13 +19,21 @@ interface ChannelCardProps {
   onEdit?: (channel: ChannelMonitorData) => void;
   onShowChart?: (channelId: string, channelTitle: string) => void;
   onUpdateNotes?: (channelId: string, notes: string) => void;
+  onUpdateNiche?: (channelId: string, niche: string) => void;
+  onUpdateContentType?: (channelId: string, contentType: 'longform' | 'shorts') => void;
   metricsFilter?: "7days" | "lastday";
 }
 
-export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, onUpdateNotes, metricsFilter = "7days" }: ChannelCardProps) => {
+export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, onUpdateNotes, onUpdateNiche, onUpdateContentType, metricsFilter = "7days" }: ChannelCardProps) => {
   const [showNotesDialog, setShowNotesDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [editedNotes, setEditedNotes] = useState(channel.notes || "");
+  const [editedNiche, setEditedNiche] = useState(channel.niche || "");
+  const [editedContentType, setEditedContentType] = useState<'longform' | 'shorts'>(channel.contentType || 'longform');
+  const [customNiche, setCustomNiche] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const { niches } = useNiches();
   
   const handleSaveNotes = async () => {
     if (!onUpdateNotes) return;
@@ -31,6 +43,22 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
       setShowNotesDialog(false);
     } finally {
       setIsSavingNotes(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    setIsSavingEdit(true);
+    try {
+      const finalNiche = editedNiche === "__new__" ? customNiche : editedNiche;
+      if (onUpdateNiche && finalNiche !== channel.niche) {
+        await onUpdateNiche(channel.channelId, finalNiche);
+      }
+      if (onUpdateContentType && editedContentType !== channel.contentType) {
+        await onUpdateContentType(channel.channelId, editedContentType);
+      }
+      setShowEditDialog(false);
+    } finally {
+      setIsSavingEdit(false);
     }
   };
   
@@ -88,73 +116,81 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
               >
                 <CardTitle className="text-base truncate">{channel.channelTitle}</CardTitle>
               </a>
-              <div className="flex items-center gap-2 mt-1">
-                {channel.niche && (
-                  <span className="inline-block text-xs text-muted-foreground px-2 py-0.5 border border-border rounded-full">
-                    {channel.niche}
-                  </span>
-                )}
-                {channel.contentType && (
-                  <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${
-                    channel.contentType === 'shorts' 
-                      ? 'bg-purple-500/10 text-purple-600 border border-purple-500/30' 
-                      : 'bg-blue-500/10 text-blue-600 border border-blue-500/30'
-                  }`}>
-                    {channel.contentType === 'shorts' ? 'Shorts' : 'Vídeos Longos'}
-                  </span>
-                )}
-              </div>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          {/* Botões de ação compactos no topo */}
+          <div className="flex gap-1">
             {channel.isExploding && (
               <Badge variant="destructive" className="animate-pulse">
                 🔥 Explodindo
               </Badge>
             )}
-            {/* Botões de ação compactos no topo */}
-            <div className="flex gap-1">
-              {onShowChart && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onShowChart(channel.channelId, channel.channelTitle)}
-                  className="h-8 w-8 p-0"
-                >
-                  <BarChart3 className="w-3 h-3" />
-                </Button>
-              )}
+            {onShowChart && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowNotesDialog(true)}
+                onClick={() => onShowChart(channel.channelId, channel.channelTitle)}
                 className="h-8 w-8 p-0"
               >
-                <StickyNote className="w-3 h-3" />
+                <BarChart3 className="w-3 h-3" />
               </Button>
-              {onUpdate && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onUpdate(channel.channelId)}
-                  className="h-8 px-3 py-0"
-                >
-                  <RefreshCw className="w-3 h-3 mr-1" />
-                  Atualizar
-                </Button>
-              )}
-              {onRemove && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => onRemove(channel.channelId)}
-                  className="h-8 w-8 p-0"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </Button>
-              )}
-            </div>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowNotesDialog(true)}
+              className="h-8 w-8 p-0"
+            >
+              <StickyNote className="w-3 h-3" />
+            </Button>
+            {onUpdate && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onUpdate(channel.channelId)}
+                className="h-8 px-3 py-0"
+              >
+                <RefreshCw className="w-3 h-3 mr-1" />
+                Atualizar
+              </Button>
+            )}
+            {onRemove && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => onRemove(channel.channelId)}
+                className="h-8 w-8 p-0"
+              >
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            )}
           </div>
+        </div>
+        
+        {/* Nicho e Tipo de Conteúdo com botão de editar */}
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          {channel.niche && (
+            <span className="inline-block text-xs text-muted-foreground px-2 py-0.5 border border-border rounded-full">
+              {channel.niche}
+            </span>
+          )}
+          {channel.contentType && (
+            <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${
+              channel.contentType === 'shorts' 
+                ? 'bg-purple-500/10 text-purple-600 border border-purple-500/30' 
+                : 'bg-blue-500/10 text-blue-600 border border-blue-500/30'
+            }`}>
+              {channel.contentType === 'shorts' ? 'Shorts' : 'Vídeos Longos'}
+            </span>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowEditDialog(true)}
+            className="h-6 w-6 p-0"
+          >
+            <Pencil className="w-3 h-3" />
+          </Button>
         </div>
       </CardHeader>
 
@@ -277,6 +313,73 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
               className="gradient-primary"
             >
               {isSavingNotes ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Edição de Nicho e Tipo de Conteúdo */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{channel.channelTitle} - Editar Informações</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nicho</Label>
+              <Select value={editedNiche} onValueChange={setEditedNiche}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione ou crie um nicho" />
+                </SelectTrigger>
+                <SelectContent>
+                  {niches.map((niche) => (
+                    <SelectItem key={niche} value={niche}>
+                      {niche}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__new__">➕ Novo Nicho</SelectItem>
+                </SelectContent>
+              </Select>
+              {editedNiche === "__new__" && (
+                <Input
+                  value={customNiche}
+                  onChange={(e) => setCustomNiche(e.target.value)}
+                  placeholder="Digite o nome do novo nicho"
+                />
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de Conteúdo</Label>
+              <Select value={editedContentType} onValueChange={(value: 'longform' | 'shorts') => setEditedContentType(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="longform">Vídeos Longos</SelectItem>
+                  <SelectItem value="shorts">Shorts</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditedNiche(channel.niche || "");
+                setEditedContentType(channel.contentType || 'longform');
+                setCustomNiche("");
+                setShowEditDialog(false);
+              }}
+              disabled={isSavingEdit}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={isSavingEdit}
+              className="gradient-primary"
+            >
+              {isSavingEdit ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>
