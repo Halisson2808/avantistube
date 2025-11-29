@@ -59,12 +59,17 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
     setIsSavingEdit(true);
     try {
       const finalNiche = editedNiche === "__new__" ? customNiche : editedNiche;
-      if (onUpdateNiche && finalNiche !== channel.niche) {
+      
+      // Always update if niche is provided
+      if (onUpdateNiche && finalNiche && finalNiche.trim() !== "") {
         await onUpdateNiche(channel.channelId, finalNiche);
       }
-      if (onUpdateContentType && editedContentType !== channel.contentType) {
+      
+      // Always update content type
+      if (onUpdateContentType) {
         await onUpdateContentType(channel.channelId, editedContentType);
       }
+      
       setShowEditDialog(false);
     } finally {
       setIsSavingEdit(false);
@@ -195,7 +200,12 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setShowEditDialog(true)}
+            onClick={() => {
+              setEditedNiche(channel.niche || "");
+              setEditedContentType(channel.contentType || 'longform');
+              setCustomNiche("");
+              setShowEditDialog(true);
+            }}
             className="h-6 w-6 p-0"
           >
             <Pencil className="w-3 h-3" />
