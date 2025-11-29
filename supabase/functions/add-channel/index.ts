@@ -48,7 +48,7 @@ serve(async (req) => {
 
     console.log('Authenticated user:', user.id);
 
-    const { channelInput, niche, notes } = await req.json();
+    const { channelInput, niche, notes, contentType } = await req.json();
 
     console.log('Received channelInput:', channelInput);
 
@@ -107,6 +107,7 @@ serve(async (req) => {
         custom_url: channelDetails.customUrl,
         niche: niche || null,
         notes: notes || null,
+        content_type: contentType || 'longform',
       })
       .select()
       .single();

@@ -20,6 +20,7 @@ export interface ChannelMonitorData {
   isExploding?: boolean;
   niche?: string;
   notes?: string;
+  contentType?: 'longform' | 'shorts';
 }
 
 export const useMonitoredChannels = () => {
@@ -102,6 +103,7 @@ export const useMonitoredChannels = () => {
             isExploding,
             niche: channel.niche || undefined,
             notes: channel.notes || undefined,
+            contentType: (channel.content_type as 'longform' | 'shorts') || 'longform',
           };
         })
       );
