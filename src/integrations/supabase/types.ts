@@ -14,7 +14,231 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      channel_history: {
+        Row: {
+          channel_id: string
+          id: string
+          recorded_at: string
+          subscriber_count: number | null
+          user_id: string
+          video_count: number | null
+          view_count: number | null
+        }
+        Insert: {
+          channel_id: string
+          id?: string
+          recorded_at?: string
+          subscriber_count?: number | null
+          user_id: string
+          video_count?: number | null
+          view_count?: number | null
+        }
+        Update: {
+          channel_id?: string
+          id?: string
+          recorded_at?: string
+          subscriber_count?: number | null
+          user_id?: string
+          video_count?: number | null
+          view_count?: number | null
+        }
+        Relationships: []
+      }
+      channel_videos: {
+        Row: {
+          added_at: string
+          channel_id: string
+          comment_count: number | null
+          description: string | null
+          duration: string | null
+          id: string
+          like_count: number | null
+          published_at: string | null
+          thumbnail_url: string | null
+          title: string
+          user_id: string
+          video_id: string
+          view_count: number | null
+        }
+        Insert: {
+          added_at?: string
+          channel_id: string
+          comment_count?: number | null
+          description?: string | null
+          duration?: string | null
+          id?: string
+          like_count?: number | null
+          published_at?: string | null
+          thumbnail_url?: string | null
+          title: string
+          user_id: string
+          video_id: string
+          view_count?: number | null
+        }
+        Update: {
+          added_at?: string
+          channel_id?: string
+          comment_count?: number | null
+          description?: string | null
+          duration?: string | null
+          id?: string
+          like_count?: number | null
+          published_at?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          user_id?: string
+          video_id?: string
+          view_count?: number | null
+        }
+        Relationships: []
+      }
+      monitored_channels: {
+        Row: {
+          added_at: string
+          channel_id: string
+          channel_name: string
+          channel_thumbnail: string | null
+          custom_url: string | null
+          description: string | null
+          id: string
+          last_updated: string
+          published_at: string | null
+          subscriber_count: number | null
+          user_id: string
+          video_count: number | null
+          view_count: number | null
+        }
+        Insert: {
+          added_at?: string
+          channel_id: string
+          channel_name: string
+          channel_thumbnail?: string | null
+          custom_url?: string | null
+          description?: string | null
+          id?: string
+          last_updated?: string
+          published_at?: string | null
+          subscriber_count?: number | null
+          user_id: string
+          video_count?: number | null
+          view_count?: number | null
+        }
+        Update: {
+          added_at?: string
+          channel_id?: string
+          channel_name?: string
+          channel_thumbnail?: string | null
+          custom_url?: string | null
+          description?: string | null
+          id?: string
+          last_updated?: string
+          published_at?: string | null
+          subscriber_count?: number | null
+          user_id?: string
+          video_count?: number | null
+          view_count?: number | null
+        }
+        Relationships: []
+      }
+      my_channels: {
+        Row: {
+          added_at: string
+          channel_id: string
+          channel_name: string
+          channel_thumbnail: string | null
+          custom_url: string | null
+          description: string | null
+          id: string
+          is_primary: boolean | null
+          last_updated: string
+          published_at: string | null
+          subscriber_count: number | null
+          user_id: string
+          video_count: number | null
+          view_count: number | null
+        }
+        Insert: {
+          added_at?: string
+          channel_id: string
+          channel_name: string
+          channel_thumbnail?: string | null
+          custom_url?: string | null
+          description?: string | null
+          id?: string
+          is_primary?: boolean | null
+          last_updated?: string
+          published_at?: string | null
+          subscriber_count?: number | null
+          user_id: string
+          video_count?: number | null
+          view_count?: number | null
+        }
+        Update: {
+          added_at?: string
+          channel_id?: string
+          channel_name?: string
+          channel_thumbnail?: string | null
+          custom_url?: string | null
+          description?: string | null
+          id?: string
+          is_primary?: boolean | null
+          last_updated?: string
+          published_at?: string | null
+          subscriber_count?: number | null
+          user_id?: string
+          video_count?: number | null
+          view_count?: number | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      search_history: {
+        Row: {
+          id: string
+          search_query: string
+          searched_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          search_query: string
+          searched_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          search_query?: string
+          searched_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
