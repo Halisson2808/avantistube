@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search as SearchIcon, Loader2, Filter, X, Lock } from "lucide-react";
 import { VideoCard, VideoData } from "@/components/VideoCard";
 import { searchYouTube } from "@/lib/youtube-api";
-import { useSearchHistory } from "@/hooks/use-search-history";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -18,7 +17,6 @@ const Search = () => {
   const [results, setResults] = useState<VideoData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const { history, addToHistory, clearHistory } = useSearchHistory();
 
   // Filtros avançados
   const [durationMin, setDurationMin] = useState("");
@@ -88,7 +86,6 @@ const Search = () => {
       }
 
       setResults(filtered);
-      await addToHistory(filtered);
       toast.success(`${filtered.length} resultados encontrados!`);
     } catch (error) {
       console.error(error);
@@ -319,9 +316,8 @@ const Search = () => {
       </Card>
 
       <Tabs defaultValue="results" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-1">
           <TabsTrigger value="results">Resultados ({results.length})</TabsTrigger>
-          <TabsTrigger value="history">Histórico ({history.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="results" className="space-y-4">
@@ -338,26 +334,6 @@ const Search = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {results.map((video) => (
-              <VideoCard key={video.id} video={video} />
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="history" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-muted-foreground">
-              {history.length} vídeos no histórico
-            </p>
-            {history.length > 0 && (
-              <Button variant="outline" size="sm" onClick={clearHistory}>
-                <X className="w-4 h-4 mr-2" />
-                Limpar Histórico
-              </Button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {history.map((video) => (
               <VideoCard key={video.id} video={video} />
             ))}
           </div>

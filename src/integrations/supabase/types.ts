@@ -44,54 +44,6 @@ export type Database = {
         }
         Relationships: []
       }
-      channel_videos: {
-        Row: {
-          added_at: string
-          channel_id: string
-          comment_count: number | null
-          description: string | null
-          duration: string | null
-          id: string
-          like_count: number | null
-          published_at: string | null
-          thumbnail_url: string | null
-          title: string
-          user_id: string
-          video_id: string
-          view_count: number | null
-        }
-        Insert: {
-          added_at?: string
-          channel_id: string
-          comment_count?: number | null
-          description?: string | null
-          duration?: string | null
-          id?: string
-          like_count?: number | null
-          published_at?: string | null
-          thumbnail_url?: string | null
-          title: string
-          user_id: string
-          video_id: string
-          view_count?: number | null
-        }
-        Update: {
-          added_at?: string
-          channel_id?: string
-          comment_count?: number | null
-          description?: string | null
-          duration?: string | null
-          id?: string
-          like_count?: number | null
-          published_at?: string | null
-          thumbnail_url?: string | null
-          title?: string
-          user_id?: string
-          video_id?: string
-          view_count?: number | null
-        }
-        Relationships: []
-      }
       monitored_channels: {
         Row: {
           added_at: string
@@ -221,27 +173,6 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string
-        }
-        Relationships: []
-      }
-      search_history: {
-        Row: {
-          id: string
-          search_query: string
-          searched_at: string
-          user_id: string
-        }
-        Insert: {
-          id?: string
-          search_query: string
-          searched_at?: string
-          user_id: string
-        }
-        Update: {
-          id?: string
-          search_query?: string
-          searched_at?: string
-          user_id?: string
         }
         Relationships: []
       }
