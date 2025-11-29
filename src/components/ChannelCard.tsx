@@ -115,18 +115,16 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, metricsFilter
 
           {/* Quadro 3: Inscritos Recente (Inferior Esquerdo) */}
           <div className={`space-y-1 p-3 rounded-lg border ${
-            recentSubs > 0 
+            recentSubs >= 0 
               ? 'bg-green-500/10 border-green-500/30' 
-              : recentSubs < 0 
-                ? 'bg-red-500/10 border-red-500/30' 
-                : 'bg-card border-border'
+              : 'bg-red-500/10 border-red-500/30'
           }`}>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Users className="w-3 h-3" />
               <span>{metricsFilter === "lastday" ? "Último Dia" : "Últimos 7 Dias"}</span>
             </div>
             <p className={`text-xl font-bold ${
-              recentSubs > 0 ? 'text-green-600' : recentSubs < 0 ? 'text-red-600' : ''
+              recentSubs >= 0 ? 'text-green-600' : 'text-red-600'
             }`}>
               {recentSubs >= 0 ? '+' : ''}{formatNumber(recentSubs)}
             </p>
@@ -135,18 +133,16 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, metricsFilter
 
           {/* Quadro 4: Views Recente (Inferior Direito) */}
           <div className={`space-y-1 p-3 rounded-lg border ${
-            recentViews > 0 
-              ? 'bg-blue-500/10 border-blue-500/30' 
-              : recentViews < 0 
-                ? 'bg-red-500/10 border-red-500/30' 
-                : 'bg-card border-border'
+            recentViews >= 0 
+              ? 'bg-green-500/10 border-green-500/30' 
+              : 'bg-red-500/10 border-red-500/30'
           }`}>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Eye className="w-3 h-3" />
               <span>{metricsFilter === "lastday" ? "Último Dia" : "Últimos 7 Dias"}</span>
             </div>
             <p className={`text-xl font-bold ${
-              recentViews > 0 ? 'text-blue-600' : recentViews < 0 ? 'text-red-600' : ''
+              recentViews >= 0 ? 'text-green-600' : 'text-red-600'
             }`}>
               {recentViews >= 0 ? '+' : ''}{formatNumber(recentViews)}
             </p>
