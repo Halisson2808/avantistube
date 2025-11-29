@@ -102,6 +102,8 @@ export type Database = {
           description: string | null
           id: string
           last_updated: string
+          niche: string | null
+          notes: string | null
           published_at: string | null
           subscriber_count: number | null
           user_id: string
@@ -117,6 +119,8 @@ export type Database = {
           description?: string | null
           id?: string
           last_updated?: string
+          niche?: string | null
+          notes?: string | null
           published_at?: string | null
           subscriber_count?: number | null
           user_id: string
@@ -132,6 +136,8 @@ export type Database = {
           description?: string | null
           id?: string
           last_updated?: string
+          niche?: string | null
+          notes?: string | null
           published_at?: string | null
           subscriber_count?: number | null
           user_id?: string

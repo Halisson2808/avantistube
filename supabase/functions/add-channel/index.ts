@@ -105,6 +105,8 @@ serve(async (req) => {
         view_count: channelDetails.viewCount,
         published_at: channelDetails.publishedAt,
         custom_url: channelDetails.customUrl,
+        niche: niche || null,
+        notes: notes || null,
       })
       .select()
       .single();

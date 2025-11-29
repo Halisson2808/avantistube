@@ -100,8 +100,8 @@ export const useMonitoredChannels = () => {
             subscribersLastDay,
             viewsLastDay,
             isExploding,
-            niche: undefined, // We'll need to add this to DB schema
-            notes: undefined, // We'll need to add this to DB schema
+            niche: channel.niche || undefined,
+            notes: channel.notes || undefined,
           };
         })
       );
@@ -163,13 +163,37 @@ export const useMonitoredChannels = () => {
   };
 
   const updateNotes = async (channelId: string, notes: string) => {
-    // Notes need to be added to DB schema first
-    toast.info('Funcionalidade de notas será implementada em breve');
+    try {
+      const { error } = await supabase
+        .from('monitored_channels')
+        .update({ notes })
+        .eq('channel_id', channelId);
+
+      if (error) throw error;
+      
+      await loadChannels();
+      toast.success('Notas atualizadas!');
+    } catch (error) {
+      console.error('Error updating notes:', error);
+      toast.error('Erro ao atualizar notas');
+    }
   };
 
   const updateNiche = async (channelId: string, niche: string) => {
-    // Niche needs to be added to DB schema first
-    toast.info('Funcionalidade de nicho será implementada em breve');
+    try {
+      const { error } = await supabase
+        .from('monitored_channels')
+        .update({ niche })
+        .eq('channel_id', channelId);
+
+      if (error) throw error;
+      
+      await loadChannels();
+      toast.success('Nicho atualizado!');
+    } catch (error) {
+      console.error('Error updating niche:', error);
+      toast.error('Erro ao atualizar nicho');
+    }
   };
 
   const updateChannelStats = async (channelId: string) => {
