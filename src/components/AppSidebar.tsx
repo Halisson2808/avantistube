@@ -1,4 +1,4 @@
-import { Home, Search, TrendingUp, Youtube, BarChart3, Settings } from "lucide-react";
+import { Home, Search, TrendingUp, Youtube } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/logo.png";
@@ -20,7 +20,6 @@ const items = [
   { title: "Buscar Canais", url: "/search", icon: Search },
   { title: "Canais Monitorados", url: "/monitored", icon: TrendingUp },
   { title: "Meus Canais", url: "/my-channels", icon: Youtube },
-  { title: "Analytics", url: "/analytics", icon: BarChart3 },
 ];
 
 export function AppSidebar() {

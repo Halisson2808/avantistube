@@ -79,7 +79,6 @@ const App = () => (
           <Route path="/search" element={<ProtectedLayout><Search /></ProtectedLayout>} />
           <Route path="/monitored" element={<ProtectedLayout><MonitoredChannels /></ProtectedLayout>} />
           <Route path="/my-channels" element={<ProtectedLayout><MyChannels /></ProtectedLayout>} />
-          <Route path="/analytics" element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
