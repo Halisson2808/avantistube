@@ -74,7 +74,7 @@ const Auth = () => {
               <Youtube className="w-8 h-8 text-white" />
             </div>
           </div>
-          <CardTitle className="text-3xl font-bold">AvantisTube Pro</CardTitle>
+          <CardTitle className="text-3xl font-bold">AvantisTube Channels</CardTitle>
           <CardDescription>Monitore e analise canais do YouTube</CardDescription>
         </CardHeader>
         
