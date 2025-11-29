@@ -6,6 +6,7 @@ import { formatNumber } from "@/lib/youtube-api";
 import { ChannelMonitorData } from "@/hooks/use-monitored-channels";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -27,6 +28,7 @@ interface ChannelCardProps {
 export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, onUpdateNotes, onUpdateNiche, onUpdateContentType, metricsFilter = "7days" }: ChannelCardProps) => {
   const [showNotesDialog, setShowNotesDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [editedNotes, setEditedNotes] = useState(channel.notes || "");
   const [editedNiche, setEditedNiche] = useState(channel.niche || "");
   const [editedContentType, setEditedContentType] = useState<'longform' | 'shorts'>(channel.contentType || 'longform');
@@ -34,6 +36,13 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const { niches } = useNiches();
+  
+  const handleDelete = () => {
+    if (onRemove) {
+      onRemove(channel.channelId);
+      setShowDeleteAlert(false);
+    }
+  };
   
   const handleSaveNotes = async () => {
     if (!onUpdateNotes) return;
@@ -158,7 +167,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={() => onRemove(channel.channelId)}
+                onClick={() => setShowDeleteAlert(true)}
                 className="h-8 w-8 p-0"
               >
                 <Trash2 className="w-3 h-3" />
@@ -384,6 +393,25 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog de Confirmação de Exclusão */}
+      <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover o canal <strong>{channel.channelTitle}</strong> do monitoramento? 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };
