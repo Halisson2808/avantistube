@@ -31,9 +31,13 @@ const MonitoredChannels = () => {
   
   // Form
   const [channelUrl, setChannelUrl] = useState("");
-  const [newNiche, setNewNiche] = useState("");
+  const [selectedNiche, setSelectedNiche] = useState("");
+  const [customNiche, setCustomNiche] = useState("");
   const [newNotes, setNewNotes] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Get unique niches from all channels
+  const uniqueNiches = niches;
 
   // Função para filtrar e ordenar
   const getFilteredAndSortedChannels = () => {
@@ -100,6 +104,9 @@ const MonitoredChannels = () => {
 
       const details = await getChannelDetails(channelId);
       
+      // Determine final niche value
+      const finalNiche = selectedNiche === "__new__" ? customNiche : selectedNiche;
+      
       const newChannel: ChannelMonitorData = {
         id: crypto.randomUUID(),
         channelId: details.id,
@@ -111,14 +118,16 @@ const MonitoredChannels = () => {
         initialViews: details.viewCount,
         addedAt: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
-        niche: newNiche,
+        niche: finalNiche,
         notes: newNotes,
       };
 
       await addChannel(newChannel);
+      toast.success("Canal adicionado com sucesso!");
       setIsAddDialogOpen(false);
       setChannelUrl("");
-      setNewNiche("");
+      setSelectedNiche("");
+      setCustomNiche("");
       setNewNotes("");
     } catch (error) {
       toast.error("Erro ao adicionar canal");
@@ -130,9 +139,24 @@ const MonitoredChannels = () => {
 
   const extractChannelId = (url: string): string | null => {
     const input = url.trim();
-    const channelIdMatch = input.match(/youtube\.com\/channel\/(UC[\w-]+)/);
-    if (channelIdMatch) return channelIdMatch[1];
-    if (/^UC[\w-]+$/.test(input)) return input;
+    
+    // 1. Channel ID direto: UCxxxxxx
+    if (input.startsWith('UC') && input.length === 24) {
+      return input;
+    }
+    
+    // 2. URL completa: youtube.com/channel/UCxxxxxx
+    const channelMatch = input.match(/youtube\.com\/channel\/([^/?]+)/);
+    if (channelMatch) {
+      return channelMatch[1];
+    }
+    
+    // 3. Username: youtube.com/@username ou youtube.com/c/username
+    const usernameMatch = input.match(/youtube\.com\/(@|c\/)([^/?]+)/);
+    if (usernameMatch) {
+      return `@${usernameMatch[2]}`;
+    }
+    
     return null;
   };
 
@@ -197,16 +221,34 @@ const MonitoredChannels = () => {
                   <Input
                     value={channelUrl}
                     onChange={(e) => setChannelUrl(e.target.value)}
-                    placeholder="https://youtube.com/channel/UCxxxx ou UCxxxx"
+                    placeholder="UCxxxx, youtube.com/channel/UCxxxx ou youtube.com/@username"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Formatos aceitos: ID do canal, URL completa ou username (@)
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>Nicho (opcional)</Label>
-                  <Input
-                    value={newNiche}
-                    onChange={(e) => setNewNiche(e.target.value)}
-                    placeholder="Ex: Tecnologia, Gaming, Educação"
-                  />
+                  <Select value={selectedNiche} onValueChange={setSelectedNiche}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione ou crie um nicho" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {uniqueNiches.map((niche) => (
+                        <SelectItem key={niche} value={niche}>
+                          {niche}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__new__">➕ Novo Nicho</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {selectedNiche === "__new__" && (
+                    <Input
+                      value={customNiche}
+                      onChange={(e) => setCustomNiche(e.target.value)}
+                      placeholder="Digite o nome do novo nicho"
+                    />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Notas (opcional)</Label>
