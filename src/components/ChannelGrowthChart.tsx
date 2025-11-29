@@ -104,75 +104,87 @@ export const ChannelGrowthChart = ({ channelId, channelTitle, isOpen, onClose }:
           <DialogTitle>Crescimento: {channelTitle}</DialogTitle>
         </DialogHeader>
         
-        {chartData.length > 1 ? (
-          <div className="space-y-4">
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="hsl(var(--muted-foreground))"
-                    style={{ fontSize: '12px' }}
-                  />
-                  <YAxis 
-                    stroke="hsl(var(--muted-foreground))"
-                    style={{ fontSize: '12px' }}
-                    tickFormatter={(value) => formatNumber(value)}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend 
-                    wrapperStyle={{ fontSize: '14px' }}
-                    formatter={(value) => value === 'inscritos' ? 'Ganho de Inscritos' : 'Ganho de Views'}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="inscritos" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2}
-                    dot={{ fill: 'hsl(var(--primary))', r: 4 }}
-                    activeDot={{ r: 6 }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="views" 
-                    stroke="hsl(var(--accent))" 
-                    strokeWidth={2}
-                    dot={{ fill: 'hsl(var(--accent))', r: 4 }}
-                    activeDot={{ r: 6 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+        <div className="space-y-4">
+          {chartData.length === 0 ? (
+            <div className="py-12 text-center">
+              <p className="text-muted-foreground">
+                Nenhum dado histórico ainda. Atualize as estatísticas do canal para começar a rastrear o crescimento.
+              </p>
             </div>
+          ) : (
+            <>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="hsl(var(--muted-foreground))"
+                      style={{ fontSize: '12px' }}
+                    />
+                    <YAxis 
+                      stroke="hsl(var(--muted-foreground))"
+                      style={{ fontSize: '12px' }}
+                      tickFormatter={(value) => formatNumber(value)}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend 
+                      wrapperStyle={{ fontSize: '14px' }}
+                      formatter={(value) => value === 'inscritos' ? 'Ganho de Inscritos' : 'Ganho de Views'}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="inscritos" 
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth={2}
+                      dot={{ fill: 'hsl(var(--primary))', r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="views" 
+                      stroke="hsl(var(--accent))" 
+                      strokeWidth={2}
+                      dot={{ fill: 'hsl(var(--accent))', r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Total de Registros</p>
-                <p className="text-2xl font-bold">{chartData.length}</p>
+              {chartData.length === 1 && (
+                <div className="text-center text-sm text-muted-foreground">
+                  Apenas 1 registro disponível. Atualize novamente para ver o crescimento ao longo do tempo.
+                </div>
+              )}
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">Total de Registros</p>
+                  <p className="text-2xl font-bold">{chartData.length}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">Maior Ganho Diário</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {chartData.length > 1 
+                      ? `+${formatNumber(Math.max(...chartData.map(d => d.inscritos)))}` 
+                      : '-'}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">Crescimento Total</p>
+                  <p className="text-2xl font-bold text-green-500">
+                    {chartData.length > 1
+                      ? `+${formatNumber(
+                          chartData[chartData.length - 1].inscritosTotal - chartData[0].inscritosTotal
+                        )}`
+                      : '-'}
+                  </p>
+                </div>
               </div>
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Maior Ganho Diário</p>
-                <p className="text-2xl font-bold text-primary">
-                  +{formatNumber(Math.max(...chartData.map(d => d.inscritos)))}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Crescimento Total</p>
-                <p className="text-2xl font-bold text-green-500">
-                  +{formatNumber(
-                    chartData[chartData.length - 1].inscritosTotal - chartData[0].inscritosTotal
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="py-12 text-center">
-            <p className="text-muted-foreground">
-              Dados insuficientes. Atualize as estatísticas do canal pelo menos 2 vezes para ver o gráfico.
-            </p>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
