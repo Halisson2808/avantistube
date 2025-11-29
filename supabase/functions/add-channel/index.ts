@@ -34,7 +34,9 @@ serve(async (req) => {
       }
     );
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    const jwt = authHeader.replace('Bearer ', '').trim();
+
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(jwt);
     
     if (userError || !user) {
       console.error('Auth error:', userError);
