@@ -136,7 +136,8 @@ const MonitoredChannels = () => {
       setCustomNiche("");
       setNewNotes("");
     } catch (error) {
-      toast.error("Erro ao adicionar canal");
+      const errorMessage = error instanceof Error ? error.message : "Erro ao adicionar canal";
+      toast.error(errorMessage);
       console.error(error);
     } finally {
       setIsLoading(false);
