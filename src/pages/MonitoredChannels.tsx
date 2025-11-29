@@ -11,8 +11,8 @@ import { ChannelCard } from "@/components/ChannelCard";
 import { ChannelGrowthChart } from "@/components/ChannelGrowthChart";
 import { useMonitoredChannels, ChannelMonitorData } from "@/hooks/use-monitored-channels";
 import { useNiches } from "@/hooks/use-niches";
-import { getChannelDetails } from "@/lib/youtube-api";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const MonitoredChannels = () => {
   const { channels, addChannel, updateChannelStats, removeChannel, updateNotes } = useMonitoredChannels();
@@ -102,39 +102,33 @@ const MonitoredChannels = () => {
 
     setIsLoading(true);
     try {
-      const channelId = extractChannelId(channelUrl);
-      if (!channelId) {
-        toast.error("URL inválida");
-        return;
-      }
-
-      const details = await getChannelDetails(channelId);
-      
-      // Determine final niche value
       const finalNiche = selectedNiche === "__new__" ? customNiche : selectedNiche;
       
-      const newChannel: ChannelMonitorData = {
-        id: crypto.randomUUID(),
-        channelId: details.id,
-        channelTitle: details.title,
-        channelThumbnail: details.thumbnail,
-        currentSubscribers: details.subscriberCount,
-        currentViews: details.viewCount,
-        initialSubscribers: details.subscriberCount,
-        initialViews: details.viewCount,
-        addedAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString(),
-        niche: finalNiche,
-        notes: newNotes,
-      };
+      const { data, error } = await supabase.functions.invoke('add-channel', {
+        body: {
+          channelInput: channelUrl,
+          niche: finalNiche,
+          notes: newNotes,
+        },
+      });
 
-      await addChannel(newChannel);
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
       toast.success("Canal adicionado com sucesso!");
       setIsAddDialogOpen(false);
       setChannelUrl("");
       setSelectedNiche("");
       setCustomNiche("");
       setNewNotes("");
+      
+      // Recarrega a lista de canais
+      window.location.reload();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erro ao adicionar canal";
       toast.error(errorMessage);
@@ -144,28 +138,6 @@ const MonitoredChannels = () => {
     }
   };
 
-  const extractChannelId = (url: string): string | null => {
-    const input = url.trim();
-    
-    // 1. Channel ID direto: UCxxxxxx
-    if (input.startsWith('UC') && input.length === 24) {
-      return input;
-    }
-    
-    // 2. URL completa: youtube.com/channel/UCxxxxxx
-    const channelMatch = input.match(/youtube\.com\/channel\/([^/?]+)/);
-    if (channelMatch) {
-      return channelMatch[1];
-    }
-    
-    // 3. Username: youtube.com/@username ou youtube.com/c/username
-    const usernameMatch = input.match(/youtube\.com\/(@|c\/)([^/?]+)/);
-    if (usernameMatch) {
-      return `@${usernameMatch[2]}`;
-    }
-    
-    return null;
-  };
 
   const exportToCSV = () => {
     const csv = [
