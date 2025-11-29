@@ -78,20 +78,13 @@ export const useMonitoredChannels = () => {
     await updateChannel(channelId, { niche });
   };
 
-  const updateChannelStats = async (channelId: string, forceUpdate: boolean = false) => {
+  const updateChannelStats = async (channelId: string) => {
     const channel = channels.find(ch => ch.channelId === channelId);
     if (!channel) return;
 
-    const lastUpdate = new Date(channel.lastUpdated);
-    const now = new Date();
-    const hoursSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
-
-    if (!forceUpdate && hoursSinceUpdate < 24) {
-      toast.info(`Aguarde ${Math.ceil(24 - hoursSinceUpdate)}h para atualizar`);
-      return;
-    }
-
     toast.info('Atualizando estatísticas...');
+
+    const now = new Date();
 
     try {
       const freshData = await getChannelDetails(channelId);

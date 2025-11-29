@@ -1,4 +1,4 @@
-import { Home, Search, TrendingUp, Youtube } from "lucide-react";
+import { Home, Search, TrendingUp, Youtube, Lock } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/logo.png";
@@ -16,10 +16,10 @@ import {
 } from "@/components/ui/sidebar";
 
 const items = [
-  { title: "Dashboard", url: "/", icon: Home },
-  { title: "Buscar Canais", url: "/search", icon: Search },
-  { title: "Canais Monitorados", url: "/monitored", icon: TrendingUp },
-  { title: "Meus Canais", url: "/my-channels", icon: Youtube },
+  { title: "Dashboard", url: "/", icon: Home, locked: false },
+  { title: "Buscar Canais", url: "/search", icon: Search, locked: true },
+  { title: "Canais Monitorados", url: "/monitored", icon: TrendingUp, locked: false },
+  { title: "Meus Canais", url: "/my-channels", icon: Youtube, locked: false },
 ];
 
 export function AppSidebar() {
@@ -48,11 +48,14 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       end
-                      className="hover:bg-muted/50 transition-smooth"
+                      className="hover:bg-muted/50 transition-smooth flex items-center justify-between"
                       activeClassName="bg-accent/20 text-primary font-medium"
                     >
-                      <item.icon className="mr-2" />
-                      <span>{item.title}</span>
+                      <div className="flex items-center">
+                        <item.icon className="mr-2" />
+                        <span>{item.title}</span>
+                      </div>
+                      {item.locked && <Lock className="w-3 h-3 text-muted-foreground" />}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

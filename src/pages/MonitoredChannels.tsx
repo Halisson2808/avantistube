@@ -15,7 +15,7 @@ import { getChannelDetails } from "@/lib/youtube-api";
 import { toast } from "sonner";
 
 const MonitoredChannels = () => {
-  const { channels, addChannel, updateChannelStats, removeChannel } = useMonitoredChannels();
+  const { channels, addChannel, updateChannelStats, removeChannel, updateNotes } = useMonitoredChannels();
   const { niches } = useNiches();
   
   // Filtros
@@ -199,7 +199,15 @@ const MonitoredChannels = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => toast.info("Atualizando todos os canais...")}>
+          <Button 
+            variant="outline" 
+            onClick={async () => {
+              toast.info("Atualizando todos os canais...");
+              for (const channel of channels) {
+                await updateChannelStats(channel.channelId);
+              }
+            }}
+          >
             <RefreshCw className="w-4 h-4 mr-2" />
             Atualizar Canais
           </Button>
@@ -295,6 +303,7 @@ const MonitoredChannels = () => {
                   onUpdate={updateChannelStats}
                   onRemove={removeChannel}
                   onShowChart={(channelId, channelTitle) => setChartChannel({ id: channelId, title: channelTitle })}
+                  onUpdateNotes={updateNotes}
                   metricsFilter={metricsFilter as "7days" | "lastday"}
                 />
               ))}
@@ -359,6 +368,7 @@ const MonitoredChannels = () => {
             onUpdate={updateChannelStats}
             onRemove={removeChannel}
             onShowChart={(channelId, channelTitle) => setChartChannel({ id: channelId, title: channelTitle })}
+            onUpdateNotes={updateNotes}
             metricsFilter={metricsFilter as "7days" | "lastday"}
           />
         ))}
