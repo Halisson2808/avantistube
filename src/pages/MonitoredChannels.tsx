@@ -22,6 +22,7 @@ const MonitoredChannels = () => {
   const [nicheFilter, setNicheFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("recent");
   const [metricsFilter, setMetricsFilter] = useState<string>("7days");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   
   // Dialogs
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -40,6 +41,13 @@ const MonitoredChannels = () => {
   // Função para filtrar e ordenar
   const getFilteredAndSortedChannels = () => {
     let filtered = [...channels];
+
+    // Filtrar por busca
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(c => 
+        c.channelTitle.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
 
     // Filtrar por nicho
     if (nicheFilter !== "all") {
@@ -292,7 +300,15 @@ const MonitoredChannels = () => {
         </Card>
       )}
 
-      <div className="flex gap-4 flex-wrap">
+      <div className="space-y-4">
+        <Input
+          placeholder="Buscar canais por nome..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="max-w-md"
+        />
+
+        <div className="flex gap-4 flex-wrap">
         <Select value={nicheFilter} onValueChange={setNicheFilter}>
           <SelectTrigger className="w-48">
             <Filter className="w-4 h-4 mr-2" />
@@ -357,13 +373,14 @@ const MonitoredChannels = () => {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <TrendingUp className="w-16 h-16 text-muted-foreground mb-4" />
             <p className="text-muted-foreground text-center">
-              {nicheFilter !== "all" 
+              {nicheFilter !== "all" || searchQuery.trim()
                 ? "Nenhum canal encontrado com este filtro."
                 : "Nenhum canal monitorado ainda. Adicione um canal para começar!"}
             </p>
           </CardContent>
         </Card>
       )}
+      </div>
 
       {chartChannel && (
         <ChannelGrowthChart
