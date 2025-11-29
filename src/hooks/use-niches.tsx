@@ -23,16 +23,6 @@ export const useNiches = () => {
         if (channel.niche) allNiches.add(channel.niche);
       });
 
-      // Buscar nichos dos meus canais
-      const { data: myChannels } = await supabase
-        .from('my_channels')
-        .select('niche')
-        .eq('user_id', user.id);
-
-      myChannels?.forEach((channel) => {
-        if (channel.niche) allNiches.add(channel.niche);
-      });
-
       setNiches(Array.from(allNiches).sort());
     } catch (error) {
       console.error('Erro ao carregar nichos:', error);
@@ -49,13 +39,6 @@ export const useNiches = () => {
       // Atualizar monitored_channels
       await supabase
         .from('monitored_channels')
-        .update({ niche: newNiche })
-        .eq('user_id', user.id)
-        .eq('niche', oldNiche);
-
-      // Atualizar my_channels
-      await supabase
-        .from('my_channels')
         .update({ niche: newNiche })
         .eq('user_id', user.id)
         .eq('niche', oldNiche);
