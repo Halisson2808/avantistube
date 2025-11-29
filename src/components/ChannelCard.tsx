@@ -71,27 +71,25 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
     <Card className="overflow-hidden hover:shadow-primary transition-smooth">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
             {channel.channelThumbnail && (
               <img
                 src={channel.channelThumbnail}
                 alt={channel.channelTitle}
-                className="w-12 h-12 rounded-full"
+                className="w-12 h-12 rounded-full flex-shrink-0"
               />
             )}
-            <div>
+            <div className="flex-1 min-w-0">
               <a
                 href={`https://youtube.com/channel/${channel.channelId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-primary transition-smooth"
+                className="hover:text-primary transition-smooth block"
               >
-                <CardTitle className="text-base">{channel.channelTitle}</CardTitle>
+                <CardTitle className="text-base truncate">{channel.channelTitle}</CardTitle>
               </a>
               {channel.niche && (
-                <Badge variant="secondary" className="mt-1 text-xs">
-                  {channel.niche}
-                </Badge>
+                <p className="text-xs text-muted-foreground mt-0.5">{channel.niche}</p>
               )}
             </div>
           </div>
