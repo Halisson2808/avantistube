@@ -1,1 +1,4 @@
 project_id = "lpjuzjcstdgcmujykdfn"
+
+[functions.add-channel]
+verify_jwt = true
