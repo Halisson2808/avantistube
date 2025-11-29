@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,6 @@ import { searchYouTube } from "@/lib/youtube-api";
 import { useSearchHistory } from "@/hooks/use-search-history";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 const Search = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -19,12 +18,7 @@ const Search = () => {
   const [results, setResults] = useState<VideoData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [showLockedDialog, setShowLockedDialog] = useState(false);
   const { history, addToHistory, clearHistory } = useSearchHistory();
-
-  useEffect(() => {
-    setShowLockedDialog(true);
-  }, []);
 
   // Filtros avançados
   const [durationMin, setDurationMin] = useState("");
@@ -129,21 +123,24 @@ const Search = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="shadow-card">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <SearchIcon className="w-5 h-5" />
-            <CardTitle>Buscar Canais</CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowLockedDialog(true)}
-              className="ml-auto"
-            >
-              <Lock className="w-4 h-4 text-muted-foreground" />
-            </Button>
+    <div className="space-y-6 relative">
+      {/* Overlay fixo para bloquear interação */}
+      <div className="fixed inset-0 left-64 bg-background/95 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="bg-card p-8 rounded-lg shadow-lg border border-border max-w-md mx-4">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Lock className="w-8 h-8 text-primary" />
+            <h2 className="text-2xl font-bold">Funcionalidade em Breve</h2>
           </div>
+          <p className="text-center text-muted-foreground">
+            A busca de canais estará disponível em breve!
+          </p>
+        </div>
+      </div>
+
+      {/* Conteúdo borrado abaixo */}
+      <Card className="shadow-card opacity-50 pointer-events-none">
+        <CardHeader>
+          <CardTitle>Buscar no YouTube</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleSearch} className="space-y-4">
@@ -366,24 +363,6 @@ const Search = () => {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Dialog de Funcionalidade Bloqueada */}
-      <Dialog open={showLockedDialog} onOpenChange={setShowLockedDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <Lock className="w-5 h-5" />
-              Funcionalidade em Breve
-            </DialogTitle>
-            <DialogDescription className="text-center mt-4">
-              Esta funcionalidade estará disponível em breve!
-            </DialogDescription>
-          </DialogHeader>
-          <Button onClick={() => setShowLockedDialog(false)} className="w-full gradient-primary">
-            Entendi
-          </Button>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
