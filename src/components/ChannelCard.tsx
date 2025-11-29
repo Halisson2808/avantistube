@@ -73,11 +73,56 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
               )}
             </div>
           </div>
-          {channel.isExploding && (
-            <Badge variant="destructive" className="animate-pulse">
-              🔥 Explodindo
-            </Badge>
-          )}
+          <div className="flex items-center gap-1">
+            {channel.isExploding && (
+              <Badge variant="destructive" className="animate-pulse">
+                🔥 Explodindo
+              </Badge>
+            )}
+            {/* Botões de ação compactos no topo */}
+            <div className="flex gap-1">
+              {onShowChart && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onShowChart(channel.channelId, channel.channelTitle)}
+                  className="h-8 w-8 p-0"
+                >
+                  <BarChart3 className="w-3 h-3" />
+                </Button>
+              )}
+              {channel.notes && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowNotesDialog(true)}
+                  className="h-8 w-8 p-0"
+                >
+                  <StickyNote className="w-3 h-3" />
+                </Button>
+              )}
+              {onUpdate && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onUpdate(channel.channelId)}
+                  className="h-8 w-8 p-0"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                </Button>
+              )}
+              {onRemove && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => onRemove(channel.channelId)}
+                  className="h-8 w-8 p-0"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       </CardHeader>
 
@@ -155,54 +200,17 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
           </div>
         </div>
 
+        {/* Notas */}
+        {channel.notes && (
+          <div className="pt-2 border-t border-border">
+            <p className="text-xs text-muted-foreground line-clamp-2">{channel.notes}</p>
+          </div>
+        )}
+
         {/* Rodapé com informações de data */}
         <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border">
           <span>Adicionado há {daysAdded} {daysAdded === 1 ? 'dia' : 'dias'}</span>
           <span>Atualizado: {lastUpdatedDate}</span>
-        </div>
-
-        {/* Botões de ação compactos */}
-        <div className="flex gap-1 pt-2">
-          {onShowChart && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onShowChart(channel.channelId, channel.channelTitle)}
-              className="flex-1"
-            >
-              <BarChart3 className="w-3 h-3" />
-            </Button>
-          )}
-          {channel.notes && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowNotesDialog(true)}
-              className="flex-1"
-            >
-              <StickyNote className="w-3 h-3" />
-            </Button>
-          )}
-          {onUpdate && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onUpdate(channel.channelId)}
-              className="flex-1"
-            >
-              <RefreshCw className="w-3 h-3" />
-            </Button>
-          )}
-          {onRemove && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => onRemove(channel.channelId)}
-              className="flex-1"
-            >
-              <Trash2 className="w-3 h-3" />
-            </Button>
-          )}
         </div>
       </CardContent>
 
