@@ -20,6 +20,7 @@ const MonitoredChannels = () => {
   
   // Filtros
   const [nicheFilter, setNicheFilter] = useState<string>("all");
+  const [contentTypeFilter, setContentTypeFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("recent");
   const [metricsFilter, setMetricsFilter] = useState<string>("7days");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -33,6 +34,7 @@ const MonitoredChannels = () => {
   const [selectedNiche, setSelectedNiche] = useState("");
   const [customNiche, setCustomNiche] = useState("");
   const [newNotes, setNewNotes] = useState("");
+  const [contentType, setContentType] = useState<"longform" | "shorts">("longform");
   const [isLoading, setIsLoading] = useState(false);
 
   // Get unique niches from all channels
@@ -53,6 +55,13 @@ const MonitoredChannels = () => {
     if (nicheFilter !== "all") {
       filtered = filtered.filter(c => 
         c.niche?.toLowerCase() === nicheFilter.toLowerCase()
+      );
+    }
+
+    // Filtrar por tipo de conteúdo
+    if (contentTypeFilter !== "all") {
+      filtered = filtered.filter(c => 
+        c.contentType === contentTypeFilter
       );
     }
 
@@ -109,6 +118,7 @@ const MonitoredChannels = () => {
           channelInput: channelUrl,
           niche: finalNiche,
           notes: newNotes,
+          contentType: contentType,
         },
       });
 
@@ -126,6 +136,7 @@ const MonitoredChannels = () => {
       setSelectedNiche("");
       setCustomNiche("");
       setNewNotes("");
+      setContentType("longform");
       
       // Recarrega a lista de canais
       window.location.reload();
@@ -215,6 +226,18 @@ const MonitoredChannels = () => {
                   </p>
                 </div>
                 <div className="space-y-2">
+                  <Label>Tipo de Conteúdo *</Label>
+                  <Select value={contentType} onValueChange={(value: "longform" | "shorts") => setContentType(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="longform">Vídeos Longos</SelectItem>
+                      <SelectItem value="shorts">Shorts</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label>Nicho (opcional)</Label>
                   <Select value={selectedNiche} onValueChange={setSelectedNiche}>
                     <SelectTrigger>
@@ -293,6 +316,18 @@ const MonitoredChannels = () => {
         />
 
         <div className="flex gap-4 flex-wrap">
+        <Select value={contentTypeFilter} onValueChange={setContentTypeFilter}>
+          <SelectTrigger className="w-48">
+            <Filter className="w-4 h-4 mr-2" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os Tipos</SelectItem>
+            <SelectItem value="longform">Vídeos Longos</SelectItem>
+            <SelectItem value="shorts">Shorts</SelectItem>
+          </SelectContent>
+        </Select>
+
         <Select value={nicheFilter} onValueChange={setNicheFilter}>
           <SelectTrigger className="w-48">
             <Filter className="w-4 h-4 mr-2" />

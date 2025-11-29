@@ -88,11 +88,22 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
               >
                 <CardTitle className="text-base truncate">{channel.channelTitle}</CardTitle>
               </a>
-              {channel.niche && (
-                <span className="inline-block text-xs text-muted-foreground mt-1 px-2 py-0.5 border border-border rounded-full">
-                  {channel.niche}
-                </span>
-              )}
+              <div className="flex items-center gap-2 mt-1">
+                {channel.niche && (
+                  <span className="inline-block text-xs text-muted-foreground px-2 py-0.5 border border-border rounded-full">
+                    {channel.niche}
+                  </span>
+                )}
+                {channel.contentType && (
+                  <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${
+                    channel.contentType === 'shorts' 
+                      ? 'bg-purple-500/10 text-purple-600 border border-purple-500/30' 
+                      : 'bg-blue-500/10 text-blue-600 border border-blue-500/30'
+                  }`}>
+                    {channel.contentType === 'shorts' ? 'Shorts' : 'Vídeos Longos'}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-1">
