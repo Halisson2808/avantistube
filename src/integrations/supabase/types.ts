@@ -50,7 +50,7 @@ export type Database = {
           channel_id: string
           channel_name: string
           channel_thumbnail: string | null
-          content_type: string
+          content_type: Database["public"]["Enums"]["content_type_enum"] | null
           custom_url: string | null
           description: string | null
           id: string
@@ -68,7 +68,7 @@ export type Database = {
           channel_id: string
           channel_name: string
           channel_thumbnail?: string | null
-          content_type?: string
+          content_type?: Database["public"]["Enums"]["content_type_enum"] | null
           custom_url?: string | null
           description?: string | null
           id?: string
@@ -86,7 +86,7 @@ export type Database = {
           channel_id?: string
           channel_name?: string
           channel_thumbnail?: string | null
-          content_type?: string
+          content_type?: Database["public"]["Enums"]["content_type_enum"] | null
           custom_url?: string | null
           description?: string | null
           id?: string
@@ -187,7 +187,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      content_type_enum: "longform" | "shorts"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -314,6 +314,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      content_type_enum: ["longform", "shorts"],
+    },
   },
 } as const
