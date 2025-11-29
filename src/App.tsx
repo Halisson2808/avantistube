@@ -8,8 +8,10 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
-import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
+import Search from "./pages/Search";
+import MonitoredChannels from "./pages/MonitoredChannels";
+import MyChannels from "./pages/MyChannels";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -74,10 +76,10 @@ const App = () => (
         <Routes>
           <Route path="/auth" element={<Auth />} />
           <Route path="/" element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
-          <Route path="/search" element={<ProtectedLayout><Index /></ProtectedLayout>} />
-          <Route path="/monitored" element={<ProtectedLayout><Index /></ProtectedLayout>} />
-          <Route path="/my-channels" element={<ProtectedLayout><Index /></ProtectedLayout>} />
-          <Route path="/analytics" element={<ProtectedLayout><Index /></ProtectedLayout>} />
+          <Route path="/search" element={<ProtectedLayout><Search /></ProtectedLayout>} />
+          <Route path="/monitored" element={<ProtectedLayout><MonitoredChannels /></ProtectedLayout>} />
+          <Route path="/my-channels" element={<ProtectedLayout><MyChannels /></ProtectedLayout>} />
+          <Route path="/analytics" element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
