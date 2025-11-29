@@ -89,7 +89,9 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                 <CardTitle className="text-base truncate">{channel.channelTitle}</CardTitle>
               </a>
               {channel.niche && (
-                <p className="text-xs text-muted-foreground mt-0.5">{channel.niche}</p>
+                <span className="inline-block text-xs text-muted-foreground mt-1 px-2 py-0.5 border border-border rounded-full">
+                  {channel.niche}
+                </span>
               )}
             </div>
           </div>
