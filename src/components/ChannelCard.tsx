@@ -65,7 +65,14 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
               />
             )}
             <div>
-              <CardTitle className="text-base">{channel.channelTitle}</CardTitle>
+              <a
+                href={`https://youtube.com/channel/${channel.channelId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-primary transition-smooth"
+              >
+                <CardTitle className="text-base">{channel.channelTitle}</CardTitle>
+              </a>
               {channel.niche && (
                 <Badge variant="secondary" className="mt-1 text-xs">
                   {channel.niche}
@@ -91,24 +98,23 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                   <BarChart3 className="w-3 h-3" />
                 </Button>
               )}
-              {channel.notes && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowNotesDialog(true)}
-                  className="h-8 w-8 p-0"
-                >
-                  <StickyNote className="w-3 h-3" />
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowNotesDialog(true)}
+                className="h-8 w-8 p-0"
+              >
+                <StickyNote className="w-3 h-3" />
+              </Button>
               {onUpdate && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => onUpdate(channel.channelId)}
-                  className="h-8 w-8 p-0"
+                  className="h-8 px-3 py-0"
                 >
-                  <RefreshCw className="w-3 h-3" />
+                  <RefreshCw className="w-3 h-3 mr-1" />
+                  Atualizar
                 </Button>
               )}
               {onRemove && (

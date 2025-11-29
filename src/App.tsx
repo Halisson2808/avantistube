@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,17 +50,8 @@ const ProtectedLayout = ({ children }: { children: React.ReactNode }) => {
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <AppSidebar />
-        <main className="flex-1">
-          <header className="h-14 border-b border-border flex items-center px-4 sticky top-0 bg-background z-10">
-            <SidebarTrigger />
-            <div className="flex-1" />
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">{user.email}</span>
-            </div>
-          </header>
-          <div className="p-6">
-            {children}
-          </div>
+        <main className="flex-1 p-6">
+          {children}
         </main>
       </div>
     </SidebarProvider>
