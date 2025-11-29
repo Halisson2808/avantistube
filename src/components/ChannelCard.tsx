@@ -5,7 +5,8 @@ import { TrendingUp, Users, Eye, RefreshCw, Trash2, BarChart3, StickyNote } from
 import { formatNumber } from "@/lib/youtube-api";
 import { ChannelMonitorData } from "@/hooks/use-monitored-channels";
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ChannelCardProps {
   channel: ChannelMonitorData;
@@ -13,11 +14,25 @@ interface ChannelCardProps {
   onRemove?: (channelId: string) => void;
   onEdit?: (channel: ChannelMonitorData) => void;
   onShowChart?: (channelId: string, channelTitle: string) => void;
+  onUpdateNotes?: (channelId: string, notes: string) => void;
   metricsFilter?: "7days" | "lastday";
 }
 
-export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, metricsFilter = "7days" }: ChannelCardProps) => {
+export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, onUpdateNotes, metricsFilter = "7days" }: ChannelCardProps) => {
   const [showNotesDialog, setShowNotesDialog] = useState(false);
+  const [editedNotes, setEditedNotes] = useState(channel.notes || "");
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  
+  const handleSaveNotes = async () => {
+    if (!onUpdateNotes) return;
+    setIsSavingNotes(true);
+    try {
+      await onUpdateNotes(channel.channelId, editedNotes);
+      setShowNotesDialog(false);
+    } finally {
+      setIsSavingNotes(false);
+    }
+  };
   
   // Cálculos dos quadros superiores (totais desde que foi adicionado)
   const totalSubsGained = (channel.currentSubscribers || 0) - (channel.initialSubscribers || 0);
@@ -226,11 +241,33 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
           <DialogHeader>
             <DialogTitle>{channel.channelTitle} - Notas</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-              {channel.notes || "Nenhuma nota disponível."}
-            </p>
+          <div className="space-y-4">
+            <Textarea
+              value={editedNotes}
+              onChange={(e) => setEditedNotes(e.target.value)}
+              placeholder="Adicione suas notas sobre este canal..."
+              className="min-h-[150px]"
+            />
           </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditedNotes(channel.notes || "");
+                setShowNotesDialog(false);
+              }}
+              disabled={isSavingNotes}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveNotes}
+              disabled={isSavingNotes}
+              className="gradient-primary"
+            >
+              {isSavingNotes ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Card>

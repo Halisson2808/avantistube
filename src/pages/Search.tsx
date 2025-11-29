@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,10 @@ const Search = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showLockedDialog, setShowLockedDialog] = useState(false);
   const { history, addToHistory, clearHistory } = useSearchHistory();
+
+  useEffect(() => {
+    setShowLockedDialog(true);
+  }, []);
 
   // Filtros avançados
   const [durationMin, setDurationMin] = useState("");
@@ -365,20 +369,19 @@ const Search = () => {
 
       {/* Dialog de Funcionalidade Bloqueada */}
       <Dialog open={showLockedDialog} onOpenChange={setShowLockedDialog}>
-        <DialogContent className="relative">
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center">
-            <div className="bg-card p-6 rounded-lg shadow-lg border border-border max-w-sm">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-xl">
-                  <Lock className="w-5 h-5" />
-                  Funcionalidade em Breve
-                </DialogTitle>
-                <DialogDescription className="text-center mt-4">
-                  Esta funcionalidade estará disponível em breve!
-                </DialogDescription>
-              </DialogHeader>
-            </div>
-          </div>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Lock className="w-5 h-5" />
+              Funcionalidade em Breve
+            </DialogTitle>
+            <DialogDescription className="text-center mt-4">
+              Esta funcionalidade estará disponível em breve!
+            </DialogDescription>
+          </DialogHeader>
+          <Button onClick={() => setShowLockedDialog(false)} className="w-full gradient-primary">
+            Entendi
+          </Button>
         </DialogContent>
       </Dialog>
     </div>
