@@ -63,7 +63,11 @@ const MonitoredChannels = () => {
           new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
         );
       case "subscribers":
-        return filtered.sort((a, b) => b.currentSubscribers - a.currentSubscribers);
+        if (metricsFilter === "lastday") {
+          return filtered.sort((a, b) => (b.subscribersLastDay || 0) - (a.subscribersLastDay || 0));
+        } else {
+          return filtered.sort((a, b) => (b.subscribersLast7Days || 0) - (a.subscribersLast7Days || 0));
+        }
       case "views":
         if (metricsFilter === "lastday") {
           return filtered.sort((a, b) => (b.viewsLastDay || 0) - (a.viewsLastDay || 0));
@@ -71,15 +75,11 @@ const MonitoredChannels = () => {
           return filtered.sort((a, b) => (b.viewsLast7Days || 0) - (a.viewsLast7Days || 0));
         }
       case "growth":
-        return filtered.sort((a, b) => {
-          const growthA = a.initialSubscribers > 0 
-            ? ((a.currentSubscribers - a.initialSubscribers) / a.initialSubscribers) * 100 
-            : 0;
-          const growthB = b.initialSubscribers > 0
-            ? ((b.currentSubscribers - b.initialSubscribers) / b.initialSubscribers) * 100
-            : 0;
-          return growthB - growthA;
-        });
+        if (metricsFilter === "lastday") {
+          return filtered.sort((a, b) => (b.subscribersLastDay || 0) - (a.subscribersLastDay || 0));
+        } else {
+          return filtered.sort((a, b) => (b.subscribersLast7Days || 0) - (a.subscribersLast7Days || 0));
+        }
       case "exploding":
         return filtered.sort((a, b) => {
           if (a.isExploding && !b.isExploding) return -1;
