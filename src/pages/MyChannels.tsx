@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Youtube, Edit, Trash2, RefreshCw } from "lucide-react";
+import { Plus, Youtube, Edit, Trash2, RefreshCw, Lock } from "lucide-react";
 import { useMyChannels, MyChannelData } from "@/hooks/use-my-channels";
 import { getChannelDetails, formatNumber } from "@/lib/youtube-api";
 import { toast } from "sonner";
@@ -84,87 +84,102 @@ const MyChannels = () => {
   const totalGrowth = channels.reduce((acc, ch) => acc + (ch.currentSubscribers - ch.initialSubscribers), 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Meus Canais</h1>
-          <p className="text-muted-foreground">
-            Gerencie e monitore seus canais do YouTube
+    <div className="space-y-6 relative">
+      {/* Overlay fixo para bloquear interação */}
+      <div className="fixed inset-0 left-64 bg-background/95 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="bg-card p-8 rounded-lg shadow-lg border border-border max-w-md mx-4">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Lock className="w-8 h-8 text-primary" />
+            <h2 className="text-2xl font-bold">Funcionalidade em Breve</h2>
+          </div>
+          <p className="text-center text-muted-foreground">
+            Seus canais estarão disponíveis em breve!
           </p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gradient-primary">
-              <Plus className="w-4 h-4 mr-2" />
-              Adicionar Meu Canal
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Adicionar Meu Canal</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>URL ou ID do Canal</Label>
-                <Input
-                  value={channelUrl}
-                  onChange={(e) => setChannelUrl(e.target.value)}
-                  placeholder="https://youtube.com/channel/UCxxxx"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Nicho</Label>
-                <Select value={niche} onValueChange={setNiche}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um nicho" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Tecnologia">Tecnologia</SelectItem>
-                    <SelectItem value="Gaming">Gaming</SelectItem>
-                    <SelectItem value="Educação">Educação</SelectItem>
-                    <SelectItem value="Entretenimento">Entretenimento</SelectItem>
-                    <SelectItem value="Música">Música</SelectItem>
-                    <SelectItem value="Esportes">Esportes</SelectItem>
-                    <SelectItem value="Culinária">Culinária</SelectItem>
-                    <SelectItem value="Viagens">Viagens</SelectItem>
-                    <SelectItem value="Finanças">Finanças</SelectItem>
-                    <SelectItem value="Outro">Outro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Idioma Principal</Label>
-                <Select value={language} onValueChange={setLanguage}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pt">Português</SelectItem>
-                    <SelectItem value="en">Inglês</SelectItem>
-                    <SelectItem value="es">Espanhol</SelectItem>
-                    <SelectItem value="fr">Francês</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Notas</Label>
-                <Textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Adicione notas sobre este canal..."
-                />
-              </div>
-              <Button
-                onClick={handleAddChannel}
-                disabled={isLoading}
-                className="w-full gradient-primary"
-              >
-                {isLoading ? "Adicionando..." : "Adicionar Canal"}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
+
+      {/* Conteúdo borrado abaixo */}
+      <div className="opacity-50 pointer-events-none">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Meus Canais</h1>
+            <p className="text-muted-foreground">
+              Gerencie e monitore seus canais do YouTube
+            </p>
+          </div>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gradient-primary">
+                <Plus className="w-4 h-4 mr-2" />
+                Adicionar Meu Canal
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Adicionar Meu Canal</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>URL ou ID do Canal</Label>
+                  <Input
+                    value={channelUrl}
+                    onChange={(e) => setChannelUrl(e.target.value)}
+                    placeholder="https://youtube.com/channel/UCxxxx"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Nicho</Label>
+                  <Select value={niche} onValueChange={setNiche}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um nicho" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Tecnologia">Tecnologia</SelectItem>
+                      <SelectItem value="Gaming">Gaming</SelectItem>
+                      <SelectItem value="Educação">Educação</SelectItem>
+                      <SelectItem value="Entretenimento">Entretenimento</SelectItem>
+                      <SelectItem value="Música">Música</SelectItem>
+                      <SelectItem value="Esportes">Esportes</SelectItem>
+                      <SelectItem value="Culinária">Culinária</SelectItem>
+                      <SelectItem value="Viagens">Viagens</SelectItem>
+                      <SelectItem value="Finanças">Finanças</SelectItem>
+                      <SelectItem value="Outro">Outro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Idioma Principal</Label>
+                  <Select value={language} onValueChange={setLanguage}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pt">Português</SelectItem>
+                      <SelectItem value="en">Inglês</SelectItem>
+                      <SelectItem value="es">Espanhol</SelectItem>
+                      <SelectItem value="fr">Francês</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Notas</Label>
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Adicione notas sobre este canal..."
+                  />
+                </div>
+                <Button
+                  onClick={handleAddChannel}
+                  disabled={isLoading}
+                  className="w-full gradient-primary"
+                >
+                  {isLoading ? "Adicionando..." : "Adicionar Canal"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="shadow-card">
@@ -283,6 +298,7 @@ const MyChannels = () => {
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   );
 };

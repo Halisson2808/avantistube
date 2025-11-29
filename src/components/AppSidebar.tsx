@@ -19,7 +19,7 @@ const items = [
   { title: "Dashboard", url: "/", icon: Home, locked: false },
   { title: "Buscar Canais", url: "/search", icon: Search, locked: true },
   { title: "Canais Monitorados", url: "/monitored", icon: TrendingUp, locked: false },
-  { title: "Meus Canais", url: "/my-channels", icon: Youtube, locked: false },
+  { title: "Meus Canais", url: "/my-channels", icon: Youtube, locked: true },
 ];
 
 export function AppSidebar() {
