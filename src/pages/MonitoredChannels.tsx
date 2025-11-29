@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Download, Filter, TrendingUp, BarChart3, RefreshCw, Tag } from "lucide-react";
+import { Plus, Download, Filter, TrendingUp, RefreshCw, Tag } from "lucide-react";
 import { ChannelCard } from "@/components/ChannelCard";
 import { ChannelGrowthChart } from "@/components/ChannelGrowthChart";
 import { useMonitoredChannels, ChannelMonitorData } from "@/hooks/use-monitored-channels";
@@ -294,6 +294,7 @@ const MonitoredChannels = () => {
                   channel={channel}
                   onUpdate={updateChannelStats}
                   onRemove={removeChannel}
+                  onShowChart={(channelId, channelTitle) => setChartChannel({ id: channelId, title: channelTitle })}
                   metricsFilter={metricsFilter as "7days" | "lastday"}
                 />
               ))}
@@ -352,22 +353,14 @@ const MonitoredChannels = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredChannels.map((channel) => (
-          <div key={channel.id} className="relative">
-            <ChannelCard
-              channel={channel}
-              onUpdate={updateChannelStats}
-              onRemove={removeChannel}
-              metricsFilter={metricsFilter as "7days" | "lastday"}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              className="absolute top-2 right-2"
-              onClick={() => setChartChannel({ id: channel.channelId, title: channel.channelTitle })}
-            >
-              <BarChart3 className="w-3 h-3" />
-            </Button>
-          </div>
+          <ChannelCard
+            key={channel.id}
+            channel={channel}
+            onUpdate={updateChannelStats}
+            onRemove={removeChannel}
+            onShowChart={(channelId, channelTitle) => setChartChannel({ id: channelId, title: channelTitle })}
+            metricsFilter={metricsFilter as "7days" | "lastday"}
+          />
         ))}
       </div>
 
