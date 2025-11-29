@@ -294,6 +294,7 @@ const MonitoredChannels = () => {
                   channel={channel}
                   onUpdate={updateChannelStats}
                   onRemove={removeChannel}
+                  metricsFilter={metricsFilter as "7days" | "lastday"}
                 />
               ))}
             </div>
@@ -356,6 +357,7 @@ const MonitoredChannels = () => {
               channel={channel}
               onUpdate={updateChannelStats}
               onRemove={removeChannel}
+              metricsFilter={metricsFilter as "7days" | "lastday"}
             />
             <Button
               variant="outline"
