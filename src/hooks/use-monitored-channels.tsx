@@ -106,15 +106,26 @@ export const useMonitoredChannels = () => {
 
       const channelHistory = history.filter(h => h.channelId === channelId);
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const recentHistory = channelHistory.filter(h => new Date(h.recordedAt) >= sevenDaysAgo);
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      
+      const recentHistory7d = channelHistory.filter(h => new Date(h.recordedAt) >= sevenDaysAgo);
+      const recentHistory1d = channelHistory.filter(h => new Date(h.recordedAt) >= oneDayAgo);
 
       let subscribersLast7Days = 0;
       let viewsLast7Days = 0;
+      let subscribersLastDay = 0;
+      let viewsLastDay = 0;
 
-      if (recentHistory.length > 0) {
-        const oldest = recentHistory[0];
+      if (recentHistory7d.length > 0) {
+        const oldest = recentHistory7d[0];
         subscribersLast7Days = freshData.subscriberCount - oldest.subscribers;
         viewsLast7Days = freshData.viewCount - oldest.views;
+      }
+
+      if (recentHistory1d.length > 0) {
+        const oldest = recentHistory1d[0];
+        subscribersLastDay = freshData.subscriberCount - oldest.subscribers;
+        viewsLastDay = freshData.viewCount - oldest.views;
       }
 
       const isExploding = subscribersLast7Days > (channel.currentSubscribers * 0.1);
@@ -125,6 +136,8 @@ export const useMonitoredChannels = () => {
         channelThumbnail: freshData.thumbnail,
         subscribersLast7Days,
         viewsLast7Days,
+        subscribersLastDay,
+        viewsLastDay,
         isExploding,
       });
 
