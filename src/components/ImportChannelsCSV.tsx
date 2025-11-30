@@ -3,15 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Upload, Loader2, FileText, AlertCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Upload, Loader2, FileText, AlertCircle, Video } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface CSVRow {
   channelName?: string;
   channelLink: string;
   niche: string;
+  contentType: "longform" | "shorts";
 }
 
 export const ImportChannelsCSV = () => {
@@ -37,13 +40,13 @@ export const ImportChannelsCSV = () => {
     // URL com @username
     const handleMatch = trimmed.match(/@([\w-]+)/);
     if (handleMatch) {
-      return handleMatch[1]; // Retorna o handle (será resolvido depois)
+      return handleMatch[1];
     }
     
     // URL com /c/ ou /user/
     const customMatch = trimmed.match(/youtube\.com\/(?:c|user)\/([\w-]+)/);
     if (customMatch) {
-      return customMatch[1]; // Retorna username (será resolvido depois)
+      return customMatch[1];
     }
     
     return null;
@@ -73,6 +76,7 @@ export const ImportChannelsCSV = () => {
             channelName: channelName || undefined,
             channelLink,
             niche,
+            contentType: "longform", // Default
           });
         }
       }
@@ -115,7 +119,7 @@ export const ImportChannelsCSV = () => {
         
         toast({
           title: "CSV carregado",
-          description: `${reversed.length} canais encontrados. Ordem invertida aplicada.`,
+          description: `${reversed.length} canais encontrados. Configure o tipo de conteúdo.`,
         });
       } catch (error) {
         console.error('Erro ao ler CSV:', error);
@@ -128,6 +132,22 @@ export const ImportChannelsCSV = () => {
     };
     
     reader.readAsText(file);
+  };
+
+  const updateContentType = (index: number, contentType: "longform" | "shorts") => {
+    setPreview(prev => {
+      const updated = [...prev];
+      updated[index].contentType = contentType;
+      return updated;
+    });
+  };
+
+  const setAllContentType = (contentType: "longform" | "shorts") => {
+    setPreview(prev => prev.map(item => ({ ...item, contentType })));
+    toast({
+      title: "Tipo aplicado",
+      description: `Todos os canais definidos como "${contentType === "longform" ? "Vídeos Longos" : "Shorts"}".`,
+    });
   };
 
   const handleImport = async () => {
@@ -146,7 +166,6 @@ export const ImportChannelsCSV = () => {
     
     // Calcula datas progressivas (mais antiga para mais recente)
     const now = Date.now();
-    const dayInMs = 24 * 60 * 60 * 1000;
     
     for (let i = 0; i < preview.length; i++) {
       const row = preview[i];
@@ -169,8 +188,8 @@ export const ImportChannelsCSV = () => {
             channelInput: channelId,
             niche: row.niche,
             notes: `Importado via CSV${row.channelName ? ` - ${row.channelName}` : ''}`,
-            contentType: 'longform',
-            customAddedAt: addedAt.toISOString(), // Data customizada
+            contentType: row.contentType,
+            customAddedAt: addedAt.toISOString(),
           },
         });
         
@@ -216,12 +235,12 @@ export const ImportChannelsCSV = () => {
           Importar CSV
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Importar Canais via CSV</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
           {/* Instruções */}
           <Alert>
             <AlertCircle className="h-4 w-4" />
@@ -229,14 +248,8 @@ export const ImportChannelsCSV = () => {
               <div className="space-y-2 text-sm">
                 <p><strong>Formato esperado do CSV:</strong></p>
                 <code className="block bg-muted p-2 rounded text-xs">
-                  Nome do Canal, Link do Canal, Nicho, [outros campos...]
+                  Nome do Canal, Link do Canal, Nicho
                 </code>
-                <ul className="list-disc list-inside space-y-1 mt-2">
-                  <li><strong>Nome do Canal:</strong> Opcional (pode deixar vazio)</li>
-                  <li><strong>Link do Canal:</strong> URL completa ou ID do canal</li>
-                  <li><strong>Nicho:</strong> Categoria do canal</li>
-                  <li>Demais colunas (Inscritos, Views, etc) serão ignoradas</li>
-                </ul>
                 <p className="text-amber-600 mt-2">
                   ⚠️ <strong>Ordem invertida:</strong> A última linha do CSV será adicionada por último (mais recente)
                 </p>
@@ -257,32 +270,66 @@ export const ImportChannelsCSV = () => {
             />
           </div>
           
-          {/* Preview */}
+          {/* Preview com seleção de tipo de conteúdo */}
           {preview.length > 0 && (
-            <div className="space-y-2">
-              <Label>Preview ({preview.length} canais)</Label>
-              <div className="border rounded-md p-3 max-h-60 overflow-y-auto bg-muted/30">
-                <div className="space-y-2">
-                  {preview.slice(0, 10).map((row, idx) => (
-                    <div key={idx} className="text-xs bg-background p-2 rounded border">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-3 h-3 text-muted-foreground" />
-                        <span className="font-medium">
-                          {row.channelName || row.channelLink.substring(0, 30)}
-                        </span>
-                      </div>
-                      <div className="text-muted-foreground ml-5 mt-1">
-                        Nicho: {row.niche}
-                      </div>
-                    </div>
-                  ))}
-                  {preview.length > 10 && (
-                    <p className="text-xs text-muted-foreground text-center py-2">
-                      ... e mais {preview.length - 10} canais
-                    </p>
-                  )}
+            <div className="space-y-3 flex-1 overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between">
+                <Label>Configurar Tipo de Conteúdo ({preview.length} canais)</Label>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAllContentType("longform")}
+                  >
+                    Todos: Vídeos Longos
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAllContentType("shorts")}
+                  >
+                    Todos: Shorts
+                  </Button>
                 </div>
               </div>
+              
+              <ScrollArea className="flex-1 border rounded-md p-3">
+                <div className="space-y-2">
+                  {preview.map((row, idx) => (
+                    <div 
+                      key={idx} 
+                      className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <span className="font-medium text-sm truncate">
+                            {row.channelName || row.channelLink.substring(0, 40)}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground ml-6">
+                          Nicho: {row.niche}
+                        </div>
+                      </div>
+                      
+                      <Select 
+                        value={row.contentType} 
+                        onValueChange={(value: "longform" | "shorts") => updateContentType(idx, value)}
+                      >
+                        <SelectTrigger className="w-40">
+                          <Video className="w-4 h-4 mr-2" />
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="longform">Vídeos Longos</SelectItem>
+                          <SelectItem value="shorts">Shorts</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+              
               <p className="text-xs text-muted-foreground">
                 Ordem de adição: do mais antigo (topo) ao mais recente (baixo)
               </p>
@@ -290,30 +337,34 @@ export const ImportChannelsCSV = () => {
           )}
           
           {/* Botão de importar */}
-          <Button
-            onClick={handleImport}
-            disabled={isProcessing || preview.length === 0}
-            className="w-full gradient-primary"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Importando {preview.length} canais...
-              </>
-            ) : (
-              <>
-                <Upload className="w-4 h-4 mr-2" />
-                Importar {preview.length} Canais
-              </>
-            )}
-          </Button>
-          
-          {isProcessing && (
-            <Alert>
-              <AlertDescription className="text-xs">
-                Este processo pode levar alguns minutos. Não feche esta janela.
-              </AlertDescription>
-            </Alert>
+          {preview.length > 0 && (
+            <>
+              <Button
+                onClick={handleImport}
+                disabled={isProcessing}
+                className="w-full gradient-primary"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Importando {preview.length} canais...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Importar {preview.length} Canais
+                  </>
+                )}
+              </Button>
+              
+              {isProcessing && (
+                <Alert>
+                  <AlertDescription className="text-xs">
+                    Este processo pode levar alguns minutos. Não feche esta janela.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </>
           )}
         </div>
       </DialogContent>
