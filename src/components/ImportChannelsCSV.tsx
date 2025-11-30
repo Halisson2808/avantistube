@@ -242,11 +242,13 @@ export const ImportChannelsCSV = () => {
       const row = preview[i];
       const channelDisplayName = row.channelLink.substring(0, 40);
       
+      console.log(`[${i + 1}/${preview.length}] Processando: ${channelDisplayName}`);
+      
       try {
         const channelId = extractChannelIdFromLink(row.channelLink);
         
         if (!channelId) {
-          console.error(`Link inválido: ${row.channelLink}`);
+          console.error(`❌ Link inválido: ${row.channelLink}`);
           failedChannels.push({ 
             name: channelDisplayName, 
             reason: "Link inválido" 
@@ -269,7 +271,7 @@ export const ImportChannelsCSV = () => {
         });
         
         if (error) {
-          console.error(`Erro ao adicionar ${channelId}:`, error);
+          console.error(`❌ Erro ao adicionar ${channelId}:`, error);
           failedChannels.push({ 
             name: channelDisplayName, 
             reason: error.message || "Erro desconhecido" 
@@ -278,15 +280,15 @@ export const ImportChannelsCSV = () => {
         } else if (data?.error) {
           // Se o canal não existe mais (foi deletado/derrubado), apenas pula
           if (data.error === "Channel not found") {
-            console.log(`Canal removido/não encontrado (pulando): ${channelDisplayName}`);
+            console.log(`⏭️ Canal não encontrado (pulando): ${channelDisplayName}`);
             skippedCount++;
           } else if (data.error === "Channel already being monitored") {
             // Canal já existe, também pula sem erro
-            console.log(`Canal já monitorado (pulando): ${channelDisplayName}`);
+            console.log(`⏭️ Canal já monitorado (pulando): ${channelDisplayName}`);
             skippedCount++;
           } else {
             // Outros erros são reportados
-            console.error(`Erro da API ao adicionar ${channelId}:`, data.error);
+            console.error(`❌ Erro da API ao adicionar ${channelId}:`, data.error);
             failedChannels.push({ 
               name: channelDisplayName, 
               reason: data.error 
@@ -294,13 +296,14 @@ export const ImportChannelsCSV = () => {
             errorCount++;
           }
         } else {
+          console.log(`✅ Canal adicionado com sucesso: ${channelDisplayName}`);
           successCount++;
         }
         
         // Pequeno delay para não sobrecarregar a API
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
-        console.error('Erro ao processar canal:', error);
+        console.error('❌ Erro ao processar canal:', error);
         failedChannels.push({ 
           name: channelDisplayName, 
           reason: "Erro ao processar" 
@@ -319,8 +322,14 @@ export const ImportChannelsCSV = () => {
     
     // Log dos canais que falharam
     if (failedChannels.length > 0) {
-      console.log("Canais que falharam:", failedChannels);
+      console.log("❌ Canais que falharam:", failedChannels);
     }
+    
+    // Resumo final
+    console.log("📊 RESUMO DA IMPORTAÇÃO:");
+    console.log(`  ✅ Sucesso: ${successCount} canais`);
+    console.log(`  ⏭️ Ignorados: ${skippedCount} canais`);
+    console.log(`  ❌ Erros: ${errorCount} canais`);
     
     // Toast com resultado
     let description = `${successCount} canais adicionados`;
