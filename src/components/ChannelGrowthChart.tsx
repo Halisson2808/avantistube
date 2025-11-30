@@ -1,15 +1,16 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { useLocalStorage } from "@/hooks/use-local-storage";
 import { formatNumber } from "@/lib/youtube-api";
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
 
 interface ChannelHistory {
-  channelId: string;
-  recordedAt: string;
-  subscribers: number;
-  views: number;
-  videoCount?: number;
+  channel_id: string;
+  recorded_at: string;
+  subscriber_count: number;
+  view_count: number;
+  video_count?: number;
 }
 
 interface ChannelGrowthChartProps {
@@ -20,30 +21,51 @@ interface ChannelGrowthChartProps {
 }
 
 export const ChannelGrowthChart = ({ channelId, channelTitle, isOpen, onClose }: ChannelGrowthChartProps) => {
-  const [history] = useLocalStorage<ChannelHistory[]>('channel-history', []);
+  const [history, setHistory] = useState<ChannelHistory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!isOpen) return;
+      
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('channel_history')
+        .select('*')
+        .eq('channel_id', channelId)
+        .order('recorded_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching channel history:', error);
+      } else {
+        setHistory(data || []);
+      }
+      setIsLoading(false);
+    };
+
+    fetchHistory();
+  }, [channelId, isOpen]);
 
   // Filtrar histórico do canal específico e ordenar por data
-  const channelData = history
-    .filter(h => h.channelId === channelId)
-    .sort((a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime());
+  const channelData = history;
 
   // Consolidar dados por dia (pega o último registro de cada dia)
   const consolidatedData = channelData.reduce((acc: Record<string, any>, item) => {
-    const dateKey = format(new Date(item.recordedAt), 'dd/MM');
+    const dateKey = format(new Date(item.recorded_at), 'dd/MM');
 
     if (!acc[dateKey]) {
       acc[dateKey] = { 
         date: dateKey, 
-        subscribers: item.subscribers, 
-        views: item.views, 
-        recordedAt: item.recordedAt 
+        subscribers: item.subscriber_count, 
+        views: item.view_count, 
+        recordedAt: item.recorded_at 
       };
     } else {
       // Se já existe, pega o mais recente do dia
-      if (new Date(item.recordedAt) > new Date(acc[dateKey].recordedAt)) {
-        acc[dateKey].subscribers = item.subscribers;
-        acc[dateKey].views = item.views;
-        acc[dateKey].recordedAt = item.recordedAt;
+      if (new Date(item.recorded_at) > new Date(acc[dateKey].recordedAt)) {
+        acc[dateKey].subscribers = item.subscriber_count;
+        acc[dateKey].views = item.view_count;
+        acc[dateKey].recordedAt = item.recorded_at;
       }
     }
     return acc;
@@ -105,7 +127,11 @@ export const ChannelGrowthChart = ({ channelId, channelTitle, isOpen, onClose }:
         </DialogHeader>
         
         <div className="space-y-4">
-          {chartData.length === 0 ? (
+          {isLoading ? (
+            <div className="py-12 text-center">
+              <p className="text-muted-foreground">Carregando dados...</p>
+            </div>
+          ) : chartData.length === 0 ? (
             <div className="py-12 text-center">
               <p className="text-muted-foreground">
                 Nenhum dado histórico ainda. Atualize as estatísticas do canal para começar a rastrear o crescimento.
