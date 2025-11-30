@@ -6,146 +6,283 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Youtube, Edit, Trash2, RefreshCw, Lock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Youtube, Edit, Trash2, RefreshCw, TrendingUp, ExternalLink, Globe, Tag, Loader2 } from "lucide-react";
 import { useMyChannels, MyChannelData } from "@/hooks/use-my-channels";
 import { getChannelDetails, formatNumber } from "@/lib/youtube-api";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
+import { ChannelGrowthChart } from "@/components/ChannelGrowthChart";
 
 const MyChannels = () => {
-  const { channels, addChannel, updateChannel, removeChannel, updateChannelStats } = useMyChannels();
+  const { channels, addChannel, updateChannel, removeChannel, updateChannelStats, getUniqueNiches } = useMyChannels();
+  
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingChannel, setEditingChannel] = useState<MyChannelData | null>(null);
+  const [isGrowthChartOpen, setIsGrowthChartOpen] = useState(false);
+  const [selectedChannelForChart, setSelectedChannelForChart] = useState<{ id: string; title: string } | null>(null);
+  
   const [channelUrl, setChannelUrl] = useState("");
   const [niche, setNiche] = useState("");
-  const [language, setLanguage] = useState("pt");
+  const [language, setLanguage] = useState("pt-BR");
   const [notes, setNotes] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isUpdatingAll, setIsUpdatingAll] = useState(false);
+  
+  const [nicheFilter, setNicheFilter] = useState("all");
+
+  const extractChannelId = (url: string): { id: string; type: 'id' | 'username' | 'handle' } | null => {
+    const input = url.trim();
+    
+    // 1. ID Direto
+    if (/^UC[\w-]{22}$/.test(input)) {
+      return { id: input, type: 'id' };
+    }
+    
+    // 2. URL de Canal
+    const channelMatch = input.match(/youtube\.com\/channel\/(UC[\w-]{22})/);
+    if (channelMatch) {
+      return { id: channelMatch[1], type: 'id' };
+    }
+    
+    // 3. Handle (@username)
+    const handleMatch = input.match(/@([\w-]+)/);
+    if (handleMatch) {
+      return { id: handleMatch[1], type: 'handle' };
+    }
+    
+    // 4. URL Personalizada (/c/ ou /user/)
+    const customMatch = input.match(/youtube\.com\/(?:c|user)\/([\w-]+)/);
+    if (customMatch) {
+      return { id: customMatch[1], type: 'username' };
+    }
+    
+    return null;
+  };
 
   const handleAddChannel = async () => {
     if (!channelUrl.trim()) {
-      toast.error("Digite a URL do canal");
+      toast({
+        variant: "destructive",
+        title: "Campo obrigatório",
+        description: "Digite a URL ou ID do canal.",
+      });
       return;
     }
 
     if (!niche.trim()) {
-      toast.error("Selecione um nicho");
+      toast({
+        variant: "destructive",
+        title: "Campo obrigatório",
+        description: "Selecione um nicho para o canal.",
+      });
       return;
     }
 
     setIsLoading(true);
     try {
-      const channelId = extractChannelId(channelUrl);
-      if (!channelId) {
-        toast.error("URL inválida");
+      const extracted = extractChannelId(channelUrl);
+      if (!extracted) {
+        toast({
+          variant: "destructive",
+          title: "URL inválida",
+          description: "Não foi possível identificar o ID do canal.",
+        });
         return;
       }
 
-      const details = await getChannelDetails(channelId);
+      const channelId = extracted.id;
       
-      const newChannel: MyChannelData = {
-        id: crypto.randomUUID(),
-        channelId: details.id,
-        channelTitle: details.title,
-        channelThumbnail: details.thumbnail,
-        currentSubscribers: details.subscriberCount,
-        currentViews: details.viewCount,
-        initialSubscribers: details.subscriberCount,
-        initialViews: details.viewCount,
-        niche,
-        language,
-        notes,
-        addedAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString(),
-      };
+      // Verifica duplicatas antes de buscar dados
+      const isDuplicate = channels.some(ch => ch.channelId === channelId);
+      if (isDuplicate) {
+        toast({
+          variant: "destructive",
+          title: "Canal duplicado",
+          description: "Este canal já está na sua lista.",
+        });
+        setIsLoading(false);
+        return;
+      }
 
-      await addChannel(newChannel);
-      setIsAddDialogOpen(false);
-      setChannelUrl("");
-      setNiche("");
-      setLanguage("pt");
-      setNotes("");
-    } catch (error) {
-      toast.error("Erro ao adicionar canal");
-      console.error(error);
+      try {
+        const details = await getChannelDetails(channelId);
+        
+        const newChannel: MyChannelData = {
+          id: crypto.randomUUID(),
+          channelId: details.id,
+          channelTitle: details.title,
+          channelThumbnail: details.thumbnail,
+          currentSubscribers: details.subscriberCount,
+          currentViews: details.viewCount,
+          initialSubscribers: details.subscriberCount,
+          initialViews: details.viewCount,
+          niche,
+          language,
+          notes,
+          addedAt: new Date().toISOString(),
+          lastUpdated: new Date().toISOString(),
+        };
+
+        await addChannel(newChannel);
+        setIsAddDialogOpen(false);
+        resetForm();
+      } catch (error) {
+        // Fallback: criar canal com dados zerados
+        console.warn("Erro ao buscar dados, criando canal com dados zerados:", error);
+        
+        const fallbackChannel: MyChannelData = {
+          id: crypto.randomUUID(),
+          channelId: channelId,
+          channelTitle: `Canal ${channelId}`,
+          channelThumbnail: undefined,
+          currentSubscribers: 0,
+          currentViews: 0,
+          initialSubscribers: 0,
+          initialViews: 0,
+          niche,
+          language,
+          notes,
+          addedAt: new Date().toISOString(),
+          lastUpdated: new Date().toISOString(),
+        };
+        
+        await addChannel(fallbackChannel);
+        setIsAddDialogOpen(false);
+        resetForm();
+        
+        toast({
+          title: "Canal adicionado",
+          description: "Canal adicionado com dados zerados. Atualize para buscar informações.",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const extractChannelId = (url: string): string | null => {
-    const input = url.trim();
-    const channelIdMatch = input.match(/youtube\.com\/channel\/(UC[\w-]+)/);
-    if (channelIdMatch) return channelIdMatch[1];
-    if (/^UC[\w-]+$/.test(input)) return input;
-    return null;
+  const handleEditChannel = (channel: MyChannelData) => {
+    setEditingChannel(channel);
+    setLanguage(channel.language);
+    setNiche(channel.niche);
+    setNotes(channel.notes || "");
+    setIsEditDialogOpen(true);
   };
 
-  const totalSubscribers = channels.reduce((acc, ch) => acc + ch.currentSubscribers, 0);
-  const totalViews = channels.reduce((acc, ch) => acc + ch.currentViews, 0);
-  const totalGrowth = channels.reduce((acc, ch) => acc + (ch.currentSubscribers - ch.initialSubscribers), 0);
+  const handleSaveEdit = async () => {
+    if (!editingChannel) return;
+    
+    await updateChannel(editingChannel.id, {
+      language,
+      niche,
+      notes,
+    });
+    
+    setIsEditDialogOpen(false);
+    setEditingChannel(null);
+    resetForm();
+  };
+
+  const handleUpdateAll = async () => {
+    setIsUpdatingAll(true);
+    
+    for (const channel of channels) {
+      try {
+        await updateChannelStats(channel.id, true);
+      } catch (error) {
+        console.error(`Erro ao atualizar ${channel.channelTitle}:`, error);
+      }
+    }
+    
+    setIsUpdatingAll(false);
+    toast({
+      title: "Atualização completa",
+      description: "Todos os canais foram atualizados.",
+    });
+  };
+
+  const handleViewGrowth = (channelId: string, channelTitle: string) => {
+    setSelectedChannelForChart({ id: channelId, title: channelTitle });
+    setIsGrowthChartOpen(true);
+  };
+
+  const handleViewChannel = (channelId: string) => {
+    window.open(`https://youtube.com/channel/${channelId}`, '_blank');
+  };
+
+  const resetForm = () => {
+    setChannelUrl("");
+    setNiche("");
+    setLanguage("pt-BR");
+    setNotes("");
+  };
+
+  // Filtrar canais por nicho
+  const filteredChannels = nicheFilter === "all" 
+    ? channels 
+    : channels.filter(ch => ch.niche.toLowerCase() === nicheFilter);
+
+  // Estatísticas totais
+  const totalSubscribers = filteredChannels.reduce((acc, ch) => acc + ch.currentSubscribers, 0);
+  const totalViews = filteredChannels.reduce((acc, ch) => acc + ch.currentViews, 0);
+  const totalGrowth = filteredChannels.reduce((acc, ch) => acc + (ch.currentSubscribers - ch.initialSubscribers), 0);
+  const totalViewsGrowth = filteredChannels.reduce((acc, ch) => acc + (ch.currentViews - ch.initialViews), 0);
+
+  const uniqueNiches = getUniqueNiches();
 
   return (
-    <div className="space-y-6 relative">
-      {/* Overlay fixo para bloquear interação */}
-      <div className="fixed inset-0 left-64 bg-background/95 backdrop-blur-sm z-50 flex items-center justify-center">
-        <div className="bg-card p-8 rounded-lg shadow-lg border border-border max-w-md mx-4">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Lock className="w-8 h-8 text-primary" />
-            <h2 className="text-2xl font-bold">Funcionalidade em Breve</h2>
-          </div>
-          <p className="text-center text-muted-foreground">
-            Seus canais estarão disponíveis em breve!
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Meus Canais</h1>
+          <p className="text-muted-foreground">
+            Gerencie e monitore seus canais do YouTube
           </p>
         </div>
-      </div>
-
-      {/* Conteúdo borrado abaixo */}
-      <div className="opacity-50 pointer-events-none">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Meus Canais</h1>
-            <p className="text-muted-foreground">
-              Gerencie e monitore seus canais do YouTube
-            </p>
-          </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleUpdateAll}
+            disabled={isUpdatingAll || channels.length === 0}
+          >
+            {isUpdatingAll ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4 mr-2" />
+            )}
+            Atualizar Todos
+          </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gradient-primary">
                 <Plus className="w-4 h-4 mr-2" />
-                Adicionar Meu Canal
+                Adicionar Canal
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Adicionar Meu Canal</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>URL ou ID do Canal</Label>
+                  <Label>URL ou ID do Canal *</Label>
                   <Input
                     value={channelUrl}
                     onChange={(e) => setChannelUrl(e.target.value)}
-                    placeholder="https://youtube.com/channel/UCxxxx"
+                    placeholder="UCxxxx, @username, ou URL completa"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Aceita: ID, @handle, /channel/, /c/, /user/
+                  </p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Nicho</Label>
-                  <Select value={niche} onValueChange={setNiche}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um nicho" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Tecnologia">Tecnologia</SelectItem>
-                      <SelectItem value="Gaming">Gaming</SelectItem>
-                      <SelectItem value="Educação">Educação</SelectItem>
-                      <SelectItem value="Entretenimento">Entretenimento</SelectItem>
-                      <SelectItem value="Música">Música</SelectItem>
-                      <SelectItem value="Esportes">Esportes</SelectItem>
-                      <SelectItem value="Culinária">Culinária</SelectItem>
-                      <SelectItem value="Viagens">Viagens</SelectItem>
-                      <SelectItem value="Finanças">Finanças</SelectItem>
-                      <SelectItem value="Outro">Outro</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Nicho *</Label>
+                  <Input
+                    value={niche}
+                    onChange={(e) => setNiche(e.target.value)}
+                    placeholder="Ex: Tecnologia, Gaming, Educação"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Idioma Principal</Label>
@@ -154,19 +291,25 @@ const MyChannels = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pt">Português</SelectItem>
-                      <SelectItem value="en">Inglês</SelectItem>
-                      <SelectItem value="es">Espanhol</SelectItem>
-                      <SelectItem value="fr">Francês</SelectItem>
+                      <SelectItem value="pt-BR">Português (BR)</SelectItem>
+                      <SelectItem value="en-US">Inglês (US)</SelectItem>
+                      <SelectItem value="es-ES">Espanhol</SelectItem>
+                      <SelectItem value="fr-FR">Francês</SelectItem>
+                      <SelectItem value="de-DE">Alemão</SelectItem>
+                      <SelectItem value="it-IT">Italiano</SelectItem>
+                      <SelectItem value="ja-JP">Japonês</SelectItem>
+                      <SelectItem value="ko-KR">Coreano</SelectItem>
+                      <SelectItem value="zh-CN">Chinês</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Notas</Label>
+                  <Label>Notas (Opcional)</Label>
                   <Textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Adicione notas sobre este canal..."
+                    placeholder="Observações sobre este canal..."
+                    rows={3}
                   />
                 </div>
                 <Button
@@ -174,57 +317,111 @@ const MyChannels = () => {
                   disabled={isLoading}
                   className="w-full gradient-primary"
                 >
-                  {isLoading ? "Adicionando..." : "Adicionar Canal"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Adicionando...
+                    </>
+                  ) : (
+                    "Adicionar Canal"
+                  )}
                 </Button>
               </div>
             </DialogContent>
           </Dialog>
         </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Total de Inscritos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{formatNumber(totalSubscribers)}</div>
-            <p className="text-xs text-green-500 mt-1">
-              +{formatNumber(totalGrowth)} desde o início
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Total de Visualizações</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{formatNumber(totalViews)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Todos os seus canais
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Canais Ativos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{channels.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Canais gerenciados
-            </p>
-          </CardContent>
-        </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {channels.map((channel) => (
+      {/* Filtro por Nicho */}
+      {channels.length > 0 && (
+        <div className="flex items-center gap-3">
+          <Label className="text-sm font-medium">Filtrar por nicho:</Label>
+          <Select value={nicheFilter} onValueChange={setNicheFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos ({channels.length})</SelectItem>
+              {uniqueNiches.map(n => {
+                const count = channels.filter(ch => ch.niche.toLowerCase() === n).length;
+                return (
+                  <SelectItem key={n} value={n}>
+                    {n.charAt(0).toUpperCase() + n.slice(1)} ({count})
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+          <span className="text-sm text-muted-foreground">
+            {filteredChannels.length} de {channels.length} canais
+          </span>
+        </div>
+      )}
+
+      {/* Cards de Estatísticas */}
+      {filteredChannels.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Total Inscritos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatNumber(totalSubscribers)}</div>
+              <p className="text-xs text-green-500 mt-1">
+                +{formatNumber(totalGrowth)} desde início
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Total Views</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatNumber(totalViews)}</div>
+              <p className="text-xs text-green-500 mt-1">
+                +{formatNumber(totalViewsGrowth)} desde início
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Canais Ativos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{filteredChannels.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Canais gerenciados
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Crescimento Médio</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {filteredChannels.length > 0 
+                  ? formatNumber(Math.floor(totalGrowth / filteredChannels.length))
+                  : "0"}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Por canal
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Lista de Canais */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {filteredChannels.map((channel) => (
           <Card key={channel.id} className="shadow-card hover:shadow-primary transition-smooth">
-            <CardHeader>
+            <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-1">
                   {channel.channelThumbnail && (
                     <img
                       src={channel.channelThumbnail}
@@ -232,25 +429,37 @@ const MyChannels = () => {
                       className="w-12 h-12 rounded-full"
                     />
                   )}
-                  <div>
-                    <CardTitle className="text-base">{channel.channelTitle}</CardTitle>
-                    <p className="text-xs text-muted-foreground">{channel.niche}</p>
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-base truncate">{channel.channelTitle}</CardTitle>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="secondary" className="text-xs gap-1">
+                        <Globe className="w-3 h-3" />
+                        {channel.language.split('-')[0].toUpperCase()}
+                      </Badge>
+                      <Badge variant="outline" className="text-xs gap-1">
+                        <Tag className="w-3 h-3" />
+                        {channel.niche}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-muted-foreground">Inscritos</p>
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Inscritos</p>
                   <p className="text-lg font-bold">{formatNumber(channel.currentSubscribers)}</p>
                   <p className="text-xs text-green-500">
                     +{formatNumber(channel.currentSubscribers - channel.initialSubscribers)}
                   </p>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Visualizações</p>
+                <div className="bg-muted/50 p-3 rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Visualizações</p>
                   <p className="text-lg font-bold">{formatNumber(channel.currentViews)}</p>
+                  <p className="text-xs text-green-500">
+                    +{formatNumber(channel.currentViews - channel.initialViews)}
+                  </p>
                 </div>
               </div>
 
@@ -260,20 +469,44 @@ const MyChannels = () => {
                 </div>
               )}
 
-              <div className="flex gap-2 pt-2">
+              <div className="grid grid-cols-5 gap-1 pt-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => updateChannelStats(channel.id)}
-                  className="flex-1"
+                  title="Atualizar estatísticas"
                 >
-                  <RefreshCw className="w-3 h-3 mr-1" />
-                  Atualizar
+                  <RefreshCw className="w-3 h-3" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEditChannel(channel)}
+                  title="Editar canal"
+                >
+                  <Edit className="w-3 h-3" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleViewGrowth(channel.channelId, channel.channelTitle)}
+                  title="Ver crescimento"
+                >
+                  <TrendingUp className="w-3 h-3" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleViewChannel(channel.channelId)}
+                  title="Ver no YouTube"
+                >
+                  <ExternalLink className="w-3 h-3" />
                 </Button>
                 <Button
                   variant="destructive"
                   size="sm"
                   onClick={() => removeChannel(channel.id)}
+                  title="Remover canal"
                 >
                   <Trash2 className="w-3 h-3" />
                 </Button>
@@ -283,13 +516,14 @@ const MyChannels = () => {
         ))}
       </div>
 
+      {/* Estado Vazio */}
       {channels.length === 0 && (
         <Card className="shadow-card">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Youtube className="w-16 h-16 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Adicione Seus Canais</h3>
+            <h3 className="text-xl font-semibold mb-2">Nenhum canal cadastrado</h3>
             <p className="text-muted-foreground text-center mb-6 max-w-md">
-              Comece adicionando seus canais do YouTube para monitorar crescimento e performance
+              Adicione seus canais do YouTube para começar a monitorar crescimento e performance
             </p>
             <Button onClick={() => setIsAddDialogOpen(true)} className="gradient-primary">
               <Plus className="w-4 h-4 mr-2" />
@@ -298,7 +532,72 @@ const MyChannels = () => {
           </CardContent>
         </Card>
       )}
-      </div>
+
+      {/* Diálogo de Edição */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Canal</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Idioma Principal</Label>
+              <Select value={language} onValueChange={setLanguage}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pt-BR">Português (BR)</SelectItem>
+                  <SelectItem value="en-US">Inglês (US)</SelectItem>
+                  <SelectItem value="es-ES">Espanhol</SelectItem>
+                  <SelectItem value="fr-FR">Francês</SelectItem>
+                  <SelectItem value="de-DE">Alemão</SelectItem>
+                  <SelectItem value="it-IT">Italiano</SelectItem>
+                  <SelectItem value="ja-JP">Japonês</SelectItem>
+                  <SelectItem value="ko-KR">Coreano</SelectItem>
+                  <SelectItem value="zh-CN">Chinês</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Nicho</Label>
+              <Input
+                value={niche}
+                onChange={(e) => setNiche(e.target.value)}
+                placeholder="Ex: Tecnologia, Gaming, Educação"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Notas</Label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Observações sobre este canal..."
+                rows={3}
+              />
+            </div>
+            <Button
+              onClick={handleSaveEdit}
+              className="w-full gradient-primary"
+            >
+              Salvar Alterações
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Gráfico de Crescimento */}
+      {selectedChannelForChart && (
+        <ChannelGrowthChart
+          channelId={selectedChannelForChart.id}
+          channelTitle={selectedChannelForChart.title}
+          isOpen={isGrowthChartOpen}
+          onClose={() => {
+            setIsGrowthChartOpen(false);
+            setSelectedChannelForChart(null);
+          }}
+        />
+      )}
     </div>
   );
 };
