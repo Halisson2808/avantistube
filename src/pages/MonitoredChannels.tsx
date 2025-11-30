@@ -218,6 +218,23 @@ const MonitoredChannels = () => {
     }
   };
 
+  const clearImportNotes = async () => {
+    try {
+      const { error } = await supabase
+        .from('monitored_channels')
+        .update({ notes: null })
+        .or('notes.like.%Importado via planilha%,notes.like.%Importado via CSV%');
+
+      if (error) throw error;
+
+      toast.success("Notas de importação removidas com sucesso!");
+      window.location.reload();
+    } catch (error) {
+      console.error('Erro ao limpar notas:', error);
+      toast.error("Erro ao limpar notas");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -228,6 +245,13 @@ const MonitoredChannels = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={clearImportNotes}
+          >
+            Limpar Notas Antigas
+          </Button>
           <Button 
             variant="outline" 
             onClick={async () => {
