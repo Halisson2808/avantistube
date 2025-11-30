@@ -12,7 +12,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import * as XLSX from 'xlsx';
 
 interface CSVRow {
-  channelName?: string;
   channelLink: string;
   niche: string;
   contentType: "longform" | "shorts";
@@ -56,33 +55,51 @@ export const ImportChannelsCSV = () => {
   const parseCSV = (text: string): CSVRow[] => {
     const lines = text.split('\n').filter(line => line.trim());
     
+    console.log(`CSV total de linhas: ${lines.length}`);
+    
     // Remove header (primeira linha)
     const dataLines = lines.slice(1);
     
     const parsed: CSVRow[] = [];
     
-    for (const line of dataLines) {
+    for (let i = 0; i < dataLines.length; i++) {
+      const line = dataLines[i];
       // Parse CSV considerando que pode ter vírgulas dentro de aspas
       const columns = line.match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g) || [];
       const cleaned = columns.map(col => col.replace(/^"|"$/g, '').trim());
       
-      // Formato esperado: Nome do Canal, Link do Canal, Nicho, [outros campos ignorados]
-      if (cleaned.length >= 3) {
-        const channelName = cleaned[0];
-        const channelLink = cleaned[1];
-        const niche = cleaned[2];
+      // Formato esperado: Link do Canal, Nicho
+      // Aceita também: Nome (ignorado), Link do Canal, Nicho
+      let channelLink = '';
+      let niche = '';
+      
+      if (cleaned.length >= 2) {
+        // Se tem 2 colunas: Link, Nicho
+        if (cleaned.length === 2) {
+          channelLink = cleaned[0];
+          niche = cleaned[1];
+        } 
+        // Se tem 3+ colunas: assume Nome, Link, Nicho (ignora nome)
+        else {
+          channelLink = cleaned[1];
+          niche = cleaned[2];
+        }
         
         if (channelLink && niche) {
           parsed.push({
-            channelName: channelName || undefined,
             channelLink,
             niche,
             contentType: "longform", // Default
           });
+        } else {
+          console.log(`Linha ${i + 2} ignorada (dados vazios):`, cleaned);
         }
+      } else {
+        console.log(`Linha ${i + 2} ignorada (colunas insuficientes):`, cleaned);
       }
     }
     
+    console.log(`CSV canais parseados: ${parsed.length}`);
     return parsed;
   };
 
@@ -102,28 +119,46 @@ export const ImportChannelsCSV = () => {
           // Converte para JSON
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
           
+          console.log(`Excel total de linhas: ${jsonData.length}`);
+          
           // Remove header (primeira linha)
           const dataRows = jsonData.slice(1);
           
           const parsed: CSVRow[] = [];
           
-          for (const row of dataRows) {
-            if (row.length >= 3) {
-              const channelName = row[0]?.toString().trim();
-              const channelLink = row[1]?.toString().trim();
-              const niche = row[2]?.toString().trim();
+          for (let i = 0; i < dataRows.length; i++) {
+            const row = dataRows[i];
+            
+            let channelLink = '';
+            let niche = '';
+            
+            if (row.length >= 2) {
+              // Se tem 2 colunas: Link, Nicho
+              if (row.length === 2) {
+                channelLink = row[0]?.toString().trim();
+                niche = row[1]?.toString().trim();
+              }
+              // Se tem 3+ colunas: assume Nome, Link, Nicho (ignora nome)
+              else {
+                channelLink = row[1]?.toString().trim();
+                niche = row[2]?.toString().trim();
+              }
               
               if (channelLink && niche) {
                 parsed.push({
-                  channelName: channelName || undefined,
                   channelLink,
                   niche,
                   contentType: "longform", // Default
                 });
+              } else {
+                console.log(`Linha ${i + 2} ignorada (dados vazios):`, row);
               }
+            } else {
+              console.log(`Linha ${i + 2} ignorada (colunas insuficientes):`, row);
             }
           }
           
+          console.log(`Excel canais parseados: ${parsed.length}`);
           resolve(parsed);
         } catch (error) {
           reject(error);
@@ -173,6 +208,8 @@ export const ImportChannelsCSV = () => {
       // Inverte a ordem: última linha será adicionada por último
       const reversed = parsed.reverse();
       setPreview(reversed);
+      
+      console.log(`Total final a importar: ${reversed.length}`);
       
       toast({
         title: "Arquivo carregado",
@@ -225,7 +262,7 @@ export const ImportChannelsCSV = () => {
     
     for (let i = 0; i < preview.length; i++) {
       const row = preview[i];
-      const channelDisplayName = row.channelName || row.channelLink.substring(0, 30);
+      const channelDisplayName = row.channelLink.substring(0, 40);
       
       try {
         const channelId = extractChannelIdFromLink(row.channelLink);
@@ -248,7 +285,7 @@ export const ImportChannelsCSV = () => {
           body: {
             channelInput: channelId,
             niche: row.niche,
-            notes: `Importado via planilha${row.channelName ? ` - ${row.channelName}` : ''}`,
+            notes: `Importado via planilha`,
             contentType: row.contentType,
             customAddedAt: addedAt.toISOString(),
           },
@@ -370,12 +407,13 @@ export const ImportChannelsCSV = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               <div className="space-y-2 text-sm">
-                <p><strong>Formato esperado (CSV ou Excel):</strong></p>
+                <p><strong>Formato esperado:</strong></p>
                 <code className="block bg-muted p-2 rounded text-xs">
-                  Nome do Canal, Link do Canal, Nicho
+                  Link do Canal, Nicho
                 </code>
-                <p className="text-xs text-muted-foreground">
-                  Aceita: .csv, .xlsx, .xls
+                <p className="text-xs text-muted-foreground mt-2">
+                  Aceita CSV/Excel (.csv, .xlsx, .xls)<br/>
+                  Se tiver 3 colunas, a primeira (nome) será ignorada
                 </p>
               </div>
             </AlertDescription>
@@ -394,7 +432,7 @@ export const ImportChannelsCSV = () => {
                     Clique para selecionar ou arraste o arquivo
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    CSV ou Excel (.xlsx, .xls) com Nome, Link e Nicho
+                    CSV/Excel com: Link, Nicho (ou Nome, Link, Nicho)
                   </p>
                 </div>
                 <Input
@@ -460,7 +498,7 @@ export const ImportChannelsCSV = () => {
                         <div className="flex items-center gap-2 mb-1">
                           <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                           <span className="font-medium text-sm truncate">
-                            {row.channelName || row.channelLink.substring(0, 40)}
+                            {row.channelLink.substring(0, 50)}
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground ml-6">
