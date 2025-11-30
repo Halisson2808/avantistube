@@ -209,7 +209,7 @@ export const ImportChannelsCSV = () => {
       toast({
         variant: "destructive",
         title: "Nenhum canal",
-        description: "Carregue um arquivo CSV primeiro.",
+        description: "Carregue um arquivo primeiro.",
       });
       return;
     }
@@ -217,18 +217,24 @@ export const ImportChannelsCSV = () => {
     setIsProcessing(true);
     let successCount = 0;
     let errorCount = 0;
+    const failedChannels: { name: string; reason: string }[] = [];
     
     // Calcula datas progressivas (mais antiga para mais recente)
     const now = Date.now();
     
     for (let i = 0; i < preview.length; i++) {
       const row = preview[i];
+      const channelDisplayName = row.channelName || row.channelLink.substring(0, 30);
       
       try {
         const channelId = extractChannelIdFromLink(row.channelLink);
         
         if (!channelId) {
           console.error(`Link inválido: ${row.channelLink}`);
+          failedChannels.push({ 
+            name: channelDisplayName, 
+            reason: "Link inválido" 
+          });
           errorCount++;
           continue;
         }
@@ -241,14 +247,34 @@ export const ImportChannelsCSV = () => {
           body: {
             channelInput: channelId,
             niche: row.niche,
-            notes: `Importado via CSV${row.channelName ? ` - ${row.channelName}` : ''}`,
+            notes: `Importado via planilha${row.channelName ? ` - ${row.channelName}` : ''}`,
             contentType: row.contentType,
             customAddedAt: addedAt.toISOString(),
           },
         });
         
-        if (error || data?.error) {
-          console.error(`Erro ao adicionar ${channelId}:`, error || data.error);
+        if (error) {
+          console.error(`Erro ao adicionar ${channelId}:`, error);
+          failedChannels.push({ 
+            name: channelDisplayName, 
+            reason: error.message || "Erro desconhecido" 
+          });
+          errorCount++;
+        } else if (data?.error) {
+          console.error(`Erro da API ao adicionar ${channelId}:`, data.error);
+          let errorReason = data.error;
+          
+          // Traduz erros comuns
+          if (errorReason === "Channel not found") {
+            errorReason = "Canal não encontrado (pode ter sido deletado ou estar privado)";
+          } else if (errorReason === "Channel already being monitored") {
+            errorReason = "Canal já está sendo monitorado";
+          }
+          
+          failedChannels.push({ 
+            name: channelDisplayName, 
+            reason: errorReason 
+          });
           errorCount++;
         } else {
           successCount++;
@@ -258,6 +284,10 @@ export const ImportChannelsCSV = () => {
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
         console.error('Erro ao processar canal:', error);
+        failedChannels.push({ 
+          name: channelDisplayName, 
+          reason: "Erro ao processar" 
+        });
         errorCount++;
       }
     }
@@ -270,15 +300,37 @@ export const ImportChannelsCSV = () => {
       fileInputRef.current.value = '';
     }
     
-    toast({
-      title: "Importação concluída",
-      description: `${successCount} canais adicionados, ${errorCount} erros. Recarregando página...`,
-    });
+    // Log dos canais que falharam
+    if (failedChannels.length > 0) {
+      console.log("Canais que falharam:", failedChannels);
+    }
     
-    // Recarrega a página após 2 segundos
-    setTimeout(() => {
-      window.location.reload();
-    }, 2000);
+    // Toast com resultado
+    if (successCount > 0 && errorCount === 0) {
+      toast({
+        title: "✅ Importação concluída",
+        description: `${successCount} canais adicionados com sucesso. Recarregando...`,
+      });
+    } else if (successCount > 0 && errorCount > 0) {
+      toast({
+        title: "⚠️ Importação parcial",
+        description: `${successCount} canais adicionados, ${errorCount} falharam. Veja o console para detalhes.`,
+        variant: "default",
+      });
+    } else {
+      toast({
+        variant: "destructive",
+        title: "❌ Importação falhou",
+        description: `Nenhum canal foi adicionado. ${errorCount} erros. Veja o console.`,
+      });
+    }
+    
+    // Recarrega a página após 2 segundos se houve sucesso
+    if (successCount > 0) {
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    }
   };
 
   return (
