@@ -68,22 +68,10 @@ export const ImportChannelsCSV = () => {
       const columns = line.match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g) || [];
       const cleaned = columns.map(col => col.replace(/^"|"$/g, '').trim());
       
-      // Formato esperado: Link do Canal, Nicho
-      // Aceita também: Nome (ignorado), Link do Canal, Nicho
-      let channelLink = '';
-      let niche = '';
-      
+      // Formato esperado: Link do Canal, Nicho (exatamente 2 colunas)
       if (cleaned.length >= 2) {
-        // Se tem 2 colunas: Link, Nicho
-        if (cleaned.length === 2) {
-          channelLink = cleaned[0];
-          niche = cleaned[1];
-        } 
-        // Se tem 3+ colunas: assume Nome, Link, Nicho (ignora nome)
-        else {
-          channelLink = cleaned[1];
-          niche = cleaned[2];
-        }
+        const channelLink = cleaned[0];
+        const niche = cleaned[1];
         
         if (channelLink && niche) {
           parsed.push({
@@ -95,7 +83,7 @@ export const ImportChannelsCSV = () => {
           console.log(`Linha ${i + 2} ignorada (dados vazios):`, cleaned);
         }
       } else {
-        console.log(`Linha ${i + 2} ignorada (colunas insuficientes):`, cleaned);
+        console.log(`Linha ${i + 2} ignorada (precisa de 2 colunas: Link, Nicho):`, cleaned);
       }
     }
     
@@ -129,20 +117,10 @@ export const ImportChannelsCSV = () => {
           for (let i = 0; i < dataRows.length; i++) {
             const row = dataRows[i];
             
-            let channelLink = '';
-            let niche = '';
-            
+            // Formato esperado: Link do Canal, Nicho (exatamente 2 colunas)
             if (row.length >= 2) {
-              // Se tem 2 colunas: Link, Nicho
-              if (row.length === 2) {
-                channelLink = row[0]?.toString().trim();
-                niche = row[1]?.toString().trim();
-              }
-              // Se tem 3+ colunas: assume Nome, Link, Nicho (ignora nome)
-              else {
-                channelLink = row[1]?.toString().trim();
-                niche = row[2]?.toString().trim();
-              }
+              const channelLink = row[0]?.toString().trim();
+              const niche = row[1]?.toString().trim();
               
               if (channelLink && niche) {
                 parsed.push({
@@ -154,7 +132,7 @@ export const ImportChannelsCSV = () => {
                 console.log(`Linha ${i + 2} ignorada (dados vazios):`, row);
               }
             } else {
-              console.log(`Linha ${i + 2} ignorada (colunas insuficientes):`, row);
+              console.log(`Linha ${i + 2} ignorada (precisa de 2 colunas: Link, Nicho):`, row);
             }
           }
           
@@ -285,7 +263,6 @@ export const ImportChannelsCSV = () => {
           body: {
             channelInput: channelId,
             niche: row.niche,
-            notes: `Importado via planilha`,
             contentType: row.contentType,
             customAddedAt: addedAt.toISOString(),
           },
@@ -412,8 +389,7 @@ export const ImportChannelsCSV = () => {
                   Link do Canal, Nicho
                 </code>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Aceita CSV/Excel (.csv, .xlsx, .xls)<br/>
-                  Se tiver 3 colunas, a primeira (nome) será ignorada
+                  Aceita CSV/Excel (.csv, .xlsx, .xls) com exatamente 2 colunas
                 </p>
               </div>
             </AlertDescription>
@@ -432,7 +408,7 @@ export const ImportChannelsCSV = () => {
                     Clique para selecionar ou arraste o arquivo
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    CSV/Excel com: Link, Nicho (ou Nome, Link, Nicho)
+                    CSV/Excel com 2 colunas: Link, Nicho
                   </p>
                 </div>
                 <Input
