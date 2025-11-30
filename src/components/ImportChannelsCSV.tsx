@@ -250,24 +250,37 @@ export const ImportChannelsCSV = () => {
                 <code className="block bg-muted p-2 rounded text-xs">
                   Nome do Canal, Link do Canal, Nicho
                 </code>
-                <p className="text-amber-600 mt-2">
-                  ⚠️ <strong>Ordem invertida:</strong> A última linha do CSV será adicionada por último (mais recente)
-                </p>
               </div>
             </AlertDescription>
           </Alert>
           
           {/* Upload */}
-          <div className="space-y-2">
-            <Label htmlFor="csv-file">Selecionar arquivo CSV</Label>
-            <Input
-              id="csv-file"
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              onChange={handleFileUpload}
-              disabled={isProcessing}
-            />
+          <div className="space-y-3">
+            <Label htmlFor="csv-file" className="text-base font-semibold">
+              Selecionar arquivo CSV
+            </Label>
+            <div className="border-2 border-dashed border-border rounded-lg p-6 bg-muted/20 hover:bg-muted/30 transition-colors">
+              <div className="flex flex-col items-center gap-3">
+                <Upload className="w-10 h-10 text-muted-foreground" />
+                <div className="text-center">
+                  <p className="text-sm font-medium mb-1">
+                    Clique para selecionar ou arraste o arquivo
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Formato: CSV com Nome, Link e Nicho
+                  </p>
+                </div>
+                <Input
+                  id="csv-file"
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  disabled={isProcessing}
+                  className="max-w-xs"
+                />
+              </div>
+            </div>
           </div>
           
           {/* Preview com seleção de tipo de conteúdo */}
@@ -289,6 +302,22 @@ export const ImportChannelsCSV = () => {
                     onClick={() => setAllContentType("shorts")}
                   >
                     Todos: Shorts
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      setPreview([]);
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                      }
+                      toast({
+                        title: "Lista limpa",
+                        description: "Todos os canais foram removidos.",
+                      });
+                    }}
+                  >
+                    Limpar Lista
                   </Button>
                 </div>
               </div>
