@@ -217,6 +217,7 @@ export const ImportChannelsCSV = () => {
     setIsProcessing(true);
     let successCount = 0;
     let errorCount = 0;
+    let skippedCount = 0; // Canais que não existem mais
     const failedChannels: { name: string; reason: string }[] = [];
     
     // Calcula datas progressivas (mais antiga para mais recente)
@@ -261,21 +262,23 @@ export const ImportChannelsCSV = () => {
           });
           errorCount++;
         } else if (data?.error) {
-          console.error(`Erro da API ao adicionar ${channelId}:`, data.error);
-          let errorReason = data.error;
-          
-          // Traduz erros comuns
-          if (errorReason === "Channel not found") {
-            errorReason = "Canal não encontrado (pode ter sido deletado ou estar privado)";
-          } else if (errorReason === "Channel already being monitored") {
-            errorReason = "Canal já está sendo monitorado";
+          // Se o canal não existe mais (foi deletado/derrubado), apenas pula
+          if (data.error === "Channel not found") {
+            console.log(`Canal removido/não encontrado (pulando): ${channelDisplayName}`);
+            skippedCount++;
+          } else if (data.error === "Channel already being monitored") {
+            // Canal já existe, também pula sem erro
+            console.log(`Canal já monitorado (pulando): ${channelDisplayName}`);
+            skippedCount++;
+          } else {
+            // Outros erros são reportados
+            console.error(`Erro da API ao adicionar ${channelId}:`, data.error);
+            failedChannels.push({ 
+              name: channelDisplayName, 
+              reason: data.error 
+            });
+            errorCount++;
           }
-          
-          failedChannels.push({ 
-            name: channelDisplayName, 
-            reason: errorReason 
-          });
-          errorCount++;
         } else {
           successCount++;
         }
@@ -306,23 +309,38 @@ export const ImportChannelsCSV = () => {
     }
     
     // Toast com resultado
+    let description = `${successCount} canais adicionados`;
+    if (skippedCount > 0) {
+      description += `, ${skippedCount} ignorados (não existem mais ou já monitorados)`;
+    }
+    if (errorCount > 0) {
+      description += `, ${errorCount} erros`;
+    }
+    
     if (successCount > 0 && errorCount === 0) {
       toast({
         title: "✅ Importação concluída",
-        description: `${successCount} canais adicionados com sucesso. Recarregando...`,
+        description: description + ". Recarregando...",
       });
     } else if (successCount > 0 && errorCount > 0) {
       toast({
         title: "⚠️ Importação parcial",
-        description: `${successCount} canais adicionados, ${errorCount} falharam. Veja o console para detalhes.`,
+        description: description + ". Veja o console para detalhes.",
         variant: "default",
       });
+    } else if (successCount === 0 && skippedCount > 0) {
+      toast({
+        title: "ℹ️ Nenhum canal novo",
+        description: `${skippedCount} canais ignorados (não existem mais ou já monitorados).`,
+      });
+      return; // Não recarrega se não houve sucesso
     } else {
       toast({
         variant: "destructive",
         title: "❌ Importação falhou",
         description: `Nenhum canal foi adicionado. ${errorCount} erros. Veja o console.`,
       });
+      return; // Não recarrega se falhou
     }
     
     // Recarrega a página após 2 segundos se houve sucesso
