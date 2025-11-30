@@ -9,6 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import * as XLSX from 'xlsx';
 
 interface CSVRow {
   channelName?: string;
@@ -85,53 +86,106 @@ export const ImportChannelsCSV = () => {
     return parsed;
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const parseExcel = (file: File): Promise<CSVRow[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        try {
+          const data = e.target?.result;
+          const workbook = XLSX.read(data, { type: 'binary' });
+          
+          // Pega a primeira planilha
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          
+          // Converte para JSON
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
+          
+          // Remove header (primeira linha)
+          const dataRows = jsonData.slice(1);
+          
+          const parsed: CSVRow[] = [];
+          
+          for (const row of dataRows) {
+            if (row.length >= 3) {
+              const channelName = row[0]?.toString().trim();
+              const channelLink = row[1]?.toString().trim();
+              const niche = row[2]?.toString().trim();
+              
+              if (channelLink && niche) {
+                parsed.push({
+                  channelName: channelName || undefined,
+                  channelLink,
+                  niche,
+                  contentType: "longform", // Default
+                });
+              }
+            }
+          }
+          
+          resolve(parsed);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      
+      reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+      reader.readAsBinaryString(file);
+    });
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     
-    if (!file.name.endsWith('.csv')) {
+    const isCSV = file.name.endsWith('.csv');
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    
+    if (!isCSV && !isExcel) {
       toast({
         variant: "destructive",
         title: "Formato inválido",
-        description: "Por favor, selecione um arquivo CSV.",
+        description: "Por favor, selecione um arquivo CSV ou Excel (.xlsx, .xls).",
       });
       return;
     }
     
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      try {
-        const parsed = parseCSV(text);
-        
-        if (parsed.length === 0) {
-          toast({
-            variant: "destructive",
-            title: "CSV vazio",
-            description: "Nenhum canal válido encontrado no arquivo.",
-          });
-          return;
-        }
-        
-        // Inverte a ordem: última linha do CSV será adicionada por último
-        const reversed = parsed.reverse();
-        setPreview(reversed);
-        
-        toast({
-          title: "CSV carregado",
-          description: `${reversed.length} canais encontrados. Configure o tipo de conteúdo.`,
-        });
-      } catch (error) {
-        console.error('Erro ao ler CSV:', error);
+    try {
+      let parsed: CSVRow[] = [];
+      
+      if (isCSV) {
+        const text = await file.text();
+        parsed = parseCSV(text);
+      } else {
+        parsed = await parseExcel(file);
+      }
+      
+      if (parsed.length === 0) {
         toast({
           variant: "destructive",
-          title: "Erro ao ler arquivo",
-          description: "Não foi possível processar o arquivo CSV.",
+          title: "Arquivo vazio",
+          description: "Nenhum canal válido encontrado no arquivo.",
         });
+        return;
       }
-    };
-    
-    reader.readAsText(file);
+      
+      // Inverte a ordem: última linha será adicionada por último
+      const reversed = parsed.reverse();
+      setPreview(reversed);
+      
+      toast({
+        title: "Arquivo carregado",
+        description: `${reversed.length} canais encontrados. Configure o tipo de conteúdo.`,
+      });
+    } catch (error) {
+      console.error('Erro ao ler arquivo:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao ler arquivo",
+        description: "Não foi possível processar o arquivo.",
+      });
+    }
   };
 
   const updateContentType = (index: number, contentType: "longform" | "shorts") => {
@@ -232,12 +286,12 @@ export const ImportChannelsCSV = () => {
       <DialogTrigger asChild>
         <Button variant="outline">
           <Upload className="w-4 h-4 mr-2" />
-          Importar CSV
+          Importar Planilha
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Importar Canais via CSV</DialogTitle>
+          <DialogTitle>Importar Canais via Planilha</DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
@@ -246,10 +300,13 @@ export const ImportChannelsCSV = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               <div className="space-y-2 text-sm">
-                <p><strong>Formato esperado do CSV:</strong></p>
+                <p><strong>Formato esperado (CSV ou Excel):</strong></p>
                 <code className="block bg-muted p-2 rounded text-xs">
                   Nome do Canal, Link do Canal, Nicho
                 </code>
+                <p className="text-xs text-muted-foreground">
+                  Aceita: .csv, .xlsx, .xls
+                </p>
               </div>
             </AlertDescription>
           </Alert>
@@ -257,7 +314,7 @@ export const ImportChannelsCSV = () => {
           {/* Upload */}
           <div className="space-y-3">
             <Label htmlFor="csv-file" className="text-base font-semibold">
-              Selecionar arquivo CSV
+              Selecionar arquivo
             </Label>
             <div className="border-2 border-dashed border-border rounded-lg p-6 bg-muted/20 hover:bg-muted/30 transition-colors">
               <div className="flex flex-col items-center gap-3">
@@ -267,14 +324,14 @@ export const ImportChannelsCSV = () => {
                     Clique para selecionar ou arraste o arquivo
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Formato: CSV com Nome, Link e Nicho
+                    CSV ou Excel (.xlsx, .xls) com Nome, Link e Nicho
                   </p>
                 </div>
                 <Input
                   id="csv-file"
                   ref={fileInputRef}
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx,.xls"
                   onChange={handleFileUpload}
                   disabled={isProcessing}
                   className="max-w-xs"
