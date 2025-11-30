@@ -202,7 +202,7 @@ export const SearchFilters = ({
         {/* Informações Avançadas - Colapsável */}
         <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
           <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="w-full justify-between h-8 px-2">
+            <Button variant="ghost" size="sm" className="h-8 px-2 gap-1 hover:bg-muted/50">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Informações Avançadas
               </span>
