@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Download, Filter, TrendingUp, RefreshCw, Tag } from "lucide-react";
 import { ChannelCard } from "@/components/ChannelCard";
 import { ChannelGrowthChart } from "@/components/ChannelGrowthChart";
+import { ImportChannelsCSV } from "@/components/ImportChannelsCSV";
 import { useMonitoredChannels, ChannelMonitorData } from "@/hooks/use-monitored-channels";
 import { useNiches } from "@/hooks/use-niches";
 import { toast } from "sonner";
@@ -300,6 +301,7 @@ const MonitoredChannels = () => {
               </div>
             </DialogContent>
           </Dialog>
+          <ImportChannelsCSV />
           <Button variant="outline" onClick={exportToCSV}>
             <Download className="w-4 h-4 mr-2" />
             Exportar CSV

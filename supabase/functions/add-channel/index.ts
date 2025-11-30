@@ -48,7 +48,7 @@ serve(async (req) => {
 
     console.log('Authenticated user:', user.id);
 
-    const { channelInput, niche, notes, contentType } = await req.json();
+    const { channelInput, niche, notes, contentType, customAddedAt } = await req.json();
 
     console.log('Received channelInput:', channelInput);
 
@@ -92,23 +92,30 @@ serve(async (req) => {
     }
 
     // Insert channel into database
+    const insertData: any = {
+      user_id: user.id,
+      channel_id: channelDetails.id,
+      channel_name: channelDetails.title,
+      channel_thumbnail: channelDetails.thumbnail,
+      description: channelDetails.description,
+      subscriber_count: channelDetails.subscriberCount,
+      video_count: channelDetails.videoCount,
+      view_count: channelDetails.viewCount,
+      published_at: channelDetails.publishedAt,
+      custom_url: channelDetails.customUrl,
+      niche: niche || null,
+      notes: notes || null,
+      content_type: contentType || 'longform',
+    };
+
+    // Se customAddedAt for fornecido, adiciona ao objeto
+    if (customAddedAt) {
+      insertData.added_at = customAddedAt;
+    }
+
     const { data: newChannel, error: insertError } = await supabaseClient
       .from('monitored_channels')
-      .insert({
-        user_id: user.id,
-        channel_id: channelDetails.id,
-        channel_name: channelDetails.title,
-        channel_thumbnail: channelDetails.thumbnail,
-        description: channelDetails.description,
-        subscriber_count: channelDetails.subscriberCount,
-        video_count: channelDetails.videoCount,
-        view_count: channelDetails.viewCount,
-        published_at: channelDetails.publishedAt,
-        custom_url: channelDetails.customUrl,
-        niche: niche || null,
-        notes: notes || null,
-        content_type: contentType || 'longform',
-      })
+      .insert(insertData)
       .select()
       .single();
 
