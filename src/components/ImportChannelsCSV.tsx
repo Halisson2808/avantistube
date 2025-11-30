@@ -379,7 +379,7 @@ export const ImportChannelsCSV = () => {
                 </div>
               </div>
               
-              <ScrollArea className="flex-1 border rounded-md p-3">
+              <ScrollArea className="h-[400px] border rounded-md p-3">
                 <div className="space-y-2">
                   {preview.map((row, idx) => (
                     <div 
