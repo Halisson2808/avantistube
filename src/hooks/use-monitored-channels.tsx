@@ -217,22 +217,31 @@ export const useMonitoredChannels = () => {
     toast.info('Atualizando estatísticas...');
 
     try {
+      // Garante que temos o usuário atual para salvar o histórico corretamente
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
+        throw new Error('Não foi possível identificar o usuário autenticado');
+      }
+
       const { data, error } = await supabase.functions.invoke('youtube', {
         body: { action: 'channelDetails', channelId },
       });
 
       if (error) throw error;
 
-      // Insert new history record
-      await supabase.from('channel_history').insert({
+      // Insere novo registro de histórico com user_id (necessário para RLS)
+      const { error: historyError } = await supabase.from('channel_history').insert({
+        user_id: userData.user.id,
         channel_id: channelId,
         subscriber_count: data.subscriberCount,
         video_count: data.videoCount,
         view_count: data.viewCount,
       });
 
-      // Update monitored channel
-      await supabase
+      if (historyError) throw historyError;
+
+      // Atualiza tabela principal de canais monitorados
+      const { error: updateError } = await supabase
         .from('monitored_channels')
         .update({
           subscriber_count: data.subscriberCount,
@@ -241,6 +250,8 @@ export const useMonitoredChannels = () => {
           last_updated: new Date().toISOString(),
         })
         .eq('channel_id', channelId);
+
+      if (updateError) throw updateError;
 
       await loadChannels();
       toast.success('Estatísticas atualizadas!');
