@@ -397,33 +397,6 @@ const MonitoredChannels = () => {
         </div>
       </div>
 
-      {explodingChannels.length > 0 && (
-        <Card className="shadow-card border-primary/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary" />
-              Canais em Crescimento Explosivo
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {explodingChannels.map((channel) => (
-                <ChannelCard
-                  key={channel.id}
-                  channel={channel}
-                  onUpdate={updateChannelStats}
-                  onRemove={removeChannel}
-                  onShowChart={(channelId, channelTitle) => setChartChannel({ id: channelId, title: channelTitle })}
-                  onUpdateNotes={updateNotes}
-                  onUpdateNiche={updateNiche}
-                  onUpdateContentType={updateContentType}
-                  metricsFilter={metricsFilter as "7days" | "lastday"}
-                />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <div className="space-y-4">
         <Input
