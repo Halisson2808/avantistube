@@ -130,6 +130,17 @@ const MonitoredChannels = () => {
       }
 
       if (data.error) {
+        // Verifica se é erro de canal já monitorado
+        if (data.error.includes("already being monitored")) {
+          toast.info("Este canal já está sendo monitorado");
+          setIsAddDialogOpen(false);
+          setChannelUrl("");
+          setSelectedNiche("");
+          setCustomNiche("");
+          setNewNotes("");
+          setContentType("longform");
+          return;
+        }
         throw new Error(data.error);
       }
 
