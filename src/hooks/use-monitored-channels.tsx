@@ -121,6 +121,19 @@ export const useMonitoredChannels = () => {
 
   useEffect(() => {
     loadChannels();
+
+    // Recarrega quando a página fica visível
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadChannels();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const addChannel = async (channel: ChannelMonitorData) => {
