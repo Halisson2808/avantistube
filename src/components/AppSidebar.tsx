@@ -29,8 +29,7 @@ export function AppSidebar() {
 
   const isActive = (path: string) => currentPath === path;
 
-  // Alterado para collapsible="offcanvas" para forçar o comportamento de hamburger no mobile
-  // O componente Sidebar cuida de esconder-se no mobile por padrão até ser ativado pelo Trigger
+  // Garantindo o modo offcanvas no mobile
   return (
     <Sidebar className="w-64 bg-card border-r border-border" collapsible="offcanvas"> 
       <SidebarContent className="bg-card">
@@ -48,17 +47,20 @@ export function AppSidebar() {
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
+                    {/* ENVOLVENDO TUDO EM UM FRAGMENTO (<>...</>) PARA GARANTIR UM ÚNICO FILHO */}
                     <NavLink
                       to={item.url}
                       end
                       className="hover:bg-muted/50 transition-smooth flex items-center justify-between"
                       activeClassName="bg-accent/20 text-primary font-medium"
                     >
-                      <div className="flex items-center">
-                        <item.icon className="mr-2" />
-                        <span>{item.title}</span>
-                      </div>
-                      {item.locked && <Lock className="w-3 h-3 text-muted-foreground" />}
+                      <> 
+                        <div className="flex items-center">
+                          <item.icon className="mr-2" />
+                          <span>{item.title}</span>
+                        </div>
+                        {item.locked && <Lock className="w-3 h-3 text-muted-foreground" />}
+                      </>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
