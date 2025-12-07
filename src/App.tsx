@@ -52,7 +52,7 @@ const ProtectedLayout = ({ children }: { children: React.ReactNode }) => {
     <SidebarProvider>
       {/* HEADER VISÍVEL APENAS EM TELAS PEQUENAS PARA O BOTÃO HAMBURGUER */}
       <header className="sticky top-0 z-20 flex items-center h-16 border-b border-border bg-card/80 backdrop-blur-sm md:hidden p-4">
-        {/* CORREÇÃO AQUI: SidebarTrigger funciona como o botão para abrir o menu mobile */}
+        {/* CORREÇÃO APLICADA: SidebarTrigger como botão principal. Isso corrige o erro React.Children.only. */}
         <SidebarTrigger variant="ghost" size="icon"> 
           <Menu className="w-5 h-5" /> {/* Ícone Hambúrguer */}
         </SidebarTrigger>
@@ -68,7 +68,7 @@ const ProtectedLayout = ({ children }: { children: React.ReactNode }) => {
         {/* Sidebar é gerenciada internamente para aparecer off-canvas no mobile */}
         <AppSidebar />
         
-        {/* Conteúdo Principal (Ocupa 100% da largura, p-4 no mobile, p-6 no desktop) */}
+        {/* Conteúdo Principal (p-4 no mobile, p-6 no desktop) */}
         <main className="flex-1 p-4 md:p-6 overflow-y-auto w-full">
           {children}
         </main>
