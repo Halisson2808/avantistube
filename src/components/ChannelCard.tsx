@@ -110,11 +110,18 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             {channel.channelThumbnail && (
-              <img
-                src={channel.channelThumbnail}
-                alt={channel.channelTitle}
-                className="w-12 h-12 rounded-full flex-shrink-0"
-              />
+              <a
+                href={`https://youtube.com/channel/${channel.channelId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-shrink-0"
+              >
+                <img
+                  src={channel.channelThumbnail}
+                  alt={channel.channelTitle}
+                  className="w-12 h-12 rounded-full hover:ring-2 hover:ring-primary transition-all cursor-pointer"
+                />
+              </a>
             )}
             <div className="flex-1 min-w-0">
               <a
@@ -127,10 +134,10 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
               </a>
             </div>
           </div>
-          {/* Botões de ação compactos no topo */}
-          <div className="flex gap-1">
+          {/* Botões de ação - responsivos */}
+          <div className="flex gap-1 flex-wrap justify-end">
             {channel.isExploding && (
-              <Badge variant="destructive" className="animate-pulse">
+              <Badge variant="destructive" className="animate-pulse text-xs">
                 🔥 Explodindo
               </Badge>
             )}
@@ -139,28 +146,28 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                 variant="outline"
                 size="sm"
                 onClick={() => onShowChart(channel.channelId, channel.channelTitle)}
-                className="h-8 w-8 p-0"
+                className="h-9 w-9 p-0 sm:h-8 sm:w-8"
               >
-                <BarChart3 className="w-3 h-3" />
+                <BarChart3 className="w-4 h-4 sm:w-3 sm:h-3" />
               </Button>
             )}
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowNotesDialog(true)}
-              className="h-8 w-8 p-0"
+              className="h-9 w-9 p-0 sm:h-8 sm:w-8"
             >
-              <StickyNote className="w-3 h-3" />
+              <StickyNote className="w-4 h-4 sm:w-3 sm:h-3" />
             </Button>
             {onUpdate && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => onUpdate(channel.channelId)}
-                className="h-8 px-3 py-0"
+                className="h-9 px-3 py-0 sm:h-8 text-xs sm:text-sm"
               >
-                <RefreshCw className="w-3 h-3 mr-1" />
-                Atualizar
+                <RefreshCw className="w-4 h-4 sm:w-3 sm:h-3 sm:mr-1" />
+                <span className="hidden sm:inline">Atualizar</span>
               </Button>
             )}
             {onRemove && (
@@ -168,9 +175,9 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                 variant="destructive"
                 size="sm"
                 onClick={() => setShowDeleteAlert(true)}
-                className="h-8 w-8 p-0"
+                className="h-9 w-9 p-0 sm:h-8 sm:w-8"
               >
-                <Trash2 className="w-3 h-3" />
+                <Trash2 className="w-4 h-4 sm:w-3 sm:h-3" />
               </Button>
             )}
           </div>
