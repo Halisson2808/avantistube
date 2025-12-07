@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"; // Importar SidebarTrigger
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
@@ -13,8 +13,8 @@ import MonitoredChannels from "./pages/MonitoredChannels";
 import MyChannels from "./pages/MyChannels";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-import { Menu, Youtube } from "lucide-react"; // Importar Menu
-import { AppSidebar } from "@/components/AppSidebar"; // Garantir que AppSidebar esteja importado
+import { Menu, Youtube } from "lucide-react"; 
+import { AppSidebar } from "@/components/AppSidebar";
 import { Button } from "@/components/ui/button";
 
 const queryClient = new QueryClient();
@@ -52,11 +52,11 @@ const ProtectedLayout = ({ children }: { children: React.ReactNode }) => {
     <SidebarProvider>
       {/* HEADER VISÍVEL APENAS EM TELAS PEQUENAS PARA O BOTÃO HAMBURGUER */}
       <header className="sticky top-0 z-20 flex items-center h-16 border-b border-border bg-card/80 backdrop-blur-sm md:hidden p-4">
-        <SidebarTrigger asChild>
-          <Button variant="ghost" size="icon">
-            <Menu className="w-5 h-5" /> {/* Ícone Hambúrguer */}
-          </Button>
+        {/* CORREÇÃO AQUI: SidebarTrigger funciona como o botão para abrir o menu mobile */}
+        <SidebarTrigger variant="ghost" size="icon"> 
+          <Menu className="w-5 h-5" /> {/* Ícone Hambúrguer */}
         </SidebarTrigger>
+        
         <div className="ml-4 flex items-center gap-2">
           <Youtube className="w-5 h-5 text-primary" />
           <h1 className="text-lg font-bold">AvantisTube</h1>
