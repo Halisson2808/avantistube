@@ -22,7 +22,7 @@ interface ChannelCardProps {
   onUpdateNotes?: (channelId: string, notes: string) => void;
   onUpdateNiche?: (channelId: string, niche: string) => void;
   onUpdateContentType?: (channelId: string, contentType: 'longform' | 'shorts') => void;
-  metricsFilter?: "7days" | "lastday";
+  metricsFilter?: "7days";
 }
 
 export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, onUpdateNotes, onUpdateNiche, onUpdateContentType, metricsFilter = "7days" }: ChannelCardProps) => {
@@ -88,14 +88,9 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
     ? ((totalViewsGained / channel.initialViews) * 100).toFixed(1)
     : "0.0";
 
-  // Cálculos dos quadros inferiores (período recente)
-  const recentSubs = metricsFilter === "lastday" 
-    ? (channel.subscribersLastDay || 0)
-    : (channel.subscribersLast7Days || 0);
-  
-  const recentViews = metricsFilter === "lastday"
-    ? (channel.viewsLastDay || 0)
-    : (channel.viewsLast7Days || 0);
+  // Cálculos dos quadros inferiores (últimos 7 dias)
+  const recentSubs = channel.subscribersLast7Days || 0;
+  const recentViews = channel.viewsLast7Days || 0;
 
   // Calcular dias desde adição
   const daysAdded = Math.max(0, Math.floor(
@@ -250,7 +245,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
             </div>
           </div>
 
-          {/* Quadro 3: Inscritos Recente (Inferior Esquerdo) */}
+          {/* Quadro 3: Inscritos Últimos 7 Dias */}
           <div className={`space-y-1 p-3 rounded-lg border ${
             recentSubs >= 0 
               ? 'bg-green-500/10 border-green-500/30' 
@@ -258,7 +253,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
           }`}>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Users className="w-3 h-3" />
-              <span>{metricsFilter === "lastday" ? "Último Dia" : "Últimos 7 Dias"}</span>
+              <span>Últimos 7 Dias</span>
             </div>
             <p className={`text-xl font-bold ${
               recentSubs >= 0 ? 'text-green-600' : 'text-red-600'
@@ -268,7 +263,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
             <p className="text-xs text-muted-foreground">inscritos</p>
           </div>
 
-          {/* Quadro 4: Views Recente (Inferior Direito) */}
+          {/* Quadro 4: Views Últimos 7 Dias */}
           <div className={`space-y-1 p-3 rounded-lg border ${
             recentViews >= 0 
               ? 'bg-green-500/10 border-green-500/30' 
@@ -276,7 +271,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
           }`}>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Eye className="w-3 h-3" />
-              <span>{metricsFilter === "lastday" ? "Último Dia" : "Últimos 7 Dias"}</span>
+              <span>Últimos 7 Dias</span>
             </div>
             <p className={`text-xl font-bold ${
               recentViews >= 0 ? 'text-green-600' : 'text-red-600'
