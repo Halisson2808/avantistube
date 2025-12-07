@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Download, Filter, TrendingUp, RefreshCw, Tag } from "lucide-react";
+import { Plus, Download, Filter, TrendingUp, RefreshCw, Tag, Loader2 } from "lucide-react";
 import { ChannelCard } from "@/components/ChannelCard";
 import { ChannelGrowthChart } from "@/components/ChannelGrowthChart";
 import { ImportChannelsCSV } from "@/components/ImportChannelsCSV";
@@ -227,11 +227,13 @@ const MonitoredChannels = () => {
             {channels.length} canais • {explodingChannels.length} em crescimento explosivo
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        
+        {/* Botões de Ação Principal (Layout Mobile Otimizado) */}
+        <div className="flex gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
           <Button 
             variant="outline"
             size="sm"
-            className="text-xs sm:text-sm"
+            className="flex-1 sm:flex-auto text-xs sm:text-sm"
             onClick={async () => {
               toast.info("Atualizando todos os canais...");
               for (const channel of channels) {
@@ -241,12 +243,15 @@ const MonitoredChannels = () => {
           >
             <RefreshCw className="w-4 h-4 sm:mr-2" />
             <span className="hidden sm:inline">Atualizar Canais</span>
+            <span className="sm:hidden">Atualizar</span>
           </Button>
+          
           <Dialog open={isManageNichesOpen} onOpenChange={setIsManageNichesOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="text-xs sm:text-sm">
+              <Button variant="outline" size="sm" className="flex-1 sm:flex-auto text-xs sm:text-sm">
                 <Tag className="w-4 h-4 sm:mr-2" />
                 <span className="hidden sm:inline">Gerenciar Nichos</span>
+                <span className="sm:hidden">Nichos</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
@@ -303,16 +308,22 @@ const MonitoredChannels = () => {
               </div>
             </DialogContent>
           </Dialog>
-          <ImportChannelsCSV />
-          <Button variant="outline" size="sm" className="text-xs sm:text-sm" onClick={exportToCSV}>
-            <Download className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">Exportar CSV</span>
-          </Button>
+          
+          <div className="flex gap-2 w-full sm:w-auto">
+            <ImportChannelsCSV />
+            <Button variant="outline" size="sm" className="flex-1 sm:flex-auto text-xs sm:text-sm" onClick={exportToCSV}>
+              <Download className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Exportar CSV</span>
+              <span className="sm:hidden">Exportar</span>
+            </Button>
+          </div>
+          
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gradient-primary" size="sm">
+              <Button className="gradient-primary flex-1 sm:flex-auto" size="sm">
                 <Plus className="w-4 h-4 sm:mr-2" />
                 <span className="hidden sm:inline">Adicionar Canal</span>
+                <span className="sm:hidden">Adicionar</span>
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -393,14 +404,15 @@ const MonitoredChannels = () => {
           placeholder="Buscar canais por nome..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-md"
+          className="w-full max-w-full sm:max-w-md"
         />
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
+        {/* Layout de 3 colunas para filtros no mobile */}
+        <div className="grid grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
           <Select value={contentTypeFilter} onValueChange={setContentTypeFilter}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full h-10">
               <Filter className="w-4 h-4 mr-2 hidden sm:block" />
-              <SelectValue />
+              <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os Tipos</SelectItem>
@@ -410,9 +422,9 @@ const MonitoredChannels = () => {
           </Select>
 
           <Select value={nicheFilter} onValueChange={setNicheFilter}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full h-10">
               <Filter className="w-4 h-4 mr-2 hidden sm:block" />
-              <SelectValue />
+              <SelectValue placeholder="Nicho" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os Nichos</SelectItem>
@@ -425,8 +437,8 @@ const MonitoredChannels = () => {
           </Select>
 
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
+            <SelectTrigger className="w-full h-10">
+              <SelectValue placeholder="Ordenar" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="recent">Mais Recentes</SelectItem>
