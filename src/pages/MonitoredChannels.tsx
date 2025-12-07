@@ -220,16 +220,18 @@ const MonitoredChannels = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Canais Monitorados</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold">Canais Monitorados</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">
             {channels.length} canais • {explodingChannels.length} em crescimento explosivo
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button 
             variant="outline"
+            size="sm"
+            className="text-xs sm:text-sm"
             onClick={async () => {
               toast.info("Atualizando todos os canais...");
               for (const channel of channels) {
@@ -237,14 +239,14 @@ const MonitoredChannels = () => {
               }
             }}
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Atualizar Canais
+            <RefreshCw className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Atualizar Canais</span>
           </Button>
           <Dialog open={isManageNichesOpen} onOpenChange={setIsManageNichesOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline">
-                <Tag className="w-4 h-4 mr-2" />
-                Gerenciar Nichos
+              <Button variant="outline" size="sm" className="text-xs sm:text-sm">
+                <Tag className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Gerenciar Nichos</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
@@ -302,15 +304,15 @@ const MonitoredChannels = () => {
             </DialogContent>
           </Dialog>
           <ImportChannelsCSV />
-          <Button variant="outline" onClick={exportToCSV}>
-            <Download className="w-4 h-4 mr-2" />
-            Exportar CSV
+          <Button variant="outline" size="sm" className="text-xs sm:text-sm" onClick={exportToCSV}>
+            <Download className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Exportar CSV</span>
           </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gradient-primary">
-                <Plus className="w-4 h-4 mr-2" />
-                Adicionar Canal
+              <Button className="gradient-primary" size="sm">
+                <Plus className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Adicionar Canal</span>
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -394,50 +396,49 @@ const MonitoredChannels = () => {
           className="max-w-md"
         />
 
-        <div className="flex gap-4 flex-wrap">
-        <Select value={contentTypeFilter} onValueChange={setContentTypeFilter}>
-          <SelectTrigger className="w-48">
-            <Filter className="w-4 h-4 mr-2" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Tipos</SelectItem>
-            <SelectItem value="longform">Vídeos Longos</SelectItem>
-            <SelectItem value="shorts">Shorts</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
+          <Select value={contentTypeFilter} onValueChange={setContentTypeFilter}>
+            <SelectTrigger className="w-full">
+              <Filter className="w-4 h-4 mr-2 hidden sm:block" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Tipos</SelectItem>
+              <SelectItem value="longform">Vídeos Longos</SelectItem>
+              <SelectItem value="shorts">Shorts</SelectItem>
+            </SelectContent>
+          </Select>
 
-        <Select value={nicheFilter} onValueChange={setNicheFilter}>
-          <SelectTrigger className="w-48">
-            <Filter className="w-4 h-4 mr-2" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Nichos</SelectItem>
-            {niches.map((niche) => (
-              <SelectItem key={niche} value={niche}>
-                {niche}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={nicheFilter} onValueChange={setNicheFilter}>
+            <SelectTrigger className="w-full">
+              <Filter className="w-4 h-4 mr-2 hidden sm:block" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Nichos</SelectItem>
+              {niches.map((niche) => (
+                <SelectItem key={niche} value={niche}>
+                  {niche}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="recent">Mais Recentes</SelectItem>
-            <SelectItem value="subscribers">Mais Inscritos</SelectItem>
-            <SelectItem value="views">Mais Visualizações</SelectItem>
-            <SelectItem value="growth">Maior Crescimento</SelectItem>
-            <SelectItem value="exploding">Em Explosão</SelectItem>
-          </SelectContent>
-        </Select>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Mais Recentes</SelectItem>
+              <SelectItem value="subscribers">Mais Inscritos</SelectItem>
+              <SelectItem value="views">Mais Visualizações</SelectItem>
+              <SelectItem value="growth">Maior Crescimento</SelectItem>
+              <SelectItem value="exploding">Em Explosão</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         {filteredChannels.map((channel) => (
           <ChannelCard
             key={channel.id}

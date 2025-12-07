@@ -31,8 +31,8 @@ export function AppSidebar() {
   return (
     <Sidebar className="w-64 bg-card border-r border-border" collapsible="none">
       <SidebarContent className="bg-card">
-        <div className="p-4 flex items-center gap-2 border-b border-border">
-          <img src={logo} alt="Logo" className="w-8 h-8" />
+        <div className="p-4 flex items-center gap-3 border-b border-border">
+          <img src={logo} alt="Logo" className="w-10 h-10 rounded-xl" />
           <span className="font-bold text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
             AvantisTube
           </span>
