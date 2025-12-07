@@ -23,7 +23,7 @@ const MonitoredChannels = () => {
   const [nicheFilter, setNicheFilter] = useState<string>("all");
   const [contentTypeFilter, setContentTypeFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("recent");
-  const [metricsFilter, setMetricsFilter] = useState<string>("7days");
+  const metricsFilter = "7days"; // Fixado em 7 dias
   const [searchQuery, setSearchQuery] = useState<string>("");
   
   // Dialogs
@@ -75,23 +75,11 @@ const MonitoredChannels = () => {
           new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
         );
       case "subscribers":
-        if (metricsFilter === "lastday") {
-          return filtered.sort((a, b) => (b.subscribersLastDay || 0) - (a.subscribersLastDay || 0));
-        } else {
-          return filtered.sort((a, b) => (b.subscribersLast7Days || 0) - (a.subscribersLast7Days || 0));
-        }
+        return filtered.sort((a, b) => (b.subscribersLast7Days || 0) - (a.subscribersLast7Days || 0));
       case "views":
-        if (metricsFilter === "lastday") {
-          return filtered.sort((a, b) => (b.viewsLastDay || 0) - (a.viewsLastDay || 0));
-        } else {
-          return filtered.sort((a, b) => (b.viewsLast7Days || 0) - (a.viewsLast7Days || 0));
-        }
+        return filtered.sort((a, b) => (b.viewsLast7Days || 0) - (a.viewsLast7Days || 0));
       case "growth":
-        if (metricsFilter === "lastday") {
-          return filtered.sort((a, b) => (b.subscribersLastDay || 0) - (a.subscribersLastDay || 0));
-        } else {
-          return filtered.sort((a, b) => (b.subscribersLast7Days || 0) - (a.subscribersLast7Days || 0));
-        }
+        return filtered.sort((a, b) => (b.subscribersLast7Days || 0) - (a.subscribersLast7Days || 0));
       case "exploding":
         return filtered.sort((a, b) => {
           if (a.isExploding && !b.isExploding) return -1;
@@ -447,15 +435,6 @@ const MonitoredChannels = () => {
           </SelectContent>
         </Select>
 
-        <Select value={metricsFilter} onValueChange={setMetricsFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7days">Últimos 7 Dias</SelectItem>
-            <SelectItem value="lastday">Último Dia</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -469,7 +448,7 @@ const MonitoredChannels = () => {
             onUpdateNotes={updateNotes}
             onUpdateNiche={updateNiche}
             onUpdateContentType={updateContentType}
-            metricsFilter={metricsFilter as "7days" | "lastday"}
+            metricsFilter="7days"
           />
         ))}
       </div>

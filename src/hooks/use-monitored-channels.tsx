@@ -229,16 +229,42 @@ export const useMonitoredChannels = () => {
 
       if (error) throw error;
 
-      // Insere novo registro de histórico com user_id (necessário para RLS)
-      const { error: historyError } = await supabase.from('channel_history').insert({
-        user_id: userData.user.id,
-        channel_id: channelId,
-        subscriber_count: data.subscriberCount,
-        video_count: data.videoCount,
-        view_count: data.viewCount,
-      });
+      // Verifica se já existe um registro de histórico para hoje
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-      if (historyError) throw historyError;
+      const { data: existingHistory } = await supabase
+        .from('channel_history')
+        .select('id')
+        .eq('channel_id', channelId)
+        .eq('user_id', userData.user.id)
+        .gte('recorded_at', today.toISOString())
+        .limit(1);
+
+      if (existingHistory && existingHistory.length > 0) {
+        // Já existe registro hoje - atualiza o existente
+        const { error: updateHistoryError } = await supabase
+          .from('channel_history')
+          .update({
+            subscriber_count: data.subscriberCount,
+            video_count: data.videoCount,
+            view_count: data.viewCount,
+          })
+          .eq('id', existingHistory[0].id);
+
+        if (updateHistoryError) throw updateHistoryError;
+      } else {
+        // Não existe registro hoje - cria novo
+        const { error: historyError } = await supabase.from('channel_history').insert({
+          user_id: userData.user.id,
+          channel_id: channelId,
+          subscriber_count: data.subscriberCount,
+          video_count: data.videoCount,
+          view_count: data.viewCount,
+        });
+
+        if (historyError) throw historyError;
+      }
 
       // Atualiza tabela principal de canais monitorados
       const { error: updateError } = await supabase
