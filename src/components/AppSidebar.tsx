@@ -13,7 +13,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/sidebar";
+}
+ from "@/components/ui/sidebar";
 
 const items = [
   { title: "Dashboard", url: "/", icon: Home, locked: false },
@@ -28,8 +29,10 @@ export function AppSidebar() {
 
   const isActive = (path: string) => currentPath === path;
 
+  // Alterado para collapsible="offcanvas" para forçar o comportamento de hamburger no mobile
+  // O componente Sidebar cuida de esconder-se no mobile por padrão até ser ativado pelo Trigger
   return (
-    <Sidebar className="w-64 bg-card border-r border-border" collapsible="none">
+    <Sidebar className="w-64 bg-card border-r border-border" collapsible="offcanvas"> 
       <SidebarContent className="bg-card">
         <div className="p-4 flex items-center gap-3 border-b border-border">
           <img src={logo} alt="Logo" className="w-10 h-10 rounded-xl" />
