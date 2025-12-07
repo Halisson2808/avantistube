@@ -52,7 +52,7 @@ const ProtectedLayout = ({ children }: { children: React.ReactNode }) => {
     <SidebarProvider>
       {/* HEADER VISÍVEL APENAS EM TELAS PEQUENAS PARA O BOTÃO HAMBURGUER */}
       <header className="sticky top-0 z-20 flex items-center h-16 border-b border-border bg-card/80 backdrop-blur-sm md:hidden p-4">
-        {/* CORREÇÃO APLICADA: SidebarTrigger como botão principal. Isso corrige o erro React.Children.only. */}
+        {/* CORREÇÃO CRÍTICA: SidebarTrigger sem 'asChild' e usando ícone Menu */}
         <SidebarTrigger variant="ghost" size="icon"> 
           <Menu className="w-5 h-5" /> {/* Ícone Hambúrguer */}
         </SidebarTrigger>
