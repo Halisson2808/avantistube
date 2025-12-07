@@ -3,8 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"; // Importar SidebarTrigger
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
@@ -14,6 +13,9 @@ import MonitoredChannels from "./pages/MonitoredChannels";
 import MyChannels from "./pages/MyChannels";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import { Menu, Youtube } from "lucide-react"; // Importar Menu
+import { AppSidebar } from "@/components/AppSidebar"; // Garantir que AppSidebar esteja importado
+import { Button } from "@/components/ui/button";
 
 const queryClient = new QueryClient();
 
@@ -48,9 +50,26 @@ const ProtectedLayout = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <SidebarProvider>
+      {/* HEADER VISÍVEL APENAS EM TELAS PEQUENAS PARA O BOTÃO HAMBURGUER */}
+      <header className="sticky top-0 z-20 flex items-center h-16 border-b border-border bg-card/80 backdrop-blur-sm md:hidden p-4">
+        <SidebarTrigger asChild>
+          <Button variant="ghost" size="icon">
+            <Menu className="w-5 h-5" /> {/* Ícone Hambúrguer */}
+          </Button>
+        </SidebarTrigger>
+        <div className="ml-4 flex items-center gap-2">
+          <Youtube className="w-5 h-5 text-primary" />
+          <h1 className="text-lg font-bold">AvantisTube</h1>
+        </div>
+      </header>
+
+      {/* Container Principal: Flex (Desktop) / Bloco (Mobile) */}
       <div className="min-h-screen flex w-full">
+        {/* Sidebar é gerenciada internamente para aparecer off-canvas no mobile */}
         <AppSidebar />
-        <main className="flex-1 p-6 overflow-y-auto max-h-screen">
+        
+        {/* Conteúdo Principal (Ocupa 100% da largura, p-4 no mobile, p-6 no desktop) */}
+        <main className="flex-1 p-4 md:p-6 overflow-y-auto w-full">
           {children}
         </main>
       </div>
