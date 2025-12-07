@@ -13,6 +13,8 @@ import { getChannelDetails, formatNumber } from "@/lib/youtube-api";
 import { toast } from "@/hooks/use-toast";
 import { ChannelGrowthChart } from "@/components/ChannelGrowthChart";
 
+type SortBy = "addedAtDesc" | "addedAtAsc" | "subscribersDesc" | "viewsDesc";
+
 const MyChannels = () => {
   const { channels, addChannel, updateChannel, removeChannel, updateChannelStats, getUniqueNiches } = useMyChannels();
   
@@ -29,7 +31,9 @@ const MyChannels = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdatingAll, setIsUpdatingAll] = useState(false);
   
+  // FILTRO E ORDENAÇÃO
   const [nicheFilter, setNicheFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<SortBy>("addedAtDesc");
 
   const extractChannelId = (url: string): { id: string; type: 'id' | 'username' | 'handle' } | null => {
     const input = url.trim();
@@ -217,16 +221,33 @@ const MyChannels = () => {
     setNotes("");
   };
 
-  // Filtrar canais por nicho
-  const filteredChannels = nicheFilter === "all" 
+  // 1. Filtrar canais por nicho
+  const filteredByNiche = nicheFilter === "all" 
     ? channels 
     : channels.filter(ch => ch.niche.toLowerCase() === nicheFilter);
 
-  // Estatísticas totais
-  const totalSubscribers = filteredChannels.reduce((acc, ch) => acc + ch.currentSubscribers, 0);
-  const totalViews = filteredChannels.reduce((acc, ch) => acc + ch.currentViews, 0);
-  const totalGrowth = filteredChannels.reduce((acc, ch) => acc + (ch.currentSubscribers - ch.initialSubscribers), 0);
-  const totalViewsGrowth = filteredChannels.reduce((acc, ch) => acc + (ch.currentViews - ch.initialViews), 0);
+  // 2. Ordenar canais
+  const sortedChannels = [...filteredByNiche].sort((a, b) => {
+    switch (sortBy) {
+      case "addedAtDesc":
+        return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
+      case "addedAtAsc":
+        return new Date(a.addedAt).getTime() - new Date(b.addedAt).getTime();
+      case "subscribersDesc":
+        return b.currentSubscribers - a.currentSubscribers;
+      case "viewsDesc":
+        return b.currentViews - a.currentViews;
+      default:
+        return 0; // Mantém a ordem original para o caso default
+    }
+  });
+
+  // Estatísticas totais (usando a lista filtrada/ordenada)
+  const channelsToCalculate = sortedChannels;
+  const totalSubscribers = channelsToCalculate.reduce((acc, ch) => acc + ch.currentSubscribers, 0);
+  const totalViews = channelsToCalculate.reduce((acc, ch) => acc + ch.currentViews, 0);
+  const totalGrowth = channelsToCalculate.reduce((acc, ch) => acc + (ch.currentSubscribers - ch.initialSubscribers), 0);
+  const totalViewsGrowth = channelsToCalculate.reduce((acc, ch) => acc + (ch.currentViews - ch.initialViews), 0);
 
   const uniqueNiches = getUniqueNiches();
 
@@ -297,7 +318,7 @@ const MyChannels = () => {
                       <SelectItem value="fr-FR">Francês</SelectItem>
                       <SelectItem value="de-DE">Alemão</SelectItem>
                       <SelectItem value="it-IT">Italiano</SelectItem>
-                      <SelectItem value="ja-JP">Japonês</SelectItem>
+                      <SelectItem value="ja-JP">Japonês (JP)</SelectItem>
                       <SelectItem value="ko-KR">Coreano</SelectItem>
                       <SelectItem value="zh-CN">Chinês</SelectItem>
                     </SelectContent>
@@ -332,9 +353,9 @@ const MyChannels = () => {
         </div>
       </div>
 
-      {/* Filtro por Nicho */}
+      {/* Filtro e Ordenação */}
       {channels.length > 0 && (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Label className="text-sm font-medium">Filtrar por nicho:</Label>
           <Select value={nicheFilter} onValueChange={setNicheFilter}>
             <SelectTrigger className="w-48">
@@ -352,14 +373,28 @@ const MyChannels = () => {
               })}
             </SelectContent>
           </Select>
+          
+          <Label className="text-sm font-medium ml-4">Ordenar por:</Label>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Ordenar" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="addedAtDesc">Mais Recentes</SelectItem>
+              <SelectItem value="addedAtAsc">Mais Antigos</SelectItem>
+              <SelectItem value="subscribersDesc">Mais Inscritos</SelectItem>
+              <SelectItem value="viewsDesc">Mais Visualizações</SelectItem>
+            </SelectContent>
+          </Select>
+
           <span className="text-sm text-muted-foreground">
-            {filteredChannels.length} de {channels.length} canais
+            {sortedChannels.length} de {channels.length} canais
           </span>
         </div>
       )}
 
       {/* Cards de Estatísticas */}
-      {filteredChannels.length > 0 && (
+      {sortedChannels.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="shadow-card">
             <CardHeader className="pb-3">
@@ -390,7 +425,7 @@ const MyChannels = () => {
               <CardTitle className="text-sm font-medium">Canais Ativos</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{filteredChannels.length}</div>
+              <div className="text-2xl font-bold">{sortedChannels.length}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 Canais gerenciados
               </p>
@@ -403,8 +438,8 @@ const MyChannels = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {filteredChannels.length > 0 
-                  ? formatNumber(Math.floor(totalGrowth / filteredChannels.length))
+                {sortedChannels.length > 0 
+                  ? formatNumber(Math.floor(totalGrowth / sortedChannels.length))
                   : "0"}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -417,7 +452,7 @@ const MyChannels = () => {
 
       {/* Lista de Canais */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredChannels.map((channel) => (
+        {sortedChannels.map((channel) => (
           <Card key={channel.id} className="shadow-card hover:shadow-primary transition-smooth">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
@@ -553,7 +588,7 @@ const MyChannels = () => {
                   <SelectItem value="fr-FR">Francês</SelectItem>
                   <SelectItem value="de-DE">Alemão</SelectItem>
                   <SelectItem value="it-IT">Italiano</SelectItem>
-                  <SelectItem value="ja-JP">Japonês</SelectItem>
+                  <SelectItem value="ja-JP">Japonês (JP)</SelectItem>
                   <SelectItem value="ko-KR">Coreano</SelectItem>
                   <SelectItem value="zh-CN">Chinês</SelectItem>
                 </SelectContent>
