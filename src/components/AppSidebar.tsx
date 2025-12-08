@@ -31,10 +31,10 @@ export function AppSidebar() {
 
   // Garantindo o modo offcanvas no mobile
   return (
-    <Sidebar className="w-64 bg-card border-r border-border" collapsible="offcanvas"> 
+    <Sidebar className="w-64 bg-card border-r border-border z-40" collapsible="offcanvas"> 
       <SidebarContent className="bg-card">
         <div className="p-4 flex items-center gap-3 border-b border-border">
-          <img src={logo} alt="Logo" className="w-10 h-10 rounded-xl" />
+          <img src={logo} alt="Logo" className="w-10 h-10 rounded-xl object-cover" />
           <span className="font-bold text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
             AvantisTube
           </span>
