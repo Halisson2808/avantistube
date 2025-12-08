@@ -61,3 +61,46 @@ export const formatDuration = (duration: string): string => {
 
   return `${hours}${minutes}:${seconds}`;
 };
+
+export interface LatestVideo {
+  videoId: string;
+  title: string;
+  thumbnailUrl: string;
+  publishedAt: string;
+  viewCount: number;
+  likeCount: number;
+  commentCount: number;
+}
+
+export interface ChannelLatestVideosResult {
+  channelId: string;
+  videos: LatestVideo[];
+  success: boolean;
+  fetchedAt?: string;
+  error?: string;
+}
+
+export const getLatestChannelVideos = async (
+  channelIds: string[],
+  maxResults: number = 5,
+): Promise<ChannelLatestVideosResult[]> => {
+  return invokeYouTubeFunction("latestVideos", { channelIds, maxResults });
+};
+
+export const calculateTimeAgo = (publishedAt: string): string => {
+  const now = new Date();
+  const published = new Date(publishedAt);
+  const diffMs = now.getTime() - published.getTime();
+
+  const diffMinutes = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  const diffWeeks = Math.floor(diffMs / 604800000);
+  const diffMonths = Math.floor(diffMs / 2592000000);
+
+  if (diffMinutes < 60) return `${diffMinutes} minutos atrás`;
+  if (diffHours < 24) return `${diffHours} horas atrás`;
+  if (diffDays < 7) return `${diffDays} dias atrás`;
+  if (diffWeeks < 4) return `${diffWeeks} semanas atrás`;
+  return `${diffMonths} meses atrás`;
+};

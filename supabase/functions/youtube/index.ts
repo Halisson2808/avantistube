@@ -156,6 +156,91 @@ const getChannelDetails = async (channelId: string) => {
   };
 };
 
+// Converte Channel ID para Playlist ID de uploads (UC -> UU)
+const getUploadPlaylistId = (channelId: string): string => {
+  if (channelId.startsWith("UC")) {
+    return "UU" + channelId.slice(2);
+  }
+  throw new Error("Channel ID inválido. Deve começar com UC");
+};
+
+// Busca os últimos vídeos de um canal usando a playlist de uploads
+const getLatestChannelVideos = async (
+  channelId: string,
+  maxResults: number = 5,
+) => {
+  if (!YOUTUBE_API_KEY) {
+    throw new Error(
+      "API Key do YouTube não configurada. Configure VITE_YOUTUBE_API_KEY nas secrets do projeto.",
+    );
+  }
+
+  const playlistId = getUploadPlaylistId(channelId);
+
+  // 1. Buscar últimos vídeos da playlist (3 tokens)
+  const playlistUrl = new URL(
+    "https://www.googleapis.com/youtube/v3/playlistItems",
+  );
+  playlistUrl.searchParams.append("key", YOUTUBE_API_KEY);
+  playlistUrl.searchParams.append("playlistId", playlistId);
+  playlistUrl.searchParams.append("part", "snippet,contentDetails");
+  playlistUrl.searchParams.append("maxResults", maxResults.toString());
+
+  const playlistResponse = await fetch(playlistUrl.toString());
+  if (!playlistResponse.ok) {
+    const errorData = await playlistResponse.json().catch(() => ({}));
+    throw new Error(
+      errorData.error?.message ||
+        `YouTube API error: ${playlistResponse.status}`,
+    );
+  }
+
+  const playlistData = await playlistResponse.json();
+
+  if (!playlistData.items || playlistData.items.length === 0) {
+    return [];
+  }
+
+  // 2. Extrair IDs dos vídeos
+  const videoIds = playlistData.items.map(
+    (item: any) => item.contentDetails.videoId,
+  );
+
+  // 3. Buscar estatísticas (1 token para até 50 vídeos)
+  const statsUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
+  statsUrl.searchParams.append("key", YOUTUBE_API_KEY);
+  statsUrl.searchParams.append("id", videoIds.join(","));
+  statsUrl.searchParams.append("part", "statistics");
+
+  const statsResponse = await fetch(statsUrl.toString());
+  if (!statsResponse.ok) {
+    throw new Error(`YouTube API error: ${statsResponse.status}`);
+  }
+
+  const statsData = await statsResponse.json();
+
+  const videoStats = statsData.items.reduce((acc: any, item: any) => {
+    acc[item.id] = item;
+    return acc;
+  }, {} as Record<string, any>);
+
+  // 4. Combinar dados
+  return playlistData.items.map((item: any) => {
+    const stats = videoStats[item.contentDetails.videoId] || {};
+    return {
+      videoId: item.contentDetails.videoId,
+      title: item.snippet.title,
+      thumbnailUrl:
+        item.snippet.thumbnails?.high?.url ||
+        item.snippet.thumbnails?.default?.url,
+      publishedAt: item.snippet.publishedAt,
+      viewCount: parseInt(stats.statistics?.viewCount || "0"),
+      likeCount: parseInt(stats.statistics?.likeCount || "0"),
+      commentCount: parseInt(stats.statistics?.commentCount || "0"),
+    };
+  });
+};
+
 const getChannelVideos = async (channelId: string, maxResults: number = 50) => {
   if (!YOUTUBE_API_KEY) {
     throw new Error(
@@ -266,6 +351,52 @@ serve(async (req) => {
         };
         const videos = await getChannelVideos(channelId, maxResults);
         return new Response(JSON.stringify(videos), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      case "latestVideos": {
+        const { channelIds, maxResults } = payload as {
+          channelIds: string[];
+          maxResults?: number;
+        };
+        
+        if (!Array.isArray(channelIds) || channelIds.length === 0) {
+          return new Response(
+            JSON.stringify({ error: "channelIds deve ser um array não vazio" }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        // Processa múltiplos canais
+        const results = [];
+        for (const channelId of channelIds) {
+          try {
+            const videos = await getLatestChannelVideos(
+              channelId,
+              maxResults || 5,
+            );
+            results.push({
+              channelId,
+              videos,
+              success: true,
+              fetchedAt: new Date().toISOString(),
+            });
+            // Pequeno delay para evitar rate limit
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          } catch (error: any) {
+            results.push({
+              channelId,
+              error: error.message || "Erro desconhecido",
+              success: false,
+            });
+          }
+        }
+
+        return new Response(JSON.stringify(results), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
