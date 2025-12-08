@@ -12,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useNiches } from "@/hooks/use-niches";
-import { cn } from "@/lib/utils";
 
 interface ChannelCardProps {
   channel: ChannelMonitorData;
@@ -107,11 +106,11 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
 
   return (
     <Card className="overflow-hidden hover:shadow-primary transition-smooth">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
-          
-          {/* Informações do Canal */}
-          <div className="flex items-center gap-3 flex-1 min-w-0">
+      <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
+        {/* Mobile: Layout vertical / Desktop: Layout horizontal */}
+        <div className="flex flex-col gap-2">
+          {/* Linha 1: Thumbnail + Nome + Badge Explodindo */}
+          <div className="flex items-center gap-2 sm:gap-3">
             {channel.channelThumbnail && (
               <a
                 href={`https://youtube.com/channel/${channel.channelId}`}
@@ -122,7 +121,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                 <img
                   src={channel.channelThumbnail}
                   alt={channel.channelTitle}
-                  className="w-12 h-12 rounded-full hover:ring-2 hover:ring-primary transition-all cursor-pointer"
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full hover:ring-2 hover:ring-primary transition-all cursor-pointer"
                 />
               </a>
             )}
@@ -133,116 +132,109 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                 rel="noopener noreferrer"
                 className="hover:text-primary transition-smooth block"
               >
-                {/* Otimização: Truncate mais agressivo em telas pequenas */}
-                <CardTitle className={cn("text-base", "truncate sm:whitespace-normal")}>
+                <CardTitle className="text-sm sm:text-base font-semibold truncate max-w-[180px] sm:max-w-none">
                   {channel.channelTitle}
                 </CardTitle>
               </a>
+              {/* Badges inline no mobile */}
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                {channel.niche && (
+                  <span className="text-[10px] sm:text-xs text-muted-foreground px-1.5 sm:px-2 py-0.5 border border-border rounded-full">
+                    {channel.niche}
+                  </span>
+                )}
+                {channel.contentType && (
+                  <span className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full ${
+                    channel.contentType === 'shorts' 
+                      ? 'bg-purple-500/10 text-purple-600 border border-purple-500/30' 
+                      : 'bg-blue-500/10 text-blue-600 border border-blue-500/30'
+                  }`}>
+                    {channel.contentType === 'shorts' ? 'Shorts' : 'Longos'}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-          
-          {/* Botões de Ação - Layout otimizado para mobile */}
-          <div className="flex flex-col gap-1 items-end flex-shrink-0">
-            {/* Badge de Explodindo - Sempre visível se ativo */}
+            {/* Badge Explodindo */}
             {channel.isExploding && (
-              <Badge variant="destructive" className="animate-pulse text-xs">
-                🔥 Explodindo
+              <Badge variant="destructive" className="animate-pulse text-[10px] sm:text-xs flex-shrink-0">
+                🔥
               </Badge>
             )}
-            
-            {/* Botões de Ação (Ícones Pequenos) */}
-            <div className="flex gap-1 flex-wrap justify-end">
-              
-              {onShowChart && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => onShowChart(channel.channelId, channel.channelTitle)}
-                  className="h-8 w-8 p-0"
-                  title="Ver Gráfico de Crescimento"
-                >
-                  <BarChart3 className="w-3 h-3" />
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowNotesDialog(true)}
-                className="h-8 w-8 p-0"
-                title="Notas do Canal"
-              >
-                <StickyNote className="w-3 h-3" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  setEditedNiche(channel.niche || "");
-                  setEditedContentType(channel.contentType || 'longform');
-                  setCustomNiche("");
-                  setShowEditDialog(true);
-                }}
-                className="h-8 w-8 p-0"
-                title="Editar Nicho e Tipo"
-              >
-                <Pencil className="w-3 h-3" />
-              </Button>
-              {onUpdate && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => onUpdate(channel.channelId)}
-                  className="h-8 w-8 p-0"
-                  title="Atualizar Estatísticas"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                </Button>
-              )}
-              {onRemove && (
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  onClick={() => setShowDeleteAlert(true)}
-                  className="h-8 w-8 p-0"
-                  title="Remover Canal"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </Button>
-              )}
-            </div>
           </div>
-        </div>
-        
-        {/* Nicho e Tipo de Conteúdo - Mantido para consistência */}
-        <div className="flex items-center gap-2 mt-2 flex-wrap">
-          {channel.niche && (
-            <span className="inline-block text-xs text-muted-foreground px-2 py-0.5 border border-border rounded-full">
-              {channel.niche}
-            </span>
-          )}
-          {channel.contentType && (
-            <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${
-              channel.contentType === 'shorts' 
-                ? 'bg-purple-500/10 text-purple-600 border border-purple-500/30' 
-                : 'bg-blue-500/10 text-blue-600 border border-blue-500/30'
-            }`}>
-              {channel.contentType === 'shorts' ? 'Shorts' : 'Vídeos Longos'}
-            </span>
-          )}
+          
+          {/* Linha 2: Botões de ação - sempre em linha */}
+          <div className="flex gap-1 justify-end">
+            {onShowChart && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => onShowChart(channel.channelId, channel.channelTitle)}
+                className="h-7 w-7 sm:h-8 sm:w-8"
+                title="Ver Gráfico"
+              >
+                <BarChart3 className="w-3 h-3" />
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowNotesDialog(true)}
+              className="h-7 w-7 sm:h-8 sm:w-8"
+              title="Notas"
+            >
+              <StickyNote className="w-3 h-3" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                setEditedNiche(channel.niche || "");
+                setEditedContentType(channel.contentType || 'longform');
+                setCustomNiche("");
+                setShowEditDialog(true);
+              }}
+              className="h-7 w-7 sm:h-8 sm:w-8"
+              title="Editar"
+            >
+              <Pencil className="w-3 h-3" />
+            </Button>
+            {onUpdate && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => onUpdate(channel.channelId)}
+                className="h-7 w-7 sm:h-8 sm:w-8"
+                title="Atualizar"
+              >
+                <RefreshCw className="w-3 h-3" />
+              </Button>
+            )}
+            {onRemove && (
+              <Button
+                variant="destructive"
+                size="icon"
+                onClick={() => setShowDeleteAlert(true)}
+                className="h-7 w-7 sm:h-8 sm:w-8"
+                title="Remover"
+              >
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
-        {/* 4 Quadros de Informação (Mantido o layout original que está ok) */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Quadro 1: Inscritos Atuais (Superior Esquerdo) */}
-          <div className="space-y-1 p-3 rounded-lg bg-card border border-border">
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+      <CardContent className="space-y-3 sm:space-y-4 px-3 sm:px-6 pb-3 sm:pb-6">
+        {/* 4 Quadros de Informação - Compacto no mobile */}
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          {/* Quadro 1: Inscritos Atuais */}
+          <div className="space-y-0.5 sm:space-y-1 p-2 sm:p-3 rounded-lg bg-card border border-border">
+            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
               <Users className="w-3 h-3" />
-              <span>Inscritos Atuais</span>
+              <span>Inscritos</span>
             </div>
-            <p className="text-xl font-bold">{formatNumber(channel.currentSubscribers)}</p>
-            <div className="flex items-center justify-between text-xs">
+            <p className="text-base sm:text-xl font-bold">{formatNumber(channel.currentSubscribers)}</p>
+            <div className="flex items-center justify-between text-[10px] sm:text-xs">
               <span className={totalSubsGained >= 0 ? 'text-green-500' : 'text-red-500'}>
                 {totalSubsGained >= 0 ? '+' : ''}{subscribersGrowth}%
               </span>
@@ -252,14 +244,14 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
             </div>
           </div>
 
-          {/* Quadro 2: Views Totais (Superior Direito) */}
-          <div className="space-y-1 p-3 rounded-lg bg-card border border-border">
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          {/* Quadro 2: Views Totais */}
+          <div className="space-y-0.5 sm:space-y-1 p-2 sm:p-3 rounded-lg bg-card border border-border">
+            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
               <Eye className="w-3 h-3" />
-              <span>Views Totais</span>
+              <span>Views</span>
             </div>
-            <p className="text-xl font-bold">{formatNumber(channel.currentViews)}</p>
-            <div className="flex items-center justify-between text-xs">
+            <p className="text-base sm:text-xl font-bold">{formatNumber(channel.currentViews)}</p>
+            <div className="flex items-center justify-between text-[10px] sm:text-xs">
               <span className={totalViewsGained >= 0 ? 'text-green-500' : 'text-red-500'}>
                 {totalViewsGained >= 0 ? '+' : ''}{viewsGrowth}%
               </span>
@@ -269,53 +261,53 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
             </div>
           </div>
 
-          {/* Quadro 3: Inscritos Últimos 7 Dias */}
-          <div className={`space-y-1 p-3 rounded-lg border ${
+          {/* Quadro 3: Inscritos 7 Dias */}
+          <div className={`space-y-0.5 sm:space-y-1 p-2 sm:p-3 rounded-lg border ${
             recentSubs >= 0 
               ? 'bg-green-500/10 border-green-500/30' 
               : 'bg-red-500/10 border-red-500/30'
           }`}>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
               <Users className="w-3 h-3" />
-              <span>Últimos 7 Dias</span>
+              <span>7 Dias</span>
             </div>
-            <p className={`text-xl font-bold ${
+            <p className={`text-base sm:text-xl font-bold ${
               recentSubs >= 0 ? 'text-green-600' : 'text-red-600'
             }`}>
               {recentSubs >= 0 ? '+' : ''}{formatNumber(recentSubs)}
             </p>
-            <p className="text-xs text-muted-foreground">inscritos</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">inscritos</p>
           </div>
 
-          {/* Quadro 4: Views Últimos 7 Dias */}
-          <div className={`space-y-1 p-3 rounded-lg border ${
+          {/* Quadro 4: Views 7 Dias */}
+          <div className={`space-y-0.5 sm:space-y-1 p-2 sm:p-3 rounded-lg border ${
             recentViews >= 0 
               ? 'bg-green-500/10 border-green-500/30' 
               : 'bg-red-500/10 border-red-500/30'
           }`}>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
               <Eye className="w-3 h-3" />
-              <span>Últimos 7 Dias</span>
+              <span>7 Dias</span>
             </div>
-            <p className={`text-xl font-bold ${
+            <p className={`text-base sm:text-xl font-bold ${
               recentViews >= 0 ? 'text-green-600' : 'text-red-600'
             }`}>
               {recentViews >= 0 ? '+' : ''}{formatNumber(recentViews)}
             </p>
-            <p className="text-xs text-muted-foreground">views</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">views</p>
           </div>
         </div>
 
         {/* Notas */}
         {channel.notes && (
           <div className="pt-2 border-t border-border">
-            <p className="text-xs text-muted-foreground line-clamp-2">{channel.notes}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-2">{channel.notes}</p>
           </div>
         )}
 
-        {/* Rodapé com informações de data */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border">
-          <span>Adicionado há {daysAdded} {daysAdded === 1 ? 'dia' : 'dias'}</span>
+        {/* Rodapé */}
+        <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground pt-2 border-t border-border">
+          <span>Há {daysAdded}d</span>
           <span>Atualizado: {lastUpdatedDate}</span>
         </div>
       </CardContent>
