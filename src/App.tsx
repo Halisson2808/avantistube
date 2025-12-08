@@ -50,26 +50,23 @@ const ProtectedLayout = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <SidebarProvider>
-      {/* HEADER VISÍVEL APENAS EM TELAS PEQUENAS PARA O BOTÃO HAMBURGUER */}
-      <header className="sticky top-0 z-20 flex items-center h-16 border-b border-border bg-card/80 backdrop-blur-sm md:hidden p-4">
-        {/* CORREÇÃO CRÍTICA: SidebarTrigger sem 'asChild' e usando ícone Menu */}
-        <SidebarTrigger variant="ghost" size="icon"> 
-          <Menu className="w-5 h-5" /> {/* Ícone Hambúrguer */}
-        </SidebarTrigger>
-        
-        <div className="ml-4 flex items-center gap-2">
-          <Youtube className="w-5 h-5 text-primary" />
-          <h1 className="text-lg font-bold">AvantisTube</h1>
-        </div>
-      </header>
+      <div className="min-h-screen flex flex-col md:flex-row w-full">
+        {/* Header mobile com hamburguer */}
+        <header className="sticky top-0 z-30 flex items-center h-14 border-b border-border bg-card md:hidden px-4">
+          <SidebarTrigger className="h-9 w-9">
+            <Menu className="h-5 w-5" />
+          </SidebarTrigger>
+          <div className="ml-3 flex items-center gap-2">
+            <Youtube className="h-5 w-5 text-primary" />
+            <span className="font-bold text-base">AvantisTube</span>
+          </div>
+        </header>
 
-      {/* Container Principal: Flex (Desktop) / Bloco (Mobile) */}
-      <div className="min-h-screen flex w-full">
-        {/* Sidebar é gerenciada internamente para aparecer off-canvas no mobile */}
+        {/* Sidebar - offcanvas no mobile, fixa no desktop */}
         <AppSidebar />
         
-        {/* Conteúdo Principal (p-4 no mobile, p-6 no desktop) */}
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto w-full">
+        {/* Conteúdo principal */}
+        <main className="flex-1 p-4 md:p-6 overflow-y-auto">
           {children}
         </main>
       </div>
