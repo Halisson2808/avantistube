@@ -20,10 +20,19 @@ export const useNiches = () => {
         .eq('user_id', user.id);
 
       monitoredChannels?.forEach((channel) => {
-        if (channel.niche) allNiches.add(channel.niche);
+        if (channel.niche && channel.niche.trim()) {
+          // Normalizar o nicho (primeira letra maiúscula, resto minúsculo, sem espaços extras)
+          const normalizedNiche = channel.niche.trim();
+          allNiches.add(normalizedNiche);
+        }
       });
 
-      setNiches(Array.from(allNiches).sort());
+      // Ordenar alfabeticamente com suporte a português
+      const sortedNiches = Array.from(allNiches).sort((a, b) => 
+        a.localeCompare(b, 'pt-BR', { sensitivity: 'base' })
+      );
+      
+      setNiches(sortedNiches);
     } catch (error) {
       console.error('Erro ao carregar nichos:', error);
     } finally {
