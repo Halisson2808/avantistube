@@ -51,8 +51,29 @@ export const useNiches = () => {
     }
   };
 
+  // Carregar nichos na inicialização e quando houver mudanças
   useEffect(() => {
     loadNiches();
+
+    // Subscribe para mudanças em tempo real
+    const channel = supabase
+      .channel('niches-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'monitored_channels',
+        },
+        () => {
+          loadNiches();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { niches, isLoading, renameNiche, loadNiches };

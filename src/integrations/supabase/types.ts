@@ -179,6 +179,60 @@ export type Database = {
         }
         Relationships: []
       }
+      video_snapshots: {
+        Row: {
+          channel_id: string
+          comment_count: number | null
+          created_at: string
+          fetched_at: string
+          id: string
+          is_active: boolean | null
+          is_viral: boolean | null
+          like_count: number | null
+          position: number | null
+          published_at: string | null
+          thumbnail_url: string | null
+          title: string
+          user_id: string
+          video_id: string
+          view_count: number | null
+        }
+        Insert: {
+          channel_id: string
+          comment_count?: number | null
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          is_active?: boolean | null
+          is_viral?: boolean | null
+          like_count?: number | null
+          position?: number | null
+          published_at?: string | null
+          thumbnail_url?: string | null
+          title: string
+          user_id: string
+          video_id: string
+          view_count?: number | null
+        }
+        Update: {
+          channel_id?: string
+          comment_count?: number | null
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          is_active?: boolean | null
+          is_viral?: boolean | null
+          like_count?: number | null
+          position?: number | null
+          published_at?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          user_id?: string
+          video_id?: string
+          view_count?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

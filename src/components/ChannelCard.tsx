@@ -136,23 +136,6 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                   {channel.channelTitle}
                 </CardTitle>
               </a>
-              {/* Badges inline no mobile */}
-              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                {channel.niche && (
-                  <span className="text-[10px] sm:text-xs text-muted-foreground px-1.5 sm:px-2 py-0.5 border border-border rounded-full">
-                    {channel.niche}
-                  </span>
-                )}
-                {channel.contentType && (
-                  <span className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full ${
-                    channel.contentType === 'shorts' 
-                      ? 'bg-purple-500/10 text-purple-600 border border-purple-500/30' 
-                      : 'bg-blue-500/10 text-blue-600 border border-blue-500/30'
-                  }`}>
-                    {channel.contentType === 'shorts' ? 'Shorts' : 'Longos'}
-                  </span>
-                )}
-              </div>
             </div>
             {/* Badge Explodindo */}
             {channel.isExploding && (
@@ -162,64 +145,90 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
             )}
           </div>
           
-          {/* Linha 2: Botões de ação - sempre em linha */}
-          <div className="flex gap-1 justify-end">
-            {onShowChart && (
+          {/* Linha 2: Nicho + Botões (Gráfico, Notas, Editar) */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              {channel.niche && (
+                <span className="text-[10px] sm:text-xs text-muted-foreground px-1.5 sm:px-2 py-0.5 border border-border rounded-full">
+                  {channel.niche}
+                </span>
+              )}
+            </div>
+            <div className="flex gap-1">
+              {onShowChart && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => onShowChart(channel.channelId, channel.channelTitle)}
+                  className="h-7 w-7 sm:h-8 sm:w-8"
+                  title="Ver Gráfico"
+                >
+                  <BarChart3 className="w-3 h-3" />
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => onShowChart(channel.channelId, channel.channelTitle)}
+                onClick={() => setShowNotesDialog(true)}
                 className="h-7 w-7 sm:h-8 sm:w-8"
-                title="Ver Gráfico"
+                title="Notas"
               >
-                <BarChart3 className="w-3 h-3" />
+                <StickyNote className="w-3 h-3" />
               </Button>
-            )}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowNotesDialog(true)}
-              className="h-7 w-7 sm:h-8 sm:w-8"
-              title="Notas"
-            >
-              <StickyNote className="w-3 h-3" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => {
-                setEditedNiche(channel.niche || "");
-                setEditedContentType(channel.contentType || 'longform');
-                setCustomNiche("");
-                setShowEditDialog(true);
-              }}
-              className="h-7 w-7 sm:h-8 sm:w-8"
-              title="Editar"
-            >
-              <Pencil className="w-3 h-3" />
-            </Button>
-            {onUpdate && (
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => onUpdate(channel.channelId)}
+                onClick={() => {
+                  setEditedNiche(channel.niche || "");
+                  setEditedContentType(channel.contentType || 'longform');
+                  setCustomNiche("");
+                  setShowEditDialog(true);
+                }}
                 className="h-7 w-7 sm:h-8 sm:w-8"
-                title="Atualizar"
+                title="Editar"
               >
-                <RefreshCw className="w-3 h-3" />
+                <Pencil className="w-3 h-3" />
               </Button>
-            )}
-            {onRemove && (
-              <Button
-                variant="destructive"
-                size="icon"
-                onClick={() => setShowDeleteAlert(true)}
-                className="h-7 w-7 sm:h-8 sm:w-8"
-                title="Remover"
-              >
-                <Trash2 className="w-3 h-3" />
-              </Button>
-            )}
+            </div>
+          </div>
+          
+          {/* Linha 3: Formato de vídeo + Botões (Atualizar, Excluir) */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              {channel.contentType && (
+                <span className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full ${
+                  channel.contentType === 'shorts' 
+                    ? 'bg-purple-500/10 text-purple-600 border border-purple-500/30' 
+                    : 'bg-blue-500/10 text-blue-600 border border-blue-500/30'
+                }`}>
+                  {channel.contentType === 'shorts' ? 'Shorts' : 'Longos'}
+                </span>
+              )}
+            </div>
+            <div className="flex gap-1">
+              {onUpdate && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => onUpdate(channel.channelId)}
+                  className="h-7 w-7 sm:h-8 sm:w-8"
+                  title="Atualizar"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                </Button>
+              )}
+              {onRemove && (
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  onClick={() => setShowDeleteAlert(true)}
+                  className="h-7 w-7 sm:h-8 sm:w-8"
+                  title="Remover"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </CardHeader>
