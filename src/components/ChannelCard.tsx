@@ -107,10 +107,9 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
   return (
     <Card className="overflow-hidden hover:shadow-primary transition-smooth">
       <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
-        {/* Mobile: Layout vertical / Desktop: Layout horizontal */}
-        <div className="flex flex-col gap-2">
-          {/* Linha 1: Thumbnail + Nome + Badge Explodindo */}
-          <div className="flex items-center gap-2 sm:gap-3">
+        {/* Desktop/Tablet: Layout horizontal original */}
+        <div className="hidden sm:flex flex-col gap-2">
+          <div className="flex items-center gap-3">
             {channel.channelThumbnail && (
               <a
                 href={`https://youtube.com/channel/${channel.channelId}`}
@@ -121,7 +120,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                 <img
                   src={channel.channelThumbnail}
                   alt={channel.channelTitle}
-                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full hover:ring-2 hover:ring-primary transition-all cursor-pointer"
+                  className="w-12 h-12 rounded-full hover:ring-2 hover:ring-primary transition-all cursor-pointer"
                 />
               </a>
             )}
@@ -132,14 +131,129 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                 rel="noopener noreferrer"
                 className="hover:text-primary transition-smooth block"
               >
-                <CardTitle className="text-sm sm:text-base font-semibold truncate max-w-[180px] sm:max-w-none">
+                <CardTitle className="text-base font-semibold truncate">
+                  {channel.channelTitle}
+                </CardTitle>
+              </a>
+              {/* Badges inline */}
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                {channel.niche && (
+                  <span className="text-xs text-muted-foreground px-2 py-0.5 border border-border rounded-full">
+                    {channel.niche}
+                  </span>
+                )}
+                {channel.contentType && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    channel.contentType === 'shorts' 
+                      ? 'bg-purple-500/10 text-purple-600 border border-purple-500/30' 
+                      : 'bg-blue-500/10 text-blue-600 border border-blue-500/30'
+                  }`}>
+                    {channel.contentType === 'shorts' ? 'Shorts' : 'Longos'}
+                  </span>
+                )}
+              </div>
+            </div>
+            {/* Badge Explodindo */}
+            {channel.isExploding && (
+              <Badge variant="destructive" className="animate-pulse text-xs flex-shrink-0">
+                🔥
+              </Badge>
+            )}
+          </div>
+          
+          {/* Botões em uma linha só */}
+          <div className="flex gap-1 justify-end">
+            {onShowChart && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => onShowChart(channel.channelId, channel.channelTitle)}
+                className="h-8 w-8"
+                title="Ver Gráfico"
+              >
+                <BarChart3 className="w-3 h-3" />
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowNotesDialog(true)}
+              className="h-8 w-8"
+              title="Notas"
+            >
+              <StickyNote className="w-3 h-3" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                setEditedNiche(channel.niche || "");
+                setEditedContentType(channel.contentType || 'longform');
+                setCustomNiche("");
+                setShowEditDialog(true);
+              }}
+              className="h-8 w-8"
+              title="Editar"
+            >
+              <Pencil className="w-3 h-3" />
+            </Button>
+            {onUpdate && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => onUpdate(channel.channelId)}
+                className="h-8 w-8"
+                title="Atualizar"
+              >
+                <RefreshCw className="w-3 h-3" />
+              </Button>
+            )}
+            {onRemove && (
+              <Button
+                variant="destructive"
+                size="icon"
+                onClick={() => setShowDeleteAlert(true)}
+                className="h-8 w-8"
+                title="Remover"
+              >
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile: Layout reorganizado em 3 linhas */}
+        <div className="flex sm:hidden flex-col gap-2">
+          {/* Linha 1: Thumbnail + Nome + Badge Explodindo */}
+          <div className="flex items-center gap-2">
+            {channel.channelThumbnail && (
+              <a
+                href={`https://youtube.com/channel/${channel.channelId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-shrink-0"
+              >
+                <img
+                  src={channel.channelThumbnail}
+                  alt={channel.channelTitle}
+                  className="w-10 h-10 rounded-full hover:ring-2 hover:ring-primary transition-all cursor-pointer"
+                />
+              </a>
+            )}
+            <div className="flex-1 min-w-0">
+              <a
+                href={`https://youtube.com/channel/${channel.channelId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-primary transition-smooth block"
+              >
+                <CardTitle className="text-sm font-semibold truncate max-w-[180px]">
                   {channel.channelTitle}
                 </CardTitle>
               </a>
             </div>
-            {/* Badge Explodindo */}
             {channel.isExploding && (
-              <Badge variant="destructive" className="animate-pulse text-[10px] sm:text-xs flex-shrink-0">
+              <Badge variant="destructive" className="animate-pulse text-[10px] flex-shrink-0">
                 🔥
               </Badge>
             )}
@@ -149,7 +263,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
               {channel.niche && (
-                <span className="text-[10px] sm:text-xs text-muted-foreground px-1.5 sm:px-2 py-0.5 border border-border rounded-full">
+                <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 border border-border rounded-full">
                   {channel.niche}
                 </span>
               )}
@@ -160,7 +274,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                   variant="outline"
                   size="icon"
                   onClick={() => onShowChart(channel.channelId, channel.channelTitle)}
-                  className="h-7 w-7 sm:h-8 sm:w-8"
+                  className="h-7 w-7"
                   title="Ver Gráfico"
                 >
                   <BarChart3 className="w-3 h-3" />
@@ -170,7 +284,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                 variant="outline"
                 size="icon"
                 onClick={() => setShowNotesDialog(true)}
-                className="h-7 w-7 sm:h-8 sm:w-8"
+                className="h-7 w-7"
                 title="Notas"
               >
                 <StickyNote className="w-3 h-3" />
@@ -184,7 +298,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                   setCustomNiche("");
                   setShowEditDialog(true);
                 }}
-                className="h-7 w-7 sm:h-8 sm:w-8"
+                className="h-7 w-7"
                 title="Editar"
               >
                 <Pencil className="w-3 h-3" />
@@ -196,7 +310,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
               {channel.contentType && (
-                <span className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full ${
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                   channel.contentType === 'shorts' 
                     ? 'bg-purple-500/10 text-purple-600 border border-purple-500/30' 
                     : 'bg-blue-500/10 text-blue-600 border border-blue-500/30'
@@ -211,7 +325,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                   variant="outline"
                   size="icon"
                   onClick={() => onUpdate(channel.channelId)}
-                  className="h-7 w-7 sm:h-8 sm:w-8"
+                  className="h-7 w-7"
                   title="Atualizar"
                 >
                   <RefreshCw className="w-3 h-3" />
@@ -222,7 +336,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                   variant="destructive"
                   size="icon"
                   onClick={() => setShowDeleteAlert(true)}
-                  className="h-7 w-7 sm:h-8 sm:w-8"
+                  className="h-7 w-7"
                   title="Remover"
                 >
                   <Trash2 className="w-3 h-3" />
