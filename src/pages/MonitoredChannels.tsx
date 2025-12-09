@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Download, Filter, TrendingUp, RefreshCw, Tag, Loader2 } from "lucide-react";
 import { ChannelCard } from "@/components/ChannelCard";
 import { ChannelGrowthChart } from "@/components/ChannelGrowthChart";
-import { ImportChannelsCSV } from "@/components/ImportChannelsCSV";
+
 import { useMonitoredChannels, ChannelMonitorData } from "@/hooks/use-monitored-channels";
 import { useNiches } from "@/hooks/use-niches";
 import { toast } from "sonner";
@@ -309,14 +309,11 @@ const MonitoredChannels = () => {
             </DialogContent>
           </Dialog>
           
-          <div className="flex gap-2 w-full sm:w-auto">
-            <ImportChannelsCSV />
-            <Button variant="outline" size="sm" className="flex-1 sm:flex-auto text-xs sm:text-sm" onClick={exportToCSV}>
-              <Download className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Exportar CSV</span>
-              <span className="sm:hidden">Exportar</span>
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-auto text-xs sm:text-sm" onClick={exportToCSV}>
+            <Download className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Exportar CSV</span>
+            <span className="sm:hidden">Exportar</span>
+          </Button>
           
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
