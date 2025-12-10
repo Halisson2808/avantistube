@@ -321,14 +321,18 @@ export const useRecentVideos = () => {
     }
   }, [channels, needsUpdate, saveVideosToCache]);
 
-  // Atualizar todos os canais selecionados
-  const updateAllChannels = useCallback(async (
+  // Atualizar canais por nichos selecionados
+  const updateChannelsByNiches = useCallback(async (
+    selectedNiches: string[],
     progressCallback?: (progress: UpdateProgress) => void
   ) => {
-    const channelsToUpdate = Array.from(selectedChannelIds);
+    // Filtrar canais pelos nichos selecionados
+    const channelsToUpdate = channels.filter(ch => 
+      selectedNiches.includes(ch.niche || 'Sem Nicho')
+    ).map(ch => ch.channelId);
     
     if (channelsToUpdate.length === 0) {
-      toast.info('Selecione pelo menos um canal');
+      toast.info('Nenhum canal encontrado nos nichos selecionados');
       return;
     }
 
@@ -352,6 +356,13 @@ export const useRecentVideos = () => {
         batch.map(async (channelId, batchIndex) => {
           const currentIndex = i + batchIndex + 1;
           const channel = channels.find(ch => ch.channelId === channelId);
+
+          setUpdateProgress({
+            current: currentIndex,
+            total: channelsToUpdate.length,
+            percentage: Math.round((currentIndex / channelsToUpdate.length) * 100),
+            channelName: channel?.channelTitle || channelId,
+          });
 
           if (progressCallback) {
             progressCallback({
@@ -394,7 +405,21 @@ export const useRecentVideos = () => {
     );
 
     return results;
-  }, [selectedChannelIds, channels, needsUpdate, updateChannelVideos]);
+  }, [channels, needsUpdate, updateChannelVideos]);
+
+  // Obter todos os nichos disponíveis
+  const getAvailableNiches = useCallback((): string[] => {
+    const niches = new Set<string>();
+    channels.forEach(ch => {
+      niches.add(ch.niche || 'Sem Nicho');
+    });
+    return Array.from(niches).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [channels]);
+
+  // Contar canais por nicho
+  const getChannelCountByNiche = useCallback((niche: string): number => {
+    return channels.filter(ch => (ch.niche || 'Sem Nicho') === niche).length;
+  }, [channels]);
 
   // Função de filtro
   const filterChannels = useCallback((
@@ -483,9 +508,10 @@ export const useRecentVideos = () => {
     setFilters,
     updateProgress,
     isUpdating,
-    fetchVideos: updateAllChannels,
     updateChannelVideos,
-    updateAllChannels,
+    updateChannelsByNiches,
+    getAvailableNiches,
+    getChannelCountByNiche,
     toggleChannelSelection,
     selectAllChannels,
     clearSelection,

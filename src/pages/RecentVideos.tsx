@@ -5,7 +5,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown } from "lucide-react";
 import { useRecentVideos } from "@/hooks/use-recent-videos";
 import { RecentVideoCard } from "@/components/RecentVideoCard";
 import { toast } from "sonner";
@@ -20,8 +22,10 @@ const RecentVideos = () => {
     setFilters,
     updateProgress,
     isUpdating,
-    updateAllChannels,
     updateChannelVideos,
+    updateChannelsByNiches,
+    getAvailableNiches,
+    getChannelCountByNiche,
     clearFilters,
     getVideosByChannel,
     loadVideosFromCache,
@@ -29,6 +33,8 @@ const RecentVideos = () => {
 
   const { channels: monitoredChannels } = useMonitoredChannels();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [selectedNiches, setSelectedNiches] = useState<string[]>([]);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
   // Carregar do cache na inicialização
   useEffect(() => {
@@ -47,9 +53,37 @@ const RecentVideos = () => {
     return ['Todos', ...Array.from(niches).sort()];
   }, [monitoredChannels]);
 
-  const handleUpdateAll = async () => {
-    await updateAllChannels();
+  const availableNiches = getAvailableNiches();
+
+  const handleNicheToggle = (niche: string) => {
+    setSelectedNiches(prev => 
+      prev.includes(niche) 
+        ? prev.filter(n => n !== niche)
+        : [...prev, niche]
+    );
   };
+
+  const handleSelectAllNiches = () => {
+    if (selectedNiches.length === availableNiches.length) {
+      setSelectedNiches([]);
+    } else {
+      setSelectedNiches([...availableNiches]);
+    }
+  };
+
+  const handleUpdateSelected = async () => {
+    if (selectedNiches.length === 0) {
+      toast.info('Selecione pelo menos um nicho');
+      return;
+    }
+    setIsPopoverOpen(false);
+    await updateChannelsByNiches(selectedNiches);
+  };
+
+  const totalSelectedChannels = selectedNiches.reduce(
+    (sum, niche) => sum + getChannelCountByNiche(niche), 
+    0
+  );
 
   const videosByChannel = getVideosByChannel();
 
@@ -70,27 +104,74 @@ const RecentVideos = () => {
         </div>
 
         <div className="flex gap-2 w-full sm:w-auto">
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handleUpdateAll}
-            disabled={isUpdating || channels.length === 0}
-            className="flex-1 sm:flex-auto gradient-primary"
-          >
-            {isUpdating ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                <span className="hidden sm:inline">Atualizando...</span>
-                <span className="sm:hidden">Atualizando</span>
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Atualizar Tudo ({channels.length})</span>
-                <span className="sm:hidden">Atualizar Tudo</span>
-              </>
-            )}
-          </Button>
+          <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="default"
+                size="sm"
+                disabled={isUpdating || channels.length === 0}
+                className="flex-1 sm:flex-auto gradient-primary"
+              >
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Atualizando...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Atualizar
+                    <ChevronDown className="w-4 h-4 ml-1" />
+                  </>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-4" align="end">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-sm">Selecionar Nichos</h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSelectAllNiches}
+                    className="h-7 text-xs"
+                  >
+                    {selectedNiches.length === availableNiches.length ? 'Desmarcar' : 'Selecionar'} Todos
+                  </Button>
+                </div>
+                
+                <div className="max-h-60 overflow-y-auto space-y-2">
+                  {availableNiches.map((niche) => (
+                    <label
+                      key={niche}
+                      className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={selectedNiches.includes(niche)}
+                        onCheckedChange={() => handleNicheToggle(niche)}
+                      />
+                      <span className="flex-1 text-sm">{niche}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {getChannelCountByNiche(niche)}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="pt-2 border-t border-border">
+                  <Button
+                    onClick={handleUpdateSelected}
+                    disabled={selectedNiches.length === 0}
+                    className="w-full gradient-primary"
+                    size="sm"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Atualizar {totalSelectedChannels} canal(is)
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -262,7 +343,7 @@ const RecentVideos = () => {
             <p className="text-muted-foreground text-center mb-6 max-w-md">
               {filters.search || filters.category !== 'Todos' || (filters.contentType && filters.contentType !== 'Todos')
                 ? 'Nenhum canal corresponde aos filtros selecionados. Tente ajustar os filtros.'
-                : 'Nenhum vídeo encontrado. Clique em "Atualizar Tudo" para buscar os vídeos recentes.'}
+                : 'Nenhum vídeo encontrado. Clique em "Atualizar" para buscar os vídeos recentes.'}
             </p>
             {filters.search || filters.category !== 'Todos' || (filters.contentType && filters.contentType !== 'Todos') ? (
               <Button onClick={clearFilters} variant="outline">
@@ -270,9 +351,9 @@ const RecentVideos = () => {
                 Limpar Filtros
               </Button>
             ) : (
-              <Button onClick={handleUpdateAll} className="gradient-primary">
+              <Button onClick={() => setIsPopoverOpen(true)} className="gradient-primary">
                 <RefreshCw className="w-4 h-4 mr-2" />
-                Atualizar Tudo
+                Atualizar
               </Button>
             )}
           </CardContent>
