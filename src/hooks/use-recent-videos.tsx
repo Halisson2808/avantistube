@@ -25,6 +25,7 @@ export interface FilterOptions {
   search: string;
   category: string;
   contentType?: string;
+  sortBy?: string;
 }
 
 export interface UpdateProgress {
@@ -45,6 +46,7 @@ export const useRecentVideos = () => {
     search: '',
     category: 'Todos',
     contentType: 'Todos',
+    sortBy: 'name',
   });
   const [updateProgress, setUpdateProgress] = useState<UpdateProgress>({
     current: 0,
@@ -423,8 +425,14 @@ export const useRecentVideos = () => {
       );
     }
 
-    // Ordenação fixa por nome (A-Z)
+    // Ordenação
     filtered.sort((a, b) => {
+      if (filters.sortBy === 'totalViews') {
+        // Somar views de todos os vídeos do canal
+        const totalViewsA = a.videos.reduce((sum, v) => sum + (v.viewCount || 0), 0);
+        const totalViewsB = b.videos.reduce((sum, v) => sum + (v.viewCount || 0), 0);
+        return totalViewsB - totalViewsA; // Maior primeiro
+      }
       return a.channel.channelTitle.localeCompare(b.channel.channelTitle);
     });
 
@@ -462,6 +470,7 @@ export const useRecentVideos = () => {
       search: '',
       category: 'Todos',
       contentType: 'Todos',
+      sortBy: 'name',
     });
   }, []);
 

@@ -5,11 +5,12 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, Loader2, Youtube, Filter, X, Clock } from "lucide-react";
+import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp } from "lucide-react";
 import { useRecentVideos } from "@/hooks/use-recent-videos";
 import { RecentVideoCard } from "@/components/RecentVideoCard";
 import { toast } from "sonner";
 import { useMonitoredChannels } from "@/hooks/use-monitored-channels";
+import { formatNumber } from "@/lib/youtube-api";
 
 const RecentVideos = () => {
   const {
@@ -180,7 +181,7 @@ const RecentVideos = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Busca */}
             <div className="space-y-2">
               <Label className="text-xs">Buscar Canal</Label>
@@ -229,6 +230,23 @@ const RecentVideos = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Ordenar por */}
+            <div className="space-y-2">
+              <Label className="text-xs">Ordenar por</Label>
+              <Select
+                value={filters.sortBy || 'name'}
+                onValueChange={(value) => setFilters({ ...filters, sortBy: value })}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Nome (A-Z)</SelectItem>
+                  <SelectItem value="totalViews">Total de Views</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -261,84 +279,108 @@ const RecentVideos = () => {
         </Card>
       ) : (
         <div className="space-y-6">
-          {videosByChannel.map((channelData) => (
-            <div key={channelData.channel.channelId} className="space-y-4">
-              {/* Header do Canal */}
-              <div className="flex items-center gap-3">
-                {channelData.channel.channelThumbnail && (
-                  <img
-                    src={channelData.channel.channelThumbnail}
-                    alt={channelData.channel.channelTitle}
-                    className="w-10 h-10 rounded-full"
-                  />
-                )}
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-xl font-bold">
-                      {channelData.channel.channelTitle}
-                    </h2>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => updateChannelVideos(channelData.channel.channelId, true)}
-                      disabled={isUpdating}
-                      className="h-7 px-2"
-                      title="Forçar atualização"
-                    >
-                      <RefreshCw className="w-3 h-3" />
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    {channelData.channel.niche && (
-                      <span className="px-2 py-0.5 bg-muted rounded">{channelData.channel.niche}</span>
-                    )}
-                    <span>{new Intl.NumberFormat('pt-BR').format(channelData.channel.currentSubscribers)} inscritos</span>
-                    {channelData.lastFetched && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        Atualizado há {Math.floor((new Date().getTime() - channelData.lastFetched.getTime()) / 60000)} minutos
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
+          {videosByChannel.map((channelData) => {
+            // Calcular tempo desde última atualização
+            const getUpdateTimeText = () => {
+              if (!channelData.lastFetched) return null;
+              const diffMs = new Date().getTime() - channelData.lastFetched.getTime();
+              const diffMinutes = Math.floor(diffMs / 60000);
+              const diffHours = Math.floor(diffMs / 3600000);
+              const diffDays = Math.floor(diffMs / 86400000);
+              
+              if (diffDays > 0) return `Atualizado há ${diffDays} dia${diffDays > 1 ? 's' : ''}`;
+              if (diffHours > 0) return `Atualizado há ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
+              return `Atualizado há ${diffMinutes} minuto${diffMinutes !== 1 ? 's' : ''}`;
+            };
 
-              {/* Loading State */}
-              {channelData.isLoading ? (
-                <Card>
-                  <CardContent className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                    <span className="ml-2 text-muted-foreground">
-                      Carregando vídeos...
-                    </span>
-                  </CardContent>
-                </Card>
-              ) : channelData.error ? (
-                <Card>
-                  <CardContent className="py-4">
-                    <p className="text-sm text-destructive">
-                      ❌ Erro: {channelData.error}
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : channelData.videos.length === 0 ? (
-                <Card>
-                  <CardContent className="py-4">
-                    <p className="text-sm text-muted-foreground">
-                      Este canal não possui vídeos recentes.
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                /* Lista de Vídeos */
-                <div className="space-y-2">
-                  {channelData.videos.map((video) => (
-                    <RecentVideoCard key={video.videoId} video={video} />
-                  ))}
+            // Somar views de todos os vídeos
+            const totalViews = channelData.videos.reduce((sum, v) => sum + (v.viewCount || 0), 0);
+
+            return (
+              <div key={channelData.channel.channelId} className="space-y-4">
+                {/* Header do Canal */}
+                <div className="flex items-center gap-3">
+                  {channelData.channel.channelThumbnail && (
+                    <img
+                      src={channelData.channel.channelThumbnail}
+                      alt={channelData.channel.channelTitle}
+                      className="w-10 h-10 rounded-full"
+                    />
+                  )}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-xl font-bold">
+                        {channelData.channel.channelTitle}
+                      </h2>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => updateChannelVideos(channelData.channel.channelId, true)}
+                        disabled={isUpdating}
+                        className="h-7 px-2"
+                        title="Forçar atualização"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1">
+                      {channelData.channel.niche && (
+                        <span className="px-2 py-0.5 bg-muted rounded">{channelData.channel.niche}</span>
+                      )}
+                      <span>{new Intl.NumberFormat('pt-BR').format(channelData.channel.currentSubscribers)} inscritos</span>
+                      {channelData.videos.length > 0 && (
+                        <span className="flex items-center gap-1 text-primary">
+                          <TrendingUp className="w-3 h-3" />
+                          {formatNumber(totalViews)} views totais
+                        </span>
+                      )}
+                      {getUpdateTimeText() && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {getUpdateTimeText()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {/* Loading State */}
+                {channelData.isLoading ? (
+                  <Card>
+                    <CardContent className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                      <span className="ml-2 text-muted-foreground">
+                        Carregando vídeos...
+                      </span>
+                    </CardContent>
+                  </Card>
+                ) : channelData.error ? (
+                  <Card>
+                    <CardContent className="py-4">
+                      <p className="text-sm text-destructive">
+                        ❌ Erro: {channelData.error}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : channelData.videos.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-4">
+                      <p className="text-sm text-muted-foreground">
+                        Este canal não possui vídeos recentes.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  /* Grid de Vídeos */
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {channelData.videos.map((video) => (
+                      <RecentVideoCard key={video.videoId} video={video} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
