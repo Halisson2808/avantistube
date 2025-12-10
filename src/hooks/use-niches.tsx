@@ -21,8 +21,9 @@ export const useNiches = () => {
 
       monitoredChannels?.forEach((channel) => {
         if (channel.niche && channel.niche.trim()) {
-          // Normalizar o nicho (primeira letra maiúscula, resto minúsculo, sem espaços extras)
-          const normalizedNiche = channel.niche.trim();
+          // Normalizar o nicho: primeira letra maiúscula, resto minúsculo
+          const trimmed = channel.niche.trim();
+          const normalizedNiche = trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
           allNiches.add(normalizedNiche);
         }
       });

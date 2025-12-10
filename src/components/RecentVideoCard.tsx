@@ -1,7 +1,6 @@
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Clock } from "lucide-react";
-import { formatNumber, calculateTimeAgo } from "@/lib/youtube-api";
+import { formatNumber } from "@/lib/youtube-api";
 import { RecentVideo } from "@/hooks/use-recent-videos";
 
 interface RecentVideoCardProps {
@@ -19,44 +18,40 @@ export const RecentVideoCard = ({ video, onVideoClick }: RecentVideoCardProps) =
   };
 
   return (
-    <Card 
-      className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group"
+    <div 
+      className="group cursor-pointer"
       onClick={handleClick}
     >
-      <div className="flex gap-4 p-4">
-        {/* Thumbnail */}
-        <div className="relative flex-shrink-0">
-          <img
-            src={video.thumbnailUrl}
-            alt={video.title}
-            className="w-32 h-20 object-cover rounded-md group-hover:opacity-80 transition-opacity"
-          />
-          {video.isViral && (
-            <Badge className="absolute top-1 right-1 bg-orange-500 hover:bg-orange-600">
-              🔥 VIRAL
-            </Badge>
-          )}
-        </div>
+      {/* Thumbnail */}
+      <div className="relative mb-2">
+        <img
+          src={video.thumbnailUrl}
+          alt={video.title}
+          className="w-full aspect-video object-cover rounded-lg group-hover:opacity-80 transition-opacity"
+        />
+        {video.isViral && (
+          <Badge className="absolute top-2 right-2 bg-orange-500 hover:bg-orange-600">
+            🔥 VIRAL
+          </Badge>
+        )}
+      </div>
 
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors mb-2">
-            {video.title}
-          </h3>
-          
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Eye className="w-3 h-3" />
-              <span>{formatNumber(video.viewCount)} views</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              <span>{video.timeAgo}</span>
-            </div>
-          </div>
+      {/* Title */}
+      <h3 className="font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors mb-1">
+        {video.title}
+      </h3>
+      
+      {/* Views and Time */}
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1">
+          <Eye className="w-3 h-3" />
+          <span>{formatNumber(video.viewCount)} views</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Clock className="w-3 h-3" />
+          <span>{video.timeAgo}</span>
         </div>
       </div>
-    </Card>
+    </div>
   );
 };
-
