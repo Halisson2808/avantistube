@@ -26,6 +26,7 @@ export interface FilterOptions {
   category: string;
   contentType?: string;
   sortBy?: string;
+  datePeriod?: 'all' | '7days' | '30days';
 }
 
 export interface UpdateProgress {
@@ -47,6 +48,7 @@ export const useRecentVideos = () => {
     category: 'Todos',
     contentType: 'Todos',
     sortBy: 'name',
+    datePeriod: 'all',
   });
   const [updateProgress, setUpdateProgress] = useState<UpdateProgress>({
     current: 0,
@@ -453,9 +455,19 @@ export const useRecentVideos = () => {
     // Ordenação
     filtered.sort((a, b) => {
       if (filters.sortBy === 'totalViews') {
-        // Somar views de todos os vídeos do canal
-        const totalViewsA = a.videos.reduce((sum, v) => sum + (v.viewCount || 0), 0);
-        const totalViewsB = b.videos.reduce((sum, v) => sum + (v.viewCount || 0), 0);
+        // Somar views dos vídeos filtrados por período
+        const datePeriod = filters.datePeriod || 'all';
+        
+        const filterByPeriod = (videos: RecentVideo[]) => {
+          if (datePeriod === 'all') return videos;
+          const now = new Date();
+          const cutoffDays = datePeriod === '7days' ? 7 : 30;
+          const cutoffDate = new Date(now.getTime() - cutoffDays * 24 * 60 * 60 * 1000);
+          return videos.filter(video => new Date(video.publishedAt) >= cutoffDate);
+        };
+        
+        const totalViewsA = filterByPeriod(a.videos).reduce((sum, v) => sum + (v.viewCount || 0), 0);
+        const totalViewsB = filterByPeriod(b.videos).reduce((sum, v) => sum + (v.viewCount || 0), 0);
         return totalViewsB - totalViewsA; // Maior primeiro
       }
       return a.channel.channelTitle.localeCompare(b.channel.channelTitle);
@@ -496,8 +508,29 @@ export const useRecentVideos = () => {
       category: 'Todos',
       contentType: 'Todos',
       sortBy: 'name',
+      datePeriod: 'all',
     });
   }, []);
+
+  // Função para filtrar vídeos por período
+  const filterVideosByDatePeriod = useCallback((videos: RecentVideo[], datePeriod: 'all' | '7days' | '30days'): RecentVideo[] => {
+    if (datePeriod === 'all') return videos;
+    
+    const now = new Date();
+    const cutoffDays = datePeriod === '7days' ? 7 : 30;
+    const cutoffDate = new Date(now.getTime() - cutoffDays * 24 * 60 * 60 * 1000);
+    
+    return videos.filter(video => {
+      const publishedDate = new Date(video.publishedAt);
+      return publishedDate >= cutoffDate;
+    });
+  }, []);
+
+  // Calcular views totais filtradas por período
+  const getTotalViewsForPeriod = useCallback((videos: RecentVideo[], datePeriod: 'all' | '7days' | '30days'): number => {
+    const filteredVideos = filterVideosByDatePeriod(videos, datePeriod);
+    return filteredVideos.reduce((sum, v) => sum + (v.viewCount || 0), 0);
+  }, [filterVideosByDatePeriod]);
 
   return {
     channels,
@@ -518,5 +551,7 @@ export const useRecentVideos = () => {
     clearFilters,
     getVideosByChannel,
     loadVideosFromCache,
+    filterVideosByDatePeriod,
+    getTotalViewsForPeriod,
   };
 };
