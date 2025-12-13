@@ -7,12 +7,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Calendar } from "lucide-react";
 import { useRecentVideos } from "@/hooks/use-recent-videos";
 import { RecentVideoCard } from "@/components/RecentVideoCard";
 import { toast } from "sonner";
 import { useMonitoredChannels } from "@/hooks/use-monitored-channels";
+import { useNiches } from "@/hooks/use-niches";
 import { formatNumber } from "@/lib/youtube-api";
+import { supabase } from "@/integrations/supabase/client";
 
 const RecentVideos = () => {
   const {
@@ -29,12 +33,24 @@ const RecentVideos = () => {
     clearFilters,
     getVideosByChannel,
     loadVideosFromCache,
+    filterVideosByDatePeriod,
+    getTotalViewsForPeriod,
   } = useRecentVideos();
 
   const { channels: monitoredChannels } = useMonitoredChannels();
+  const { niches } = useNiches();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [selectedNiches, setSelectedNiches] = useState<string[]>([]);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  
+  // Dialog de adicionar canal
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [channelUrl, setChannelUrl] = useState("");
+  const [selectedNiche, setSelectedNiche] = useState("");
+  const [customNiche, setCustomNiche] = useState("");
+  const [newNotes, setNewNotes] = useState("");
+  const [contentType, setContentType] = useState<"longform" | "shorts">("longform");
+  const [isAddingChannel, setIsAddingChannel] = useState(false);
 
   // Carregar do cache na inicialização
   useEffect(() => {
@@ -85,6 +101,60 @@ const RecentVideos = () => {
     0
   );
 
+  const handleAddChannel = async () => {
+    if (!channelUrl.trim()) {
+      toast.error("Digite a URL do canal");
+      return;
+    }
+
+    setIsAddingChannel(true);
+    try {
+      const finalNiche = selectedNiche === "__new__" ? customNiche : selectedNiche;
+      
+      const { data, error } = await supabase.functions.invoke('add-channel', {
+        body: {
+          channelInput: channelUrl,
+          niche: finalNiche,
+          notes: newNotes,
+          contentType: contentType,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data.error) {
+        if (data.error.includes("already being monitored")) {
+          toast.info("Este canal já está sendo monitorado");
+          setIsAddDialogOpen(false);
+          resetAddForm();
+          return;
+        }
+        throw new Error(data.error);
+      }
+
+      toast.success("Canal adicionado com sucesso!");
+      setIsAddDialogOpen(false);
+      resetAddForm();
+      window.location.reload();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao adicionar canal";
+      toast.error(errorMessage);
+      console.error(error);
+    } finally {
+      setIsAddingChannel(false);
+    }
+  };
+
+  const resetAddForm = () => {
+    setChannelUrl("");
+    setSelectedNiche("");
+    setCustomNiche("");
+    setNewNotes("");
+    setContentType("longform");
+  };
+
   const videosByChannel = getVideosByChannel();
 
   return (
@@ -104,6 +174,93 @@ const RecentVideos = () => {
         </div>
 
         <div className="flex gap-2 w-full sm:w-auto">
+          {/* Botão Adicionar Canal */}
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="flex-1 sm:flex-auto">
+                <Plus className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Adicionar Canal</span>
+                <span className="sm:hidden">Adicionar</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Adicionar Canal ao Monitoramento</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>URL ou ID do Canal</Label>
+                  <Input
+                    value={channelUrl}
+                    onChange={(e) => setChannelUrl(e.target.value)}
+                    placeholder="UCxxxx, youtube.com/channel/UCxxxx ou youtube.com/@username"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Formatos aceitos: ID do canal, URL completa ou username (@)
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo de Conteúdo *</Label>
+                  <Select value={contentType} onValueChange={(value: "longform" | "shorts") => setContentType(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="longform">Vídeos Longos</SelectItem>
+                      <SelectItem value="shorts">Shorts</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Nicho (opcional)</Label>
+                  <Select value={selectedNiche} onValueChange={setSelectedNiche}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione ou crie um nicho" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {niches.map((niche) => (
+                        <SelectItem key={niche} value={niche}>
+                          {niche}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__new__">➕ Novo Nicho</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {selectedNiche === "__new__" && (
+                    <Input
+                      value={customNiche}
+                      onChange={(e) => setCustomNiche(e.target.value)}
+                      placeholder="Digite o nome do novo nicho"
+                    />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Notas (opcional)</Label>
+                  <Textarea
+                    value={newNotes}
+                    onChange={(e) => setNewNotes(e.target.value)}
+                    placeholder="Adicione notas sobre este canal..."
+                  />
+                </div>
+                <Button
+                  onClick={handleAddChannel}
+                  disabled={isAddingChannel}
+                  className="w-full gradient-primary"
+                >
+                  {isAddingChannel ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Adicionando...
+                    </>
+                  ) : (
+                    "Adicionar Canal"
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Botão Atualizar */}
           <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -196,41 +353,41 @@ const RecentVideos = () => {
 
       {/* Lista de Canais Monitorados */}
       <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>Canais Monitorados ({channels.length})</CardTitle>
+        <CardHeader className="py-3">
+          <CardTitle className="text-base">Canais Monitorados ({channels.length})</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           {channels.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">
-              Nenhum canal monitorado. Adicione canais na página "Canais Monitorados" primeiro.
+            <p className="text-muted-foreground text-center py-4 text-sm">
+              Nenhum canal monitorado. Adicione canais usando o botão acima.
             </p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-[400px] overflow-y-auto">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[200px] overflow-y-auto">
               {channels.map((channel) => (
                 <div
                   key={channel.id}
-                  className="flex items-center gap-3 p-3 rounded-md border border-border hover:bg-muted/50 transition-colors"
+                  className="flex items-center gap-2 p-2 rounded-md border border-border hover:bg-muted/50 transition-colors"
                 >
                   {channel.channelThumbnail && (
                     <img
                       src={channel.channelThumbnail}
                       alt={channel.channelTitle}
-                      className="w-10 h-10 rounded-full flex-shrink-0"
+                      className="w-7 h-7 rounded-full flex-shrink-0"
                     />
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
+                    <p className="text-xs font-medium truncate">
                       {channel.channelTitle}
                     </p>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-1 mt-0.5">
                       {channel.niche && (
-                        <span className="text-xs px-2 py-0.5 bg-muted rounded">
+                        <span className="text-[10px] px-1.5 py-0 bg-muted rounded truncate max-w-[60px]">
                           {channel.niche}
                         </span>
                       )}
                       {channel.contentType && (
-                        <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded">
-                          {channel.contentType === 'longform' ? 'LongForm' : 'Shorts'}
+                        <span className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary rounded">
+                          {channel.contentType === 'longform' ? 'Long' : 'Shorts'}
                         </span>
                       )}
                     </div>
@@ -262,7 +419,7 @@ const RecentVideos = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Busca */}
             <div className="space-y-2">
               <Label className="text-xs">Buscar Canal</Label>
@@ -308,6 +465,27 @@ const RecentVideos = () => {
                   <SelectItem value="Todos">Todos</SelectItem>
                   <SelectItem value="longform">LongForm</SelectItem>
                   <SelectItem value="shorts">Shorts</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Período (Data) */}
+            <div className="space-y-2">
+              <Label className="text-xs flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                Período
+              </Label>
+              <Select
+                value={filters.datePeriod || 'all'}
+                onValueChange={(value: 'all' | '7days' | '30days') => setFilters({ ...filters, datePeriod: value })}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todo o tempo</SelectItem>
+                  <SelectItem value="7days">Últimos 7 dias</SelectItem>
+                  <SelectItem value="30days">Últimos 30 dias</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -374,8 +552,13 @@ const RecentVideos = () => {
               return `Atualizado há ${diffMinutes} minuto${diffMinutes !== 1 ? 's' : ''}`;
             };
 
-            // Somar views de todos os vídeos
-            const totalViews = channelData.videos.reduce((sum, v) => sum + (v.viewCount || 0), 0);
+            // Somar views dos vídeos filtrados pelo período
+            const totalViews = getTotalViewsForPeriod(channelData.videos, filters.datePeriod || 'all');
+            const filteredVideos = filterVideosByDatePeriod(channelData.videos, filters.datePeriod || 'all');
+            
+            // Label do período para exibição
+            const periodLabel = filters.datePeriod === '7days' ? 'últimos 7 dias' : 
+                               filters.datePeriod === '30days' ? 'últimos 30 dias' : 'totais';
 
             return (
               <div key={channelData.channel.channelId} className="space-y-4">
@@ -409,10 +592,10 @@ const RecentVideos = () => {
                         <span className="px-2 py-0.5 bg-muted rounded">{channelData.channel.niche}</span>
                       )}
                       <span>{new Intl.NumberFormat('pt-BR').format(channelData.channel.currentSubscribers)} inscritos</span>
-                      {channelData.videos.length > 0 && (
+                      {filteredVideos.length > 0 && (
                         <span className="flex items-center gap-1 text-primary">
                           <TrendingUp className="w-3 h-3" />
-                          {formatNumber(totalViews)} views totais
+                          {formatNumber(totalViews)} views {periodLabel}
                         </span>
                       )}
                       {getUpdateTimeText() && (
