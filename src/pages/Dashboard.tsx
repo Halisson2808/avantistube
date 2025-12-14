@@ -96,7 +96,7 @@ const Dashboard = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {top3LongformByViews7Days.map((channel) => (
-                  <ChannelCard key={channel.id} channel={channel} metricsFilter="7days" />
+                  <ChannelCard key={channel.id} channel={channel} metricsFilter="7days" showEditButtons={false} />
                 ))}
               </div>
             </div>
@@ -113,7 +113,7 @@ const Dashboard = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {top3ShortsByViews7Days.map((channel) => (
-                  <ChannelCard key={channel.id} channel={channel} metricsFilter="7days" />
+                  <ChannelCard key={channel.id} channel={channel} metricsFilter="7days" showEditButtons={false} />
                 ))}
               </div>
             </div>

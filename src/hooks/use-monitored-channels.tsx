@@ -198,9 +198,16 @@ export const useMonitoredChannels = () => {
 
   const updateNiche = async (channelId: string, niche: string) => {
     try {
+      // Normalize niche: first letter uppercase, rest lowercase
+      let normalizedNiche = niche;
+      if (niche && niche.trim()) {
+        const trimmed = niche.trim();
+        normalizedNiche = trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+      }
+
       const { error } = await supabase
         .from('monitored_channels')
-        .update({ niche })
+        .update({ niche: normalizedNiche })
         .eq('channel_id', channelId);
 
       if (error) throw error;
