@@ -91,6 +91,13 @@ serve(async (req) => {
       );
     }
 
+    // Normalize niche: first letter uppercase, rest lowercase
+    let normalizedNiche = null;
+    if (niche && niche.trim()) {
+      const trimmed = niche.trim();
+      normalizedNiche = trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+    }
+
     // Insert channel into database
     const insertData: any = {
       user_id: user.id,
@@ -103,7 +110,7 @@ serve(async (req) => {
       view_count: channelDetails.viewCount,
       published_at: channelDetails.publishedAt,
       custom_url: channelDetails.customUrl,
-      niche: niche || null,
+      niche: normalizedNiche,
       notes: notes || null,
       content_type: contentType || 'longform',
     };

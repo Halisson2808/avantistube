@@ -23,9 +23,10 @@ interface ChannelCardProps {
   onUpdateNiche?: (channelId: string, niche: string) => void;
   onUpdateContentType?: (channelId: string, contentType: 'longform' | 'shorts') => void;
   metricsFilter?: "7days";
+  showEditButtons?: boolean;
 }
 
-export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, onUpdateNotes, onUpdateNiche, onUpdateContentType, metricsFilter = "7days" }: ChannelCardProps) => {
+export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, onUpdateNotes, onUpdateNiche, onUpdateContentType, metricsFilter = "7days", showEditButtons = true }: ChannelCardProps) => {
   const [showNotesDialog, setShowNotesDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
@@ -174,29 +175,33 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                 <BarChart3 className="w-3 h-3" />
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowNotesDialog(true)}
-              className="h-8 w-8"
-              title="Notas"
-            >
-              <StickyNote className="w-3 h-3" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => {
-                setEditedNiche(channel.niche || "");
-                setEditedContentType(channel.contentType || 'longform');
-                setCustomNiche("");
-                setShowEditDialog(true);
-              }}
-              className="h-8 w-8"
-              title="Editar"
-            >
-              <Pencil className="w-3 h-3" />
-            </Button>
+            {showEditButtons && (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowNotesDialog(true)}
+                  className="h-8 w-8"
+                  title="Notas"
+                >
+                  <StickyNote className="w-3 h-3" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    setEditedNiche(channel.niche || "");
+                    setEditedContentType(channel.contentType || 'longform');
+                    setCustomNiche("");
+                    setShowEditDialog(true);
+                  }}
+                  className="h-8 w-8"
+                  title="Editar"
+                >
+                  <Pencil className="w-3 h-3" />
+                </Button>
+              </>
+            )}
             {onUpdate && (
               <Button
                 variant="outline"
@@ -280,29 +285,33 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                   <BarChart3 className="w-3 h-3" />
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowNotesDialog(true)}
-                className="h-7 w-7"
-                title="Notas"
-              >
-                <StickyNote className="w-3 h-3" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  setEditedNiche(channel.niche || "");
-                  setEditedContentType(channel.contentType || 'longform');
-                  setCustomNiche("");
-                  setShowEditDialog(true);
-                }}
-                className="h-7 w-7"
-                title="Editar"
-              >
-                <Pencil className="w-3 h-3" />
-              </Button>
+              {showEditButtons && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowNotesDialog(true)}
+                    className="h-7 w-7"
+                    title="Notas"
+                  >
+                    <StickyNote className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      setEditedNiche(channel.niche || "");
+                      setEditedContentType(channel.contentType || 'longform');
+                      setCustomNiche("");
+                      setShowEditDialog(true);
+                    }}
+                    className="h-7 w-7"
+                    title="Editar"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </Button>
+                </>
+              )}
             </div>
           </div>
           

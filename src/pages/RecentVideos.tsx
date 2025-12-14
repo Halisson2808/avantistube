@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Calendar } from "lucide-react";
+import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Calendar, Tag, Download } from "lucide-react";
 import { useRecentVideos } from "@/hooks/use-recent-videos";
 import { RecentVideoCard } from "@/components/RecentVideoCard";
 import { toast } from "sonner";
@@ -38,7 +38,7 @@ const RecentVideos = () => {
   } = useRecentVideos();
 
   const { channels: monitoredChannels } = useMonitoredChannels();
-  const { niches } = useNiches();
+  const { niches, renameNiche } = useNiches();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [selectedNiches, setSelectedNiches] = useState<string[]>([]);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
@@ -52,6 +52,10 @@ const RecentVideos = () => {
   const [contentType, setContentType] = useState<"longform" | "shorts">("longform");
   const [isAddingChannel, setIsAddingChannel] = useState(false);
 
+  // Dialog de gerenciar nichos
+  const [isManageNichesOpen, setIsManageNichesOpen] = useState(false);
+  const [editingNiche, setEditingNiche] = useState<{ old: string; new: string } | null>(null);
+
   // Carregar do cache na inicialização
   useEffect(() => {
     if (isInitialLoad && channels.length > 0) {
@@ -60,16 +64,72 @@ const RecentVideos = () => {
     }
   }, [isInitialLoad, channels.length, loadVideosFromCache]);
 
-  // Obter categorias únicas (niches)
+  // Obter categorias únicas (niches) - sincronizado com useNiches que vem do banco
   const categories = useMemo(() => {
-    const niches = new Set<string>();
-    monitoredChannels.forEach(ch => {
-      if (ch.niche) niches.add(ch.niche);
-    });
-    return ['Todos', ...Array.from(niches).sort()];
-  }, [monitoredChannels]);
+    return ['Todos', ...niches];
+  }, [niches]);
 
   const availableNiches = getAvailableNiches();
+
+  // Exportar CSV dos vídeos recentes
+  const exportToCSV = () => {
+    const allVideos = videosByChannel.flatMap(cd => 
+      cd.videos.map(v => ({
+        ...v,
+        channelNiche: cd.channel.niche,
+        channelContentType: cd.channel.contentType,
+      }))
+    );
+
+    const csv = [
+      ["Canal", "Nicho", "Tipo", "Título do Vídeo", "Views", "Likes", "Comentários", "Publicado Em", "URL do Vídeo"].join(","),
+      ...allVideos.map(v => [
+        `"${v.channelName.replace(/"/g, '""')}"`,
+        `"${(v.channelNiche || "").replace(/"/g, '""')}"`,
+        v.channelContentType === "shorts" ? "Shorts" : "Longos",
+        `"${v.title.replace(/"/g, '""')}"`,
+        v.viewCount || 0,
+        v.likeCount || 0,
+        v.commentCount || 0,
+        v.publishedAt ? new Date(v.publishedAt).toLocaleDateString("pt-BR") : "",
+        `"https://youtube.com/watch?v=${v.videoId}"`
+      ].join(","))
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `videos-recentes-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    toast.success("CSV exportado com sucesso!");
+  };
+
+  // Renomear nicho
+  const handleRenameNiche = async (oldNiche: string, newNiche: string) => {
+    if (!newNiche.trim()) {
+      toast.error("Digite um nome válido");
+      return;
+    }
+    if (oldNiche === newNiche) {
+      toast.error("O nome não foi alterado");
+      return;
+    }
+
+    try {
+      const success = await renameNiche(oldNiche, newNiche);
+      if (success) {
+        toast.success(`Nicho "${oldNiche}" renomeado para "${newNiche}"`);
+        setEditingNiche(null);
+        window.location.reload();
+      } else {
+        toast.error("Erro ao renomear nicho");
+      }
+    } catch (error) {
+      console.error('Erro ao renomear nicho:', error);
+      toast.error("Erro ao renomear nicho");
+    }
+  };
 
   const handleNicheToggle = (niche: string) => {
     setSelectedNiches(prev => 
@@ -173,11 +233,87 @@ const RecentVideos = () => {
           </p>
         </div>
 
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+          {/* Botão Gerenciar Nichos */}
+          <Dialog open={isManageNichesOpen} onOpenChange={setIsManageNichesOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="flex-1 sm:flex-auto text-xs sm:text-sm">
+                <Tag className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Gerenciar Nichos</span>
+                <span className="sm:hidden">Nichos</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Gerenciar Nichos</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                {niches.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Nenhum nicho cadastrado ainda.
+                  </p>
+                ) : (
+                  niches.map((niche) => (
+                    <div key={niche} className="flex items-center gap-2">
+                      {editingNiche?.old === niche ? (
+                        <>
+                          <Input
+                            value={editingNiche.new}
+                            onChange={(e) => setEditingNiche({ old: niche, new: e.target.value })}
+                            className="flex-1"
+                            placeholder="Novo nome do nicho"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => handleRenameNiche(editingNiche.old, editingNiche.new)}
+                          >
+                            Salvar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingNiche(null)}
+                          >
+                            Cancelar
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex-1 px-3 py-2 rounded-md bg-muted text-sm">
+                            {niche}
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingNiche({ old: niche, new: niche })}
+                          >
+                            Renomear
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Botão Exportar CSV */}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={exportToCSV}
+            className="flex-1 sm:flex-auto text-xs sm:text-sm"
+          >
+            <Download className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Exportar CSV</span>
+            <span className="sm:hidden">CSV</span>
+          </Button>
+
           {/* Botão Adicionar Canal */}
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="flex-1 sm:flex-auto">
+              <Button variant="outline" size="sm" className="flex-1 sm:flex-auto text-xs sm:text-sm">
                 <Plus className="w-4 h-4 sm:mr-2" />
                 <span className="hidden sm:inline">Adicionar Canal</span>
                 <span className="sm:hidden">Adicionar</span>
@@ -369,16 +505,30 @@ const RecentVideos = () => {
                   className="flex items-center gap-2 p-2 rounded-md border border-border hover:bg-muted/50 transition-colors"
                 >
                   {channel.channelThumbnail && (
-                    <img
-                      src={channel.channelThumbnail}
-                      alt={channel.channelTitle}
-                      className="w-7 h-7 rounded-full flex-shrink-0"
-                    />
+                    <a
+                      href={`https://youtube.com/channel/${channel.channelId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-shrink-0"
+                    >
+                      <img
+                        src={channel.channelThumbnail}
+                        alt={channel.channelTitle}
+                        className="w-7 h-7 rounded-full hover:ring-2 hover:ring-primary transition-all cursor-pointer"
+                      />
+                    </a>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate">
-                      {channel.channelTitle}
-                    </p>
+                    <a
+                      href={`https://youtube.com/channel/${channel.channelId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-primary transition-colors"
+                    >
+                      <p className="text-xs font-medium truncate">
+                        {channel.channelTitle}
+                      </p>
+                    </a>
                     <div className="flex items-center gap-1 mt-0.5">
                       {channel.niche && (
                         <span className="text-[10px] px-1.5 py-0 bg-muted rounded truncate max-w-[60px]">
@@ -471,10 +621,7 @@ const RecentVideos = () => {
 
             {/* Período (Data) */}
             <div className="space-y-2">
-              <Label className="text-xs flex items-center gap-1">
-                <Calendar className="w-3 h-3" />
-                Período
-              </Label>
+              <Label className="text-xs">Período</Label>
               <Select
                 value={filters.datePeriod || 'all'}
                 onValueChange={(value: 'all' | '7days' | '30days') => setFilters({ ...filters, datePeriod: value })}
@@ -565,17 +712,30 @@ const RecentVideos = () => {
                 {/* Header do Canal */}
                 <div className="flex items-center gap-3">
                   {channelData.channel.channelThumbnail && (
-                    <img
-                      src={channelData.channel.channelThumbnail}
-                      alt={channelData.channel.channelTitle}
-                      className="w-10 h-10 rounded-full"
-                    />
+                    <a
+                      href={`https://youtube.com/channel/${channelData.channel.channelId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <img
+                        src={channelData.channel.channelThumbnail}
+                        alt={channelData.channel.channelTitle}
+                        className="w-10 h-10 rounded-full hover:ring-2 hover:ring-primary transition-all cursor-pointer"
+                      />
+                    </a>
                   )}
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
-                      <h2 className="text-xl font-bold">
-                        {channelData.channel.channelTitle}
-                      </h2>
+                      <a
+                        href={`https://youtube.com/channel/${channelData.channel.channelId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-primary transition-colors"
+                      >
+                        <h2 className="text-xl font-bold">
+                          {channelData.channel.channelTitle}
+                        </h2>
+                      </a>
                       <Button
                         variant="ghost"
                         size="sm"
