@@ -1,7 +1,11 @@
-import { Home, Search, TrendingUp, Youtube, Lock, Clock } from "lucide-react";
+import { useState } from "react";
+import { Home, Search, TrendingUp, Youtube, Lock, Clock, ChevronUp, ChevronDown, ExternalLink } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/logo.png";
+import { useMonitoredChannels } from "@/hooks/use-monitored-channels";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 import {
   Sidebar,
@@ -24,13 +28,19 @@ const items = [
   { title: "Vídeos Recentes", url: "/recent-videos", icon: Clock, locked: false },
 ];
 
+const INITIAL_VISIBLE_CHANNELS = 7;
+
 export function AppSidebar() {
   const location = useLocation();
   const currentPath = location.pathname;
-
+  const { channels } = useMonitoredChannels();
+  const [showAllChannels, setShowAllChannels] = useState(false);
+  
   const isActive = (path: string) => currentPath === path;
 
-  // Garantindo o modo offcanvas no mobile
+  const visibleChannels = showAllChannels ? channels : channels.slice(0, INITIAL_VISIBLE_CHANNELS);
+  const hasMoreChannels = channels.length > INITIAL_VISIBLE_CHANNELS;
+
   return (
     <Sidebar className="w-64 bg-card border-r border-border z-40" collapsible="offcanvas"> 
       <SidebarContent className="bg-card">
@@ -48,12 +58,11 @@ export function AppSidebar() {
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    {/* ENVOLVENDO TUDO EM UM FRAGMENTO (<>...</>) PARA GARANTIR UM ÚNICO FILHO */}
                     <NavLink
                       to={item.url}
                       end
                       className="hover:bg-muted/50 transition-smooth flex items-center justify-between"
-                      activeClassName="bg-accent/20 text-primary font-medium"
+                      activeClassName="sidebar-active font-medium"
                     >
                       <> 
                         <div className="flex items-center">
@@ -69,6 +78,89 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Lista de Canais Monitorados */}
+        {channels.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="flex items-center justify-between">
+              <span>Canais ({channels.length})</span>
+              {hasMoreChannels && (
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5"
+                    onClick={() => setShowAllChannels(!showAllChannels)}
+                    title={showAllChannels ? "Mostrar menos" : "Mostrar mais"}
+                  >
+                    {showAllChannels ? (
+                      <ChevronUp className="w-3 h-3" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3" />
+                    )}
+                  </Button>
+                </div>
+              )}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <ScrollArea className={showAllChannels ? "h-[300px]" : "h-auto"}>
+                <div className="space-y-1 pr-2">
+                  {visibleChannels.map((channel) => (
+                    <a
+                      key={channel.channelId}
+                      href={`https://youtube.com/channel/${channel.channelId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 transition-smooth group cursor-pointer"
+                    >
+                      {channel.channelThumbnail && (
+                        <img
+                          src={channel.channelThumbnail}
+                          alt={channel.channelTitle}
+                          className="w-6 h-6 rounded-full flex-shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate group-hover:text-foreground">
+                          {channel.channelTitle}
+                        </p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {channel.niche && (
+                            <span className="text-[9px] text-muted-foreground truncate max-w-[50px]">
+                              {channel.niche}
+                            </span>
+                          )}
+                          {channel.niche && channel.contentType && (
+                            <span className="text-[9px] text-muted-foreground">•</span>
+                          )}
+                          {channel.contentType && (
+                            <span className={`text-[9px] ${
+                              channel.contentType === 'shorts' ? 'text-purple-400' : 'text-blue-400'
+                            }`}>
+                              {channel.contentType === 'shorts' ? 'Shorts' : 'Long'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                    </a>
+                  ))}
+                </div>
+                {hasMoreChannels && !showAllChannels && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full mt-2 text-xs text-muted-foreground"
+                    onClick={() => setShowAllChannels(true)}
+                  >
+                    <ChevronDown className="w-3 h-3 mr-1" />
+                    Ver mais {channels.length - INITIAL_VISIBLE_CHANNELS} canais
+                  </Button>
+                )}
+              </ScrollArea>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   );
