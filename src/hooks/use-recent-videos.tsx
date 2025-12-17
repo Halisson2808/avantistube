@@ -409,18 +409,29 @@ export const useRecentVideos = () => {
     return results;
   }, [channels, needsUpdate, updateChannelVideos]);
 
-  // Obter todos os nichos disponíveis
+  // Obter todos os nichos disponíveis (normalizados)
   const getAvailableNiches = useCallback((): string[] => {
-    const niches = new Set<string>();
+    const nichesMap = new Map<string, string>(); // key: lowercase, value: normalized
     channels.forEach(ch => {
-      niches.add(ch.niche || 'Sem Nicho');
+      const originalNiche = ch.niche || 'Sem Nicho';
+      const normalizedKey = originalNiche.toLowerCase().trim();
+      
+      // Se ainda não existe, adiciona a versão normalizada (primeira letra maiúscula)
+      if (!nichesMap.has(normalizedKey)) {
+        const normalized = normalizedKey.charAt(0).toUpperCase() + normalizedKey.slice(1);
+        nichesMap.set(normalizedKey, normalized);
+      }
     });
-    return Array.from(niches).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return Array.from(nichesMap.values()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [channels]);
 
-  // Contar canais por nicho
+  // Contar canais por nicho (case-insensitive)
   const getChannelCountByNiche = useCallback((niche: string): number => {
-    return channels.filter(ch => (ch.niche || 'Sem Nicho') === niche).length;
+    const nicheNormalized = niche.toLowerCase().trim();
+    return channels.filter(ch => {
+      const channelNiche = (ch.niche || 'Sem Nicho').toLowerCase().trim();
+      return channelNiche === nicheNormalized;
+    }).length;
   }, [channels]);
 
   // Função de filtro
@@ -469,6 +480,10 @@ export const useRecentVideos = () => {
         const totalViewsA = filterByPeriod(a.videos).reduce((sum, v) => sum + (v.viewCount || 0), 0);
         const totalViewsB = filterByPeriod(b.videos).reduce((sum, v) => sum + (v.viewCount || 0), 0);
         return totalViewsB - totalViewsA; // Maior primeiro
+      }
+      if (filters.sortBy === 'recent') {
+        // Ordenar por data de adição (mais recente primeiro)
+        return new Date(b.channel.addedAt).getTime() - new Date(a.channel.addedAt).getTime();
       }
       return a.channel.channelTitle.localeCompare(b.channel.channelTitle);
     });

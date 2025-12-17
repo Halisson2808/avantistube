@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Calendar, Tag, Download } from "lucide-react";
+import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Tag, Download, StickyNote, Pencil, Trash2, BarChart3, Users, Eye, Video } from "lucide-react";
 import { useRecentVideos } from "@/hooks/use-recent-videos";
 import { RecentVideoCard } from "@/components/RecentVideoCard";
 import { toast } from "sonner";
@@ -17,6 +18,7 @@ import { useMonitoredChannels } from "@/hooks/use-monitored-channels";
 import { useNiches } from "@/hooks/use-niches";
 import { formatNumber } from "@/lib/youtube-api";
 import { supabase } from "@/integrations/supabase/client";
+import { ChannelGrowthChart } from "@/components/ChannelGrowthChart";
 
 const RecentVideos = () => {
   const {
@@ -37,7 +39,7 @@ const RecentVideos = () => {
     getTotalViewsForPeriod,
   } = useRecentVideos();
 
-  const { channels: monitoredChannels } = useMonitoredChannels();
+  const { channels: monitoredChannels, updateNotes, updateNiche, updateContentType, removeChannel, updateChannelStats } = useMonitoredChannels();
   const { niches, renameNiche } = useNiches();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [selectedNiches, setSelectedNiches] = useState<string[]>([]);
@@ -55,6 +57,13 @@ const RecentVideos = () => {
   // Dialog de gerenciar nichos
   const [isManageNichesOpen, setIsManageNichesOpen] = useState(false);
   const [editingNiche, setEditingNiche] = useState<{ old: string; new: string } | null>(null);
+
+  // Channel action states
+  const [showNotesDialog, setShowNotesDialog] = useState<{ channelId: string; notes: string } | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState<{ channelId: string; niche: string; contentType: 'longform' | 'shorts' } | null>(null);
+  const [showDeleteAlert, setShowDeleteAlert] = useState<string | null>(null);
+  const [showChartDialog, setShowChartDialog] = useState<{ channelId: string; channelTitle: string } | null>(null);
+  const [editedCustomNiche, setEditedCustomNiche] = useState("");
 
   // Carregar do cache na inicialização
   useEffect(() => {
@@ -650,6 +659,7 @@ const RecentVideos = () => {
                 <SelectContent>
                   <SelectItem value="name">Nome (A-Z)</SelectItem>
                   <SelectItem value="totalViews">Total de Views</SelectItem>
+                  <SelectItem value="recent">Recentes (Adição)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -710,12 +720,13 @@ const RecentVideos = () => {
             return (
               <div key={channelData.channel.channelId} className="space-y-4">
                 {/* Header do Canal */}
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   {channelData.channel.channelThumbnail && (
                     <a
                       href={`https://youtube.com/channel/${channelData.channel.channelId}`}
                       target="_blank"
                       rel="noopener noreferrer"
+                      className="flex-shrink-0"
                     >
                       <img
                         src={channelData.channel.channelThumbnail}
@@ -725,7 +736,7 @@ const RecentVideos = () => {
                     </a>
                   )}
                   <div className="flex-1">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <a
                         href={`https://youtube.com/channel/${channelData.channel.channelId}`}
                         target="_blank"
@@ -736,22 +747,84 @@ const RecentVideos = () => {
                           {channelData.channel.channelTitle}
                         </h2>
                       </a>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => updateChannelVideos(channelData.channel.channelId, true)}
-                        disabled={isUpdating}
-                        className="h-7 px-2"
-                        title="Forçar atualização"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                      </Button>
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => updateChannelVideos(channelData.channel.channelId, true)}
+                          disabled={isUpdating}
+                          className="h-7 px-2"
+                          title="Atualizar vídeos"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowNotesDialog({ 
+                            channelId: channelData.channel.channelId, 
+                            notes: channelData.channel.notes || '' 
+                          })}
+                          className="h-7 px-2"
+                          title="Notas"
+                        >
+                          <StickyNote className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowEditDialog({
+                            channelId: channelData.channel.channelId,
+                            niche: channelData.channel.niche || '',
+                            contentType: channelData.channel.contentType || 'longform'
+                          })}
+                          className="h-7 px-2"
+                          title="Editar nicho e formato"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowChartDialog({
+                            channelId: channelData.channel.channelId,
+                            channelTitle: channelData.channel.channelTitle
+                          })}
+                          className="h-7 px-2"
+                          title="Ver gráfico"
+                        >
+                          <BarChart3 className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowDeleteAlert(channelData.channel.channelId)}
+                          className="h-7 px-2 text-destructive hover:text-destructive"
+                          title="Remover"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1">
                       {channelData.channel.niche && (
                         <span className="px-2 py-0.5 bg-muted rounded">{channelData.channel.niche}</span>
                       )}
+                      {channelData.channel.contentType && (
+                        <span className={`px-2 py-0.5 rounded ${
+                          channelData.channel.contentType === 'shorts'
+                            ? 'bg-purple-500/10 text-purple-400'
+                            : 'bg-blue-500/10 text-blue-400'
+                        }`}>
+                          {channelData.channel.contentType === 'shorts' ? 'Shorts' : 'Longos'}
+                        </span>
+                      )}
                       <span>{new Intl.NumberFormat('pt-BR').format(channelData.channel.currentSubscribers)} inscritos</span>
+                      <span className="flex items-center gap-1">
+                        <Video className="w-3 h-3" />
+                        {new Intl.NumberFormat('pt-BR').format(channelData.channel.currentVideos)} vídeos
+                      </span>
                       {filteredVideos.length > 0 && (
                         <span className="flex items-center gap-1 text-primary">
                           <TrendingUp className="w-3 h-3" />
@@ -765,6 +838,60 @@ const RecentVideos = () => {
                         </span>
                       )}
                     </div>
+                  </div>
+                </div>
+
+                {/* 4 Quadros de Estatísticas */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {/* Inscritos Totais */}
+                  <div className="p-3 rounded-lg bg-card border border-border">
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <Users className="w-3 h-3" />
+                      <span>Inscritos</span>
+                    </div>
+                    <p className="text-lg font-bold">{formatNumber(channelData.channel.currentSubscribers)}</p>
+                  </div>
+                  {/* Views Totais */}
+                  <div className="p-3 rounded-lg bg-card border border-border">
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <Eye className="w-3 h-3" />
+                      <span>Views</span>
+                    </div>
+                    <p className="text-lg font-bold">{formatNumber(channelData.channel.currentViews)}</p>
+                  </div>
+                  {/* Inscritos 7 Dias */}
+                  <div className={`p-3 rounded-lg border ${
+                    (channelData.channel.subscribersLast7Days || 0) >= 0
+                      ? 'bg-green-500/10 border-green-500/30'
+                      : 'bg-red-500/10 border-red-500/30'
+                  }`}>
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <Users className="w-3 h-3" />
+                      <span>7 Dias</span>
+                    </div>
+                    <p className={`text-lg font-bold ${
+                      (channelData.channel.subscribersLast7Days || 0) >= 0 ? 'text-green-500' : 'text-red-500'
+                    }`}>
+                      {(channelData.channel.subscribersLast7Days || 0) >= 0 ? '+' : ''}
+                      {formatNumber(channelData.channel.subscribersLast7Days || 0)}
+                    </p>
+                  </div>
+                  {/* Views 7 Dias */}
+                  <div className={`p-3 rounded-lg border ${
+                    (channelData.channel.viewsLast7Days || 0) >= 0
+                      ? 'bg-green-500/10 border-green-500/30'
+                      : 'bg-red-500/10 border-red-500/30'
+                  }`}>
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <Eye className="w-3 h-3" />
+                      <span>7 Dias</span>
+                    </div>
+                    <p className={`text-lg font-bold ${
+                      (channelData.channel.viewsLast7Days || 0) >= 0 ? 'text-green-500' : 'text-red-500'
+                    }`}>
+                      {(channelData.channel.viewsLast7Days || 0) >= 0 ? '+' : ''}
+                      {formatNumber(channelData.channel.viewsLast7Days || 0)}
+                    </p>
                   </div>
                 </div>
 
@@ -806,6 +933,151 @@ const RecentVideos = () => {
             );
           })}
         </div>
+      )}
+
+      {/* Dialog de Notas */}
+      <Dialog open={!!showNotesDialog} onOpenChange={(open) => !open && setShowNotesDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Notas do Canal</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              value={showNotesDialog?.notes || ''}
+              onChange={(e) => setShowNotesDialog(prev => prev ? { ...prev, notes: e.target.value } : null)}
+              placeholder="Adicione notas sobre este canal..."
+              rows={5}
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowNotesDialog(null)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (showNotesDialog) {
+                    await updateNotes(showNotesDialog.channelId, showNotesDialog.notes);
+                    setShowNotesDialog(null);
+                  }
+                }}
+                className="gradient-primary"
+              >
+                Salvar
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Edição */}
+      <Dialog open={!!showEditDialog} onOpenChange={(open) => !open && setShowEditDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Canal</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nicho</Label>
+              <Select
+                value={showEditDialog?.niche || ''}
+                onValueChange={(value) => setShowEditDialog(prev => prev ? { ...prev, niche: value } : null)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um nicho" />
+                </SelectTrigger>
+                <SelectContent>
+                  {niches.map((niche) => (
+                    <SelectItem key={niche} value={niche}>
+                      {niche}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__new__">➕ Novo Nicho</SelectItem>
+                </SelectContent>
+              </Select>
+              {showEditDialog?.niche === "__new__" && (
+                <Input
+                  value={editedCustomNiche}
+                  onChange={(e) => setEditedCustomNiche(e.target.value)}
+                  placeholder="Digite o nome do novo nicho"
+                />
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de Conteúdo</Label>
+              <Select
+                value={showEditDialog?.contentType || 'longform'}
+                onValueChange={(value: 'longform' | 'shorts') => 
+                  setShowEditDialog(prev => prev ? { ...prev, contentType: value } : null)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="longform">Vídeos Longos</SelectItem>
+                  <SelectItem value="shorts">Shorts</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowEditDialog(null)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (showEditDialog) {
+                    const finalNiche = showEditDialog.niche === "__new__" ? editedCustomNiche : showEditDialog.niche;
+                    if (finalNiche && finalNiche.trim()) {
+                      await updateNiche(showEditDialog.channelId, finalNiche);
+                    }
+                    await updateContentType(showEditDialog.channelId, showEditDialog.contentType);
+                    setShowEditDialog(null);
+                    setEditedCustomNiche("");
+                  }
+                }}
+                className="gradient-primary"
+              >
+                Salvar
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Alert de Exclusão */}
+      <AlertDialog open={!!showDeleteAlert} onOpenChange={(open) => !open && setShowDeleteAlert(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover Canal</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover este canal do monitoramento? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (showDeleteAlert) {
+                  await removeChannel(showDeleteAlert);
+                  setShowDeleteAlert(null);
+                  window.location.reload();
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Gráfico de Crescimento */}
+      {showChartDialog && (
+        <ChannelGrowthChart
+          channelId={showChartDialog.channelId}
+          channelTitle={showChartDialog.channelTitle}
+          isOpen={!!showChartDialog}
+          onClose={() => setShowChartDialog(null)}
+        />
       )}
     </div>
   );
