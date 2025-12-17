@@ -496,68 +496,6 @@ const RecentVideos = () => {
         </Card>
       )}
 
-      {/* Lista de Canais Monitorados */}
-      <Card className="shadow-card">
-        <CardHeader className="py-3">
-          <CardTitle className="text-base">Canais Monitorados ({channels.length})</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          {channels.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4 text-sm">
-              Nenhum canal monitorado. Adicione canais usando o botão acima.
-            </p>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[200px] overflow-y-auto">
-              {channels.map((channel) => (
-                <div
-                  key={channel.id}
-                  className="flex items-center gap-2 p-2 rounded-md border border-border hover:bg-muted/50 transition-colors"
-                >
-                  {channel.channelThumbnail && (
-                    <a
-                      href={`https://youtube.com/channel/${channel.channelId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-shrink-0"
-                    >
-                      <img
-                        src={channel.channelThumbnail}
-                        alt={channel.channelTitle}
-                        className="w-7 h-7 rounded-full hover:ring-2 hover:ring-primary transition-all cursor-pointer"
-                      />
-                    </a>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <a
-                      href={`https://youtube.com/channel/${channel.channelId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-primary transition-colors"
-                    >
-                      <p className="text-xs font-medium truncate">
-                        {channel.channelTitle}
-                      </p>
-                    </a>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      {channel.niche && (
-                        <span className="text-[10px] px-1.5 py-0 bg-muted rounded truncate max-w-[60px]">
-                          {channel.niche}
-                        </span>
-                      )}
-                      {channel.contentType && (
-                        <span className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary rounded">
-                          {channel.contentType === 'longform' ? 'Long' : 'Shorts'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Sistema de Filtros */}
       <Card className="shadow-card">
         <CardHeader>
@@ -581,9 +519,9 @@ const RecentVideos = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Busca */}
             <div className="space-y-2">
-              <Label className="text-xs">Buscar Canal</Label>
+              <Label className="text-xs">Buscar Canal ou Nicho</Label>
               <Input
-                placeholder="🔍 Buscar canal por nome ou ID..."
+                placeholder="🔍 Buscar por nome, ID ou nicho..."
                 value={filters.search}
                 onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                 className="h-9"
@@ -659,7 +597,7 @@ const RecentVideos = () => {
                 <SelectContent>
                   <SelectItem value="name">Nome (A-Z)</SelectItem>
                   <SelectItem value="totalViews">Total de Views</SelectItem>
-                  <SelectItem value="recent">Recentes (Adição)</SelectItem>
+                  <SelectItem value="recent">Recém Adicionado</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -709,6 +647,17 @@ const RecentVideos = () => {
               return `Atualizado há ${diffMinutes} minuto${diffMinutes !== 1 ? 's' : ''}`;
             };
 
+            // Calcular dias desde adição
+            const getDaysSinceAdded = () => {
+              if (!channelData.channel.addedAt) return null;
+              const diffMs = new Date().getTime() - new Date(channelData.channel.addedAt).getTime();
+              const diffDays = Math.floor(diffMs / 86400000);
+              
+              if (diffDays === 0) return 'Adicionado hoje';
+              if (diffDays === 1) return 'Adicionado há 1 dia';
+              return `Adicionado há ${diffDays} dias`;
+            };
+
             // Somar views dos vídeos filtrados pelo período
             const totalViews = getTotalViewsForPeriod(channelData.videos, filters.datePeriod || 'all');
             const filteredVideos = filterVideosByDatePeriod(channelData.videos, filters.datePeriod || 'all');
@@ -716,6 +665,12 @@ const RecentVideos = () => {
             // Label do período para exibição
             const periodLabel = filters.datePeriod === '7days' ? 'últimos 7 dias' : 
                                filters.datePeriod === '30days' ? 'últimos 30 dias' : 'totais';
+
+            // Atualizar canal (vídeos + stats)
+            const handleUpdateChannel = async () => {
+              await updateChannelVideos(channelData.channel.channelId, true);
+              await updateChannelStats(channelData.channel.channelId);
+            };
 
             return (
               <div key={channelData.channel.channelId} className="space-y-4">
@@ -752,10 +707,10 @@ const RecentVideos = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => updateChannelVideos(channelData.channel.channelId, true)}
+                          onClick={handleUpdateChannel}
                           disabled={isUpdating}
                           className="h-7 px-2"
-                          title="Atualizar vídeos"
+                          title="Atualizar vídeos e stats"
                         >
                           <RefreshCw className="w-3 h-3" />
                         </Button>
@@ -835,6 +790,12 @@ const RecentVideos = () => {
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           {getUpdateTimeText()}
+                        </span>
+                      )}
+                      {getDaysSinceAdded() && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 bg-accent/20 rounded text-accent-foreground">
+                          <Plus className="w-3 h-3" />
+                          {getDaysSinceAdded()}
                         </span>
                       )}
                     </div>

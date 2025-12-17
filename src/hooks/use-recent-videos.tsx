@@ -47,7 +47,7 @@ export const useRecentVideos = () => {
     search: '',
     category: 'Todos',
     contentType: 'Todos',
-    sortBy: 'name',
+    sortBy: 'recent',
     datePeriod: 'all',
   });
   const [updateProgress, setUpdateProgress] = useState<UpdateProgress>({
@@ -440,12 +440,13 @@ export const useRecentVideos = () => {
   ): ChannelVideosData[] => {
     let filtered = [...data];
 
-    // 1. Busca por texto
+    // 1. Busca por texto (nome, ID ou nicho)
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter(data =>
         data.channel.channelTitle.toLowerCase().includes(searchLower) ||
-        data.channel.channelId.toLowerCase().includes(searchLower)
+        data.channel.channelId.toLowerCase().includes(searchLower) ||
+        (data.channel.niche && data.channel.niche.toLowerCase().includes(searchLower))
       );
     }
 
@@ -522,7 +523,7 @@ export const useRecentVideos = () => {
       search: '',
       category: 'Todos',
       contentType: 'Todos',
-      sortBy: 'name',
+      sortBy: 'recent',
       datePeriod: 'all',
     });
   }, []);
