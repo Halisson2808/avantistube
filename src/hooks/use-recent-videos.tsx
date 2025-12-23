@@ -11,6 +11,8 @@ export interface RecentVideo extends LatestVideo {
   timeAgo: string;
   isViral?: boolean;
   position?: number;
+  isDeleted?: boolean;
+  channelDeleted?: boolean;
 }
 
 export interface ChannelVideosData {
@@ -162,7 +164,8 @@ export const useRecentVideos = () => {
   const saveVideosToCache = useCallback(async (
     channelId: string,
     videos: LatestVideo[],
-    channel: ChannelMonitorData
+    channel: ChannelMonitorData,
+    channelDeleted: boolean = false
   ) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -170,13 +173,16 @@ export const useRecentVideos = () => {
 
       const now = new Date().toISOString();
 
-      // 1. Marcar vídeos antigos como inativos
-      await supabase
-        .from('video_snapshots')
-        .update({ is_active: false })
-        .eq('user_id', user.id)
-        .eq('channel_id', channelId)
-        .eq('is_active', true);
+      // Se o canal foi excluído, não deletar os vídeos antigos - mantê-los como referência
+      if (!channelDeleted) {
+        // 1. Marcar vídeos antigos como inativos
+        await supabase
+          .from('video_snapshots')
+          .update({ is_active: false })
+          .eq('user_id', user.id)
+          .eq('channel_id', channelId)
+          .eq('is_active', true);
+      }
 
       // 2. Calcular média de views para detecção de viral
       const averageViews = channel.currentViews / Math.max(channel.currentVideos, 1);
@@ -190,24 +196,24 @@ export const useRecentVideos = () => {
           Math.floor((new Date().getTime() - new Date(video.publishedAt).getTime()) / 86400000)
         );
         const viewsPerDay = video.viewCount / daysSincePublished;
-        const isViral = video.viewCount > 100000 || viewsPerDay > (averageViews * 3);
+        const isViral = !video.isDeleted && (video.viewCount > 100000 || viewsPerDay > (averageViews * 3));
 
         // Verificar se vídeo já existe
         const { data: existing } = await supabase
           .from('video_snapshots')
-          .select('id')
+          .select('id, thumbnail_url')
           .eq('user_id', user.id)
           .eq('channel_id', channelId)
           .eq('video_id', video.videoId)
           .single();
 
         if (existing) {
-          // Atualizar vídeo existente
+          // Atualizar vídeo existente - manter thumbnail se o novo estiver vazio (vídeo excluído)
           await supabase
             .from('video_snapshots')
             .update({
               title: video.title,
-              thumbnail_url: video.thumbnailUrl,
+              thumbnail_url: video.thumbnailUrl || existing.thumbnail_url, // Manter thumbnail antiga se nova estiver vazia
               view_count: video.viewCount,
               like_count: video.likeCount,
               comment_count: video.commentCount,
@@ -240,17 +246,19 @@ export const useRecentVideos = () => {
         }
       }
 
-      // 4. Limpar vídeos inativos com mais de 24h
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
+      // 4. Limpar vídeos inativos com mais de 24h (mas não se canal foi excluído)
+      if (!channelDeleted) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
 
-      await supabase
-        .from('video_snapshots')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('channel_id', channelId)
-        .eq('is_active', false)
-        .lt('fetched_at', yesterday.toISOString());
+        await supabase
+          .from('video_snapshots')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('channel_id', channelId)
+          .eq('is_active', false)
+          .lt('fetched_at', yesterday.toISOString());
+      }
 
       // 5. Atualizar last_updated do canal
       await supabase
@@ -284,12 +292,12 @@ export const useRecentVideos = () => {
     if (!channel) return;
 
     try {
-      const results = await getLatestChannelVideos([channelId], 5);
+      const results = await getLatestChannelVideos([channelId], 10);
       const result = results[0];
 
       if (result.success && result.videos) {
-        // Salvar no cache
-        await saveVideosToCache(channelId, result.videos, channel);
+        // Salvar no cache (passa flag de canal excluído)
+        await saveVideosToCache(channelId, result.videos, channel, result.channelDeleted);
 
         // Calcular vídeos com dados completos
         const averageViews = channel.currentViews / Math.max(channel.currentVideos, 1);
@@ -300,7 +308,7 @@ export const useRecentVideos = () => {
             Math.floor((new Date().getTime() - new Date(video.publishedAt).getTime()) / 86400000)
           );
           const viewsPerDay = video.viewCount / daysSincePublished;
-          const isViral = video.viewCount > 100000 || viewsPerDay > (averageViews * 3);
+          const isViral = !video.isDeleted && (video.viewCount > 100000 || viewsPerDay > (averageViews * 3));
 
           return {
             ...video,
@@ -310,6 +318,8 @@ export const useRecentVideos = () => {
             timeAgo,
             isViral,
             position: index + 1,
+            isDeleted: video.isDeleted,
+            channelDeleted: result.channelDeleted,
           };
         });
 

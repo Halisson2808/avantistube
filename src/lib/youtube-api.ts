@@ -70,6 +70,7 @@ export interface LatestVideo {
   viewCount: number;
   likeCount: number;
   commentCount: number;
+  isDeleted?: boolean;
 }
 
 export interface ChannelLatestVideosResult {
@@ -78,11 +79,12 @@ export interface ChannelLatestVideosResult {
   success: boolean;
   fetchedAt?: string;
   error?: string;
+  channelDeleted?: boolean;
 }
 
 export const getLatestChannelVideos = async (
   channelIds: string[],
-  maxResults: number = 5,
+  maxResults: number = 10,
 ): Promise<ChannelLatestVideosResult[]> => {
   return invokeYouTubeFunction("latestVideos", { channelIds, maxResults });
 };
