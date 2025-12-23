@@ -411,9 +411,15 @@ export const useRecentVideos = () => {
     progressCallback?: (progress: UpdateProgress) => void,
     forceUpdate: boolean = true,
   ) => {
-    // Filtrar canais pelos nichos selecionados
+    // Normalizar nichos selecionados para comparação case-insensitive
+    const normalizedSelectedNiches = selectedNiches.map(n => n.toLowerCase().trim());
+    
+    // Filtrar canais pelos nichos selecionados (case-insensitive)
     const channelsToUpdate = channels
-      .filter((ch) => selectedNiches.includes(ch.niche || "Sem Nicho"))
+      .filter((ch) => {
+        const channelNiche = (ch.niche || "Sem Nicho").toLowerCase().trim();
+        return normalizedSelectedNiches.includes(channelNiche);
+      })
       .map((ch) => ch.channelId);
 
     if (channelsToUpdate.length === 0) {
