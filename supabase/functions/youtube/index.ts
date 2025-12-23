@@ -235,23 +235,16 @@ const getLatestChannelVideos = async (
     return acc;
   }, {} as Record<string, any>);
 
-  // 4. Processar todos os vídeos (incluindo excluídos)
+  // 4. Processar vídeos normalmente (sem marcar excluídos)
   const allVideos = playlistData.items
     .filter((item: any) => item.contentDetails?.videoId)
     .map((item: any) => {
       const videoId = item.contentDetails.videoId;
       const stats = videoStats[videoId];
-      const title = item.snippet?.title || '';
-      
-      // Verificar se o vídeo foi excluído ou é privado
-      const isDeleted = !stats || 
-        title === "Private video" || 
-        title === "Deleted video" ||
-        (stats?.status?.privacyStatus && stats.status.privacyStatus !== 'public');
 
       return {
         videoId,
-        title: isDeleted ? `[EXCLUÍDO] ${title !== "Private video" && title !== "Deleted video" ? title : "Vídeo removido"}` : title,
+        title: item.snippet?.title || '',
         thumbnailUrl:
           item.snippet.thumbnails?.maxres?.url ||
           item.snippet.thumbnails?.high?.url ||
@@ -262,12 +255,10 @@ const getLatestChannelVideos = async (
         viewCount: stats?.statistics?.viewCount ? parseInt(stats.statistics.viewCount) : 0,
         likeCount: stats?.statistics?.likeCount ? parseInt(stats.statistics.likeCount) : 0,
         commentCount: stats?.statistics?.commentCount ? parseInt(stats.statistics.commentCount) : 0,
-        isDeleted,
       };
     });
 
-  const deletedCount = allVideos.filter((v: any) => v.isDeleted).length;
-  console.log(`[${channelId}] Returning ${allVideos.length} videos (${deletedCount} deleted)`);
+  console.log(`[${channelId}] Returning ${allVideos.length} videos`);
 
   return { channelDeleted: false, videos: allVideos };
 };

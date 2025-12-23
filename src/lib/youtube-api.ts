@@ -84,7 +84,7 @@ export interface ChannelLatestVideosResult {
 
 export const getLatestChannelVideos = async (
   channelIds: string[],
-  maxResults: number = 10,
+  maxResults: number = 5,
 ): Promise<ChannelLatestVideosResult[]> => {
   return invokeYouTubeFunction("latestVideos", { channelIds, maxResults });
 };

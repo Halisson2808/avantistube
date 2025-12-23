@@ -165,7 +165,8 @@ const RecentVideos = () => {
       return;
     }
     setIsPopoverOpen(false);
-    await updateChannelsByNiches(selectedNiches);
+    // Força atualização (ignora cache) quando usuário clica em Atualizar
+    await updateChannelsByNiches(selectedNiches, undefined, true);
   };
 
   const totalSelectedChannels = selectedNiches.reduce(
