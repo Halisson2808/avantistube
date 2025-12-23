@@ -9,9 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import Dashboard from "./pages/Dashboard";
 import Search from "./pages/Search";
-import MonitoredChannels from "./pages/MonitoredChannels";
 import MyChannels from "./pages/MyChannels";
-import RecentVideos from "./pages/RecentVideos";
+import Monitoramento from "./pages/Monitoramento";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { Menu, Youtube } from "lucide-react"; 
@@ -85,9 +84,11 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/" element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
           <Route path="/search" element={<ProtectedLayout><Search /></ProtectedLayout>} />
-          <Route path="/monitored" element={<ProtectedLayout><MonitoredChannels /></ProtectedLayout>} />
           <Route path="/my-channels" element={<ProtectedLayout><MyChannels /></ProtectedLayout>} />
-          <Route path="/recent-videos" element={<ProtectedLayout><RecentVideos /></ProtectedLayout>} />
+          <Route path="/monitoramento" element={<ProtectedLayout><Monitoramento /></ProtectedLayout>} />
+          {/* Redirect old routes */}
+          <Route path="/monitored" element={<Navigate to="/monitoramento" replace />} />
+          <Route path="/recent-videos" element={<Navigate to="/monitoramento" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
