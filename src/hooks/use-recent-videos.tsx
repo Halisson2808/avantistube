@@ -292,7 +292,7 @@ export const useRecentVideos = () => {
     if (!channel) return;
 
     try {
-      const results = await getLatestChannelVideos([channelId], 10);
+      const results = await getLatestChannelVideos([channelId], 5);
       const result = results[0];
 
       if (result.success && result.videos) {
@@ -408,21 +408,22 @@ export const useRecentVideos = () => {
   // Atualizar canais por nichos selecionados
   const updateChannelsByNiches = useCallback(async (
     selectedNiches: string[],
-    progressCallback?: (progress: UpdateProgress) => void
+    progressCallback?: (progress: UpdateProgress) => void,
+    forceUpdate: boolean = true,
   ) => {
     // Filtrar canais pelos nichos selecionados
-    const channelsToUpdate = channels.filter(ch => 
-      selectedNiches.includes(ch.niche || 'Sem Nicho')
-    ).map(ch => ch.channelId);
-    
+    const channelsToUpdate = channels
+      .filter((ch) => selectedNiches.includes(ch.niche || "Sem Nicho"))
+      .map((ch) => ch.channelId);
+
     if (channelsToUpdate.length === 0) {
-      toast.info('Nenhum canal encontrado nos nichos selecionados');
+      toast.info("Nenhum canal encontrado nos nichos selecionados");
       return;
     }
 
     setIsUpdating(true);
     setIsLoadingAll(true);
-    
+
     const results = {
       total: channelsToUpdate.length,
       success: 0,
@@ -439,49 +440,44 @@ export const useRecentVideos = () => {
       await Promise.all(
         batch.map(async (channelId, batchIndex) => {
           const currentIndex = i + batchIndex + 1;
-          const channel = channels.find(ch => ch.channelId === channelId);
+          const channel = channels.find((ch) => ch.channelId === channelId);
 
-          setUpdateProgress({
+          const progress = {
             current: currentIndex,
             total: channelsToUpdate.length,
             percentage: Math.round((currentIndex / channelsToUpdate.length) * 100),
             channelName: channel?.channelTitle || channelId,
-          });
+          };
 
-          if (progressCallback) {
-            progressCallback({
-              current: currentIndex,
-              total: channelsToUpdate.length,
-              percentage: Math.round((currentIndex / channelsToUpdate.length) * 100),
-              channelName: channel?.channelTitle || channelId,
-            });
-          }
+          setUpdateProgress(progress);
+          progressCallback?.(progress);
 
           try {
-            // Verificar se precisa atualizar
-            if (!needsUpdate(channelId)) {
+            // Se não for forçar, respeita cache
+            if (!forceUpdate && !needsUpdate(channelId)) {
               results.cached++;
               return;
             }
 
-            // Atualizar vídeos E histórico do canal para gráfico de crescimento
+            // Atualizar vídeos + histórico
             await Promise.all([
-              updateChannelVideos(channelId, false),
+              updateChannelVideos(channelId, true),
               updateChannelHistory(channelId),
             ]);
+
             results.success++;
 
             // Delay entre requisições
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise((resolve) => setTimeout(resolve, 200));
           } catch (error) {
             results.failed++;
             results.errors.push({
               channelId,
               channelName: channel?.channelTitle || channelId,
-              error: error instanceof Error ? error.message : 'Erro desconhecido',
+              error: error instanceof Error ? error.message : "Erro desconhecido",
             });
           }
-        })
+        }),
       );
     }
 
@@ -489,7 +485,7 @@ export const useRecentVideos = () => {
     setIsLoadingAll(false);
 
     toast.success(
-      `✅ Atualização concluída!\nSucesso: ${results.success} | Cache: ${results.cached} | Falhas: ${results.failed}`
+      `✅ Atualização concluída!\nSucesso: ${results.success} | Cache: ${results.cached} | Falhas: ${results.failed}`,
     );
 
     return results;
