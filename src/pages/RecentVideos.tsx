@@ -14,7 +14,6 @@ import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Ta
 import { useRecentVideos } from "@/hooks/use-recent-videos";
 import { RecentVideoCard } from "@/components/RecentVideoCard";
 import { toast } from "sonner";
-import { useMonitoredChannels } from "@/hooks/use-monitored-channels";
 import { useNiches } from "@/hooks/use-niches";
 import { formatNumber } from "@/lib/youtube-api";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,9 +36,13 @@ const RecentVideos = () => {
     loadVideosFromCache,
     filterVideosByDatePeriod,
     getTotalViewsForPeriod,
+    updateNotes,
+    updateNiche,
+    updateContentType,
+    removeChannel,
+    updateChannelStats,
   } = useRecentVideos();
 
-  const { channels: monitoredChannels, updateNotes, updateNiche, updateContentType, removeChannel, updateChannelStats } = useMonitoredChannels();
   const { niches, renameNiche } = useNiches();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [selectedNiches, setSelectedNiches] = useState<string[]>([]);
