@@ -177,18 +177,24 @@ const getLatestChannelVideos = async (
 
   const playlistId = getUploadPlaylistId(channelId);
 
-  // 1. Buscar últimos vídeos da playlist (3 tokens)
+  // Buscar mais itens do que o necessário para compensar vídeos privados/excluídos
+  const fetchCount = Math.min(maxResults * 2, 15);
+
+  // 1. Buscar últimos vídeos da playlist
   const playlistUrl = new URL(
     "https://www.googleapis.com/youtube/v3/playlistItems",
   );
   playlistUrl.searchParams.append("key", YOUTUBE_API_KEY);
   playlistUrl.searchParams.append("playlistId", playlistId);
-  playlistUrl.searchParams.append("part", "snippet,contentDetails");
-  playlistUrl.searchParams.append("maxResults", maxResults.toString());
+  playlistUrl.searchParams.append("part", "snippet,contentDetails,status");
+  playlistUrl.searchParams.append("maxResults", fetchCount.toString());
+
+  console.log(`[${channelId}] Fetching playlist ${playlistId} with ${fetchCount} items`);
 
   const playlistResponse = await fetch(playlistUrl.toString());
   if (!playlistResponse.ok) {
     const errorData = await playlistResponse.json().catch(() => ({}));
+    console.error(`[${channelId}] Playlist error:`, errorData);
     throw new Error(
       errorData.error?.message ||
         `YouTube API error: ${playlistResponse.status}`,
@@ -198,47 +204,89 @@ const getLatestChannelVideos = async (
   const playlistData = await playlistResponse.json();
 
   if (!playlistData.items || playlistData.items.length === 0) {
+    console.log(`[${channelId}] No items in playlist`);
     return [];
   }
 
-  // 2. Extrair IDs dos vídeos
-  const videoIds = playlistData.items.map(
+  console.log(`[${channelId}] Got ${playlistData.items.length} playlist items`);
+
+  // 2. Filtrar vídeos válidos (não privados/deletados) e pegar os videoIds
+  const validItems = playlistData.items.filter((item: any) => {
+    const videoId = item.contentDetails?.videoId;
+    const title = item.snippet?.title;
+    
+    // Filtrar vídeos privados ou deletados
+    if (!videoId) {
+      console.log(`[${channelId}] Skipping item without videoId`);
+      return false;
+    }
+    if (title === "Private video" || title === "Deleted video") {
+      console.log(`[${channelId}] Skipping private/deleted video: ${videoId}`);
+      return false;
+    }
+    return true;
+  });
+
+  console.log(`[${channelId}] Valid items after filtering: ${validItems.length}`);
+
+  if (validItems.length === 0) {
+    return [];
+  }
+
+  // 3. Extrair IDs dos vídeos válidos
+  const videoIds = validItems.map(
     (item: any) => item.contentDetails.videoId,
   );
 
-  // 3. Buscar estatísticas (1 token para até 50 vídeos)
+  // 4. Buscar estatísticas
   const statsUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
   statsUrl.searchParams.append("key", YOUTUBE_API_KEY);
   statsUrl.searchParams.append("id", videoIds.join(","));
-  statsUrl.searchParams.append("part", "statistics");
+  statsUrl.searchParams.append("part", "statistics,status");
 
   const statsResponse = await fetch(statsUrl.toString());
   if (!statsResponse.ok) {
+    console.error(`[${channelId}] Stats API error: ${statsResponse.status}`);
     throw new Error(`YouTube API error: ${statsResponse.status}`);
   }
 
   const statsData = await statsResponse.json();
 
-  const videoStats = statsData.items.reduce((acc: any, item: any) => {
-    acc[item.id] = item;
+  console.log(`[${channelId}] Got stats for ${statsData.items?.length || 0} videos`);
+
+  // Criar mapa de estatísticas
+  const videoStats = (statsData.items || []).reduce((acc: any, item: any) => {
+    // Verificar se o vídeo é público
+    if (item.status?.privacyStatus === 'public') {
+      acc[item.id] = item;
+    }
     return acc;
   }, {} as Record<string, any>);
 
-  // 4. Combinar dados
-  return playlistData.items.map((item: any) => {
-    const stats = videoStats[item.contentDetails.videoId] || {};
-    return {
-      videoId: item.contentDetails.videoId,
-      title: item.snippet.title,
-      thumbnailUrl:
-        item.snippet.thumbnails?.high?.url ||
-        item.snippet.thumbnails?.default?.url,
-      publishedAt: item.snippet.publishedAt,
-      viewCount: parseInt(stats.statistics?.viewCount || "0"),
-      likeCount: parseInt(stats.statistics?.likeCount || "0"),
-      commentCount: parseInt(stats.statistics?.commentCount || "0"),
-    };
-  });
+  // 5. Combinar dados, filtrando apenas vídeos com estatísticas públicas
+  const videosWithStats = validItems
+    .filter((item: any) => videoStats[item.contentDetails.videoId])
+    .map((item: any) => {
+      const stats = videoStats[item.contentDetails.videoId];
+      return {
+        videoId: item.contentDetails.videoId,
+        title: item.snippet.title,
+        thumbnailUrl:
+          item.snippet.thumbnails?.maxres?.url ||
+          item.snippet.thumbnails?.high?.url ||
+          item.snippet.thumbnails?.medium?.url ||
+          item.snippet.thumbnails?.default?.url,
+        publishedAt: item.snippet.publishedAt,
+        viewCount: parseInt(stats.statistics?.viewCount || "0"),
+        likeCount: parseInt(stats.statistics?.likeCount || "0"),
+        commentCount: parseInt(stats.statistics?.commentCount || "0"),
+      };
+    })
+    .slice(0, maxResults); // Limitar ao número solicitado
+
+  console.log(`[${channelId}] Returning ${videosWithStats.length} videos with stats`);
+
+  return videosWithStats;
 };
 
 const getChannelVideos = async (channelId: string, maxResults: number = 50) => {
