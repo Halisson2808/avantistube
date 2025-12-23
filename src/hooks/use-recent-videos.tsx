@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useMonitoredChannels, ChannelMonitorData } from '@/hooks/use-monitored-channels';
-import { getLatestChannelVideos, ChannelLatestVideosResult, LatestVideo, calculateTimeAgo } from '@/lib/youtube-api';
+import { useVideoLocalStorage, CachedVideo } from '@/hooks/use-video-local-storage';
+import { getLatestChannelVideos, LatestVideo, calculateTimeAgo } from '@/lib/youtube-api';
 
 export interface RecentVideo extends LatestVideo {
   channelId: string;
@@ -38,7 +39,7 @@ export interface UpdateProgress {
   channelName: string;
 }
 
-const CACHE_HOURS = 1; // Cache válido por 1 hora
+const CACHE_HOURS = 2; // Cache válido por 2 horas
 
 export const useRecentVideos = () => {
   const { 
@@ -50,6 +51,15 @@ export const useRecentVideos = () => {
     updateChannelStats,
     isLoading: isLoadingChannels 
   } = useMonitoredChannels();
+  
+  const {
+    isLoaded: isLocalStorageLoaded,
+    saveChannelVideos,
+    getChannelVideos: getCachedVideos,
+    isCacheValid,
+    getAllCachedChannels,
+  } = useVideoLocalStorage();
+  
   const [selectedChannelIds, setSelectedChannelIds] = useState<Set<string>>(new Set());
   const [channelVideosData, setChannelVideosData] = useState<Map<string, ChannelVideosData>>(new Map());
   const [isLoadingAll, setIsLoadingAll] = useState(false);
@@ -72,7 +82,6 @@ export const useRecentVideos = () => {
   useEffect(() => {
     if (channels.length > 0) {
       const allChannelIds = new Set(channels.map(ch => ch.channelId));
-      // Atualiza apenas se houver diferença
       if (selectedChannelIds.size !== allChannelIds.size || 
           !Array.from(selectedChannelIds).every(id => allChannelIds.has(id))) {
         setSelectedChannelIds(allChannelIds);
@@ -81,205 +90,66 @@ export const useRecentVideos = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channels.length]);
 
-  // Carregar vídeos do cache na inicialização
+  // Carregar vídeos do localStorage na inicialização
   useEffect(() => {
-    if (channels.length > 0) {
-      loadVideosFromCache();
+    if (isLocalStorageLoaded && channels.length > 0) {
+      loadVideosFromLocalStorage();
     }
-  }, [channels.length]);
+  }, [isLocalStorageLoaded, channels.length]);
 
-  // Função para carregar vídeos do cache do banco
-  const loadVideosFromCache = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+  // Função para carregar vídeos do localStorage
+  const loadVideosFromLocalStorage = useCallback(() => {
+    const cachedChannels = getAllCachedChannels();
+    
+    if (cachedChannels.length === 0) return;
 
-      const { data: snapshots, error } = await supabase
-        .from('video_snapshots')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .order('position', { ascending: true });
-
-      if (error) throw error;
-
-      // Agrupar vídeos por canal
-      const videosByChannel = new Map<string, RecentVideo[]>();
-      const lastFetchedByChannel = new Map<string, Date>();
-
-      snapshots?.forEach((snapshot) => {
-        if (!videosByChannel.has(snapshot.channel_id)) {
-          videosByChannel.set(snapshot.channel_id, []);
-        }
-
-        const channel = channels.find(ch => ch.channelId === snapshot.channel_id);
+    setChannelVideosData(prev => {
+      const newMap = new Map(prev);
+      
+      cachedChannels.forEach(cached => {
+        const channel = channels.find(ch => ch.channelId === cached.channelId);
         if (!channel) return;
 
-        videosByChannel.get(snapshot.channel_id)!.push({
-          videoId: snapshot.video_id,
-          title: snapshot.title,
-          thumbnailUrl: snapshot.thumbnail_url || '',
-          publishedAt: snapshot.published_at || '',
-          viewCount: snapshot.view_count || 0,
-          likeCount: snapshot.like_count || 0,
-          commentCount: snapshot.comment_count || 0,
-          channelId: snapshot.channel_id,
-          channelName: channel.channelTitle,
-          channelThumbnail: channel.channelThumbnail,
-          timeAgo: calculateTimeAgo(snapshot.published_at || ''),
-          isViral: snapshot.is_viral || false,
-          position: snapshot.position,
+        // Calcular média de views para detecção de viral
+        const averageViews = channel.currentViews / Math.max(channel.currentVideos, 1);
+
+        const videos: RecentVideo[] = cached.videos.map((video, index) => {
+          const daysSincePublished = Math.max(
+            1,
+            Math.floor((Date.now() - new Date(video.publishedAt).getTime()) / 86400000)
+          );
+          const viewsPerDay = video.viewCount / daysSincePublished;
+          const isViral = !video.isDeleted && (video.viewCount > 100000 || viewsPerDay > (averageViews * 3));
+
+          return {
+            ...video,
+            channelId: cached.channelId,
+            channelName: channel.channelTitle,
+            channelThumbnail: channel.channelThumbnail,
+            timeAgo: calculateTimeAgo(video.publishedAt),
+            isViral: video.isViral || isViral,
+            position: video.position || index + 1,
+          };
         });
 
-        // Atualizar lastFetched com o mais recente
-        const fetchedAt = new Date(snapshot.fetched_at);
-        const currentLastFetched = lastFetchedByChannel.get(snapshot.channel_id);
-        if (!currentLastFetched || fetchedAt > currentLastFetched) {
-          lastFetchedByChannel.set(snapshot.channel_id, fetchedAt);
-        }
-      });
-
-      // Atualizar estado
-      setChannelVideosData(prev => {
-        const newMap = new Map(prev);
-        videosByChannel.forEach((videos, channelId) => {
-          const channel = channels.find(ch => ch.channelId === channelId);
-          if (channel) {
-            newMap.set(channelId, {
-              channel,
-              videos: videos.sort((a, b) => (a.position || 0) - (b.position || 0)),
-              isLoading: false,
-              lastFetched: lastFetchedByChannel.get(channelId),
-            });
-          }
+        newMap.set(cached.channelId, {
+          channel,
+          videos,
+          isLoading: false,
+          lastFetched: new Date(cached.lastFetched),
         });
-        return newMap;
       });
-    } catch (error) {
-      console.error('Erro ao carregar cache:', error);
-    }
-  }, [channels]);
-
-  // Função para salvar vídeos no banco
-  const saveVideosToCache = useCallback(async (
-    channelId: string,
-    videos: LatestVideo[],
-    channel: ChannelMonitorData,
-    channelDeleted: boolean = false
-  ) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const now = new Date().toISOString();
-
-      // Se o canal foi excluído, não deletar os vídeos antigos - mantê-los como referência
-      if (!channelDeleted) {
-        // 1. Marcar vídeos antigos como inativos
-        await supabase
-          .from('video_snapshots')
-          .update({ is_active: false })
-          .eq('user_id', user.id)
-          .eq('channel_id', channelId)
-          .eq('is_active', true);
-      }
-
-      // 2. Calcular média de views para detecção de viral
-      const averageViews = channel.currentViews / Math.max(channel.currentVideos, 1);
-
-      // 3. Salvar novos vídeos
-      for (let i = 0; i < videos.length; i++) {
-        const video = videos[i];
-        
-        const daysSincePublished = Math.max(
-          1,
-          Math.floor((new Date().getTime() - new Date(video.publishedAt).getTime()) / 86400000)
-        );
-        const viewsPerDay = video.viewCount / daysSincePublished;
-        const isViral = !video.isDeleted && (video.viewCount > 100000 || viewsPerDay > (averageViews * 3));
-
-        // Verificar se vídeo já existe
-        const { data: existing } = await supabase
-          .from('video_snapshots')
-          .select('id, thumbnail_url')
-          .eq('user_id', user.id)
-          .eq('channel_id', channelId)
-          .eq('video_id', video.videoId)
-          .single();
-
-        if (existing) {
-          // Atualizar vídeo existente - manter thumbnail se o novo estiver vazio (vídeo excluído)
-          await supabase
-            .from('video_snapshots')
-            .update({
-              title: video.title,
-              thumbnail_url: video.thumbnailUrl || existing.thumbnail_url, // Manter thumbnail antiga se nova estiver vazia
-              view_count: video.viewCount,
-              like_count: video.likeCount,
-              comment_count: video.commentCount,
-              published_at: video.publishedAt,
-              position: i + 1,
-              is_active: true,
-              is_viral: isViral,
-              fetched_at: now,
-            })
-            .eq('id', existing.id);
-        } else {
-          // Inserir novo vídeo
-          await supabase
-            .from('video_snapshots')
-            .insert({
-              user_id: user.id,
-              channel_id: channelId,
-              video_id: video.videoId,
-              title: video.title,
-              thumbnail_url: video.thumbnailUrl,
-              view_count: video.viewCount,
-              like_count: video.likeCount,
-              comment_count: video.commentCount,
-              published_at: video.publishedAt,
-              position: i + 1,
-              is_active: true,
-              is_viral: isViral,
-              fetched_at: now,
-            });
-        }
-      }
-
-      // 4. Limpar vídeos inativos com mais de 24h (mas não se canal foi excluído)
-      if (!channelDeleted) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-
-        await supabase
-          .from('video_snapshots')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('channel_id', channelId)
-          .eq('is_active', false)
-          .lt('fetched_at', yesterday.toISOString());
-      }
-
-      // 5. Atualizar last_updated do canal
-      await supabase
-        .from('monitored_channels')
-        .update({ last_updated: now })
-        .eq('channel_id', channelId);
-    } catch (error) {
-      console.error('Erro ao salvar cache:', error);
-    }
-  }, []);
+      
+      return newMap;
+    });
+  }, [channels, getAllCachedChannels]);
 
   // Verificar se canal precisa ser atualizado (cache expirado)
   const needsUpdate = useCallback((channelId: string): boolean => {
-    const data = channelVideosData.get(channelId);
-    if (!data || !data.lastFetched) return true;
+    return !isCacheValid(channelId, CACHE_HOURS);
+  }, [isCacheValid]);
 
-    const hoursSince = (new Date().getTime() - data.lastFetched.getTime()) / 3600000;
-    return hoursSince >= CACHE_HOURS;
-  }, [channelVideosData]);
-
-  // Atualizar canal individual (com verificação de cache)
+  // Atualizar canal individual
   const updateChannelVideos = useCallback(async (
     channelId: string,
     forceUpdate: boolean = false
@@ -296,16 +166,13 @@ export const useRecentVideos = () => {
       const result = results[0];
 
       if (result.success && result.videos) {
-        // Salvar no cache (passa flag de canal excluído)
-        await saveVideosToCache(channelId, result.videos, channel, result.channelDeleted);
-
         // Calcular vídeos com dados completos
         const averageViews = channel.currentViews / Math.max(channel.currentVideos, 1);
         const videos: RecentVideo[] = result.videos.map((video, index) => {
           const timeAgo = calculateTimeAgo(video.publishedAt);
           const daysSincePublished = Math.max(
             1,
-            Math.floor((new Date().getTime() - new Date(video.publishedAt).getTime()) / 86400000)
+            Math.floor((Date.now() - new Date(video.publishedAt).getTime()) / 86400000)
           );
           const viewsPerDay = video.viewCount / daysSincePublished;
           const isViral = !video.isDeleted && (video.viewCount > 100000 || viewsPerDay > (averageViews * 3));
@@ -323,6 +190,21 @@ export const useRecentVideos = () => {
           };
         });
 
+        // Salvar no localStorage (apenas thumbs/títulos)
+        const cachedVideos: CachedVideo[] = videos.map(v => ({
+          videoId: v.videoId,
+          title: v.title,
+          thumbnailUrl: v.thumbnailUrl,
+          publishedAt: v.publishedAt,
+          viewCount: v.viewCount,
+          likeCount: v.likeCount,
+          commentCount: v.commentCount,
+          isViral: v.isViral,
+          isDeleted: v.isDeleted,
+          position: v.position,
+        }));
+        saveChannelVideos(channelId, cachedVideos);
+
         // Atualizar estado
         setChannelVideosData(prev => {
           const newMap = new Map(prev);
@@ -339,9 +221,9 @@ export const useRecentVideos = () => {
       console.error(`Erro ao atualizar canal ${channelId}:`, error);
       throw error;
     }
-  }, [channels, needsUpdate, saveVideosToCache]);
+  }, [channels, needsUpdate, saveChannelVideos]);
 
-  // Função auxiliar para atualizar o histórico do canal (para gráfico de crescimento)
+  // Função para atualizar o histórico do canal no Supabase (para gráfico de crescimento)
   const updateChannelHistory = useCallback(async (channelId: string) => {
     try {
       const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -465,7 +347,7 @@ export const useRecentVideos = () => {
               return;
             }
 
-            // Atualizar vídeos + histórico
+            // Atualizar vídeos (localStorage) + histórico (Supabase)
             await Promise.all([
               updateChannelVideos(channelId, true),
               updateChannelHistory(channelId),
@@ -499,12 +381,11 @@ export const useRecentVideos = () => {
 
   // Obter todos os nichos disponíveis (normalizados)
   const getAvailableNiches = useCallback((): string[] => {
-    const nichesMap = new Map<string, string>(); // key: lowercase, value: normalized
+    const nichesMap = new Map<string, string>();
     channels.forEach(ch => {
       const originalNiche = ch.niche || 'Sem Nicho';
       const normalizedKey = originalNiche.toLowerCase().trim();
       
-      // Se ainda não existe, adiciona a versão normalizada (primeira letra maiúscula)
       if (!nichesMap.has(normalizedKey)) {
         const normalized = normalizedKey.charAt(0).toUpperCase() + normalizedKey.slice(1);
         nichesMap.set(normalizedKey, normalized);
@@ -555,7 +436,6 @@ export const useRecentVideos = () => {
     // Ordenação
     filtered.sort((a, b) => {
       if (filters.sortBy === 'totalViews') {
-        // Somar views dos vídeos filtrados por período
         const datePeriod = filters.datePeriod || 'all';
         
         const filterByPeriod = (videos: RecentVideo[]) => {
@@ -568,10 +448,9 @@ export const useRecentVideos = () => {
         
         const totalViewsA = filterByPeriod(a.videos).reduce((sum, v) => sum + (v.viewCount || 0), 0);
         const totalViewsB = filterByPeriod(b.videos).reduce((sum, v) => sum + (v.viewCount || 0), 0);
-        return totalViewsB - totalViewsA; // Maior primeiro
+        return totalViewsB - totalViewsA;
       }
       if (filters.sortBy === 'recent') {
-        // Ordenar por data de adição (mais recente primeiro)
         return new Date(b.channel.addedAt).getTime() - new Date(a.channel.addedAt).getTime();
       }
       return a.channel.channelTitle.localeCompare(b.channel.channelTitle);
@@ -655,7 +534,7 @@ export const useRecentVideos = () => {
     clearSelection,
     clearFilters,
     getVideosByChannel,
-    loadVideosFromCache,
+    loadVideosFromCache: loadVideosFromLocalStorage,
     filterVideosByDatePeriod,
     getTotalViewsForPeriod,
     // Funções reexportadas do useMonitoredChannels
