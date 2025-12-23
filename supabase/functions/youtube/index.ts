@@ -165,6 +165,7 @@ const getUploadPlaylistId = (channelId: string): string => {
 };
 
 // Busca os últimos vídeos de um canal usando a playlist de uploads
+// Lógica: busca maxResults primeiro, se encontrar vídeos excluídos/privados, busca mais para compensar
 const getLatestChannelVideos = async (
   channelId: string,
   maxResults: number = 5,
@@ -177,106 +178,137 @@ const getLatestChannelVideos = async (
 
   const playlistId = getUploadPlaylistId(channelId);
 
-  // Buscar mais itens do que o necessário para compensar vídeos privados/excluídos
-  const fetchCount = Math.min(maxResults * 2, 25);
-
-  // 1. Buscar últimos vídeos da playlist
-  const playlistUrl = new URL(
-    "https://www.googleapis.com/youtube/v3/playlistItems",
-  );
-  playlistUrl.searchParams.append("key", YOUTUBE_API_KEY);
-  playlistUrl.searchParams.append("playlistId", playlistId);
-  playlistUrl.searchParams.append("part", "snippet,contentDetails,status");
-  playlistUrl.searchParams.append("maxResults", fetchCount.toString());
-
-  console.log(`[${channelId}] Fetching playlist ${playlistId} with ${fetchCount} items`);
-
-  const playlistResponse = await fetch(playlistUrl.toString());
-  if (!playlistResponse.ok) {
-    const errorData = await playlistResponse.json().catch(() => ({}));
-    console.error(`[${channelId}] Playlist error:`, errorData);
-    
-    // Se o canal não existe mais, retornar flag de canal excluído
-    if (playlistResponse.status === 404) {
-      return { channelDeleted: true, videos: [] };
+  // Função auxiliar para buscar e processar vídeos
+  const fetchAndProcessVideos = async (count: number, pageToken?: string) => {
+    const playlistUrl = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
+    playlistUrl.searchParams.append("key", YOUTUBE_API_KEY);
+    playlistUrl.searchParams.append("playlistId", playlistId);
+    playlistUrl.searchParams.append("part", "snippet,contentDetails,status");
+    playlistUrl.searchParams.append("maxResults", count.toString());
+    if (pageToken) {
+      playlistUrl.searchParams.append("pageToken", pageToken);
     }
-    
-    throw new Error(
-      errorData.error?.message ||
-        `YouTube API error: ${playlistResponse.status}`,
-    );
-  }
 
-  const playlistData = await playlistResponse.json();
-
-  if (!playlistData.items || playlistData.items.length === 0) {
-    console.log(`[${channelId}] No items in playlist`);
-    return { channelDeleted: false, videos: [] };
-  }
-
-  console.log(`[${channelId}] Got ${playlistData.items.length} playlist items`);
-
-  // 2. Extrair todos os videoIds primeiro (incluindo potencialmente privados)
-  const allVideoIds = playlistData.items
-    .map((item: any) => item.contentDetails?.videoId)
-    .filter((id: string) => id);
-
-  // 3. Buscar estatísticas de todos os vídeos
-  const statsUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
-  statsUrl.searchParams.append("key", YOUTUBE_API_KEY);
-  statsUrl.searchParams.append("id", allVideoIds.join(","));
-  statsUrl.searchParams.append("part", "statistics,status");
-
-  const statsResponse = await fetch(statsUrl.toString());
-  if (!statsResponse.ok) {
-    console.error(`[${channelId}] Stats API error: ${statsResponse.status}`);
-    throw new Error(`YouTube API error: ${statsResponse.status}`);
-  }
-
-  const statsData = await statsResponse.json();
-  console.log(`[${channelId}] Got stats for ${statsData.items?.length || 0} videos`);
-
-  // Criar mapa de estatísticas (apenas vídeos que a API retornou = existem)
-  const videoStats = (statsData.items || []).reduce((acc: any, item: any) => {
-    acc[item.id] = item;
-    return acc;
-  }, {} as Record<string, any>);
-
-  // 4. Combinar dados - marcar vídeos excluídos
-  const allVideos = playlistData.items
-    .filter((item: any) => item.contentDetails?.videoId)
-    .map((item: any) => {
-      const videoId = item.contentDetails.videoId;
-      const stats = videoStats[videoId];
-      const title = item.snippet?.title || '';
+    const playlistResponse = await fetch(playlistUrl.toString());
+    if (!playlistResponse.ok) {
+      const errorData = await playlistResponse.json().catch(() => ({}));
+      console.error(`[${channelId}] Playlist error:`, errorData);
       
-      // Verificar se o vídeo foi excluído ou é privado
-      const isDeleted = !stats || 
-        title === "Private video" || 
-        title === "Deleted video" ||
-        (stats?.status?.privacyStatus && stats.status.privacyStatus !== 'public');
+      if (playlistResponse.status === 404) {
+        return { channelDeleted: true, videos: [], nextPageToken: null };
+      }
+      
+      throw new Error(errorData.error?.message || `YouTube API error: ${playlistResponse.status}`);
+    }
 
-      return {
-        videoId,
-        title: isDeleted ? `[EXCLUÍDO] ${title !== "Private video" && title !== "Deleted video" ? title : "Vídeo removido"}` : title,
-        thumbnailUrl:
-          item.snippet.thumbnails?.maxres?.url ||
-          item.snippet.thumbnails?.high?.url ||
-          item.snippet.thumbnails?.medium?.url ||
-          item.snippet.thumbnails?.default?.url ||
-          '', // Manter vazio se não houver thumbnail
-        publishedAt: item.snippet.publishedAt,
-        viewCount: stats?.statistics?.viewCount ? parseInt(stats.statistics.viewCount) : 0,
-        likeCount: stats?.statistics?.likeCount ? parseInt(stats.statistics.likeCount) : 0,
-        commentCount: stats?.statistics?.commentCount ? parseInt(stats.statistics.commentCount) : 0,
-        isDeleted,
-      };
-    })
-    .slice(0, maxResults); // Limitar ao número solicitado
+    const playlistData = await playlistResponse.json();
+    
+    if (!playlistData.items || playlistData.items.length === 0) {
+      return { channelDeleted: false, videos: [], nextPageToken: null };
+    }
 
-  console.log(`[${channelId}] Returning ${allVideos.length} videos (including deleted: ${allVideos.filter((v: any) => v.isDeleted).length})`);
+    // Extrair videoIds
+    const videoIds = playlistData.items
+      .map((item: any) => item.contentDetails?.videoId)
+      .filter((id: string) => id);
 
-  return { channelDeleted: false, videos: allVideos };
+    // Buscar estatísticas
+    const statsUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
+    statsUrl.searchParams.append("key", YOUTUBE_API_KEY);
+    statsUrl.searchParams.append("id", videoIds.join(","));
+    statsUrl.searchParams.append("part", "statistics,status");
+
+    const statsResponse = await fetch(statsUrl.toString());
+    if (!statsResponse.ok) {
+      throw new Error(`YouTube API error: ${statsResponse.status}`);
+    }
+
+    const statsData = await statsResponse.json();
+
+    // Criar mapa de estatísticas
+    const videoStats = (statsData.items || []).reduce((acc: any, item: any) => {
+      acc[item.id] = item;
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Processar vídeos
+    const videos = playlistData.items
+      .filter((item: any) => item.contentDetails?.videoId)
+      .map((item: any) => {
+        const videoId = item.contentDetails.videoId;
+        const stats = videoStats[videoId];
+        const title = item.snippet?.title || '';
+        
+        const isDeleted = !stats || 
+          title === "Private video" || 
+          title === "Deleted video" ||
+          (stats?.status?.privacyStatus && stats.status.privacyStatus !== 'public');
+
+        return {
+          videoId,
+          title: isDeleted ? `[EXCLUÍDO] ${title !== "Private video" && title !== "Deleted video" ? title : "Vídeo removido"}` : title,
+          thumbnailUrl:
+            item.snippet.thumbnails?.maxres?.url ||
+            item.snippet.thumbnails?.high?.url ||
+            item.snippet.thumbnails?.medium?.url ||
+            item.snippet.thumbnails?.default?.url ||
+            '',
+          publishedAt: item.snippet.publishedAt,
+          viewCount: stats?.statistics?.viewCount ? parseInt(stats.statistics.viewCount) : 0,
+          likeCount: stats?.statistics?.likeCount ? parseInt(stats.statistics.likeCount) : 0,
+          commentCount: stats?.statistics?.commentCount ? parseInt(stats.statistics.commentCount) : 0,
+          isDeleted,
+        };
+      });
+
+    return { 
+      channelDeleted: false, 
+      videos, 
+      nextPageToken: playlistData.nextPageToken || null 
+    };
+  };
+
+  console.log(`[${channelId}] Fetching playlist ${playlistId} with initial ${maxResults} items`);
+
+  // 1ª busca: quantidade solicitada
+  const firstResult = await fetchAndProcessVideos(maxResults);
+  
+  if (firstResult.channelDeleted) {
+    return { channelDeleted: true, videos: [] };
+  }
+
+  // Contar vídeos públicos (não excluídos)
+  const publicVideos = firstResult.videos.filter((v: any) => !v.isDeleted);
+  const deletedVideos = firstResult.videos.filter((v: any) => v.isDeleted);
+  
+  console.log(`[${channelId}] First fetch: ${publicVideos.length} public, ${deletedVideos.length} deleted`);
+
+  // Se temos vídeos públicos suficientes, retorna apenas eles (até maxResults)
+  if (publicVideos.length >= maxResults) {
+    const result = publicVideos.slice(0, maxResults);
+    console.log(`[${channelId}] Returning ${result.length} public videos`);
+    return { channelDeleted: false, videos: result };
+  }
+
+  // Se há vídeos excluídos e não temos públicos suficientes, buscar mais
+  if (deletedVideos.length > 0 && firstResult.nextPageToken) {
+    const neededMore = maxResults - publicVideos.length;
+    console.log(`[${channelId}] Need ${neededMore} more public videos, fetching additional...`);
+    
+    const secondResult = await fetchAndProcessVideos(neededMore + 5, firstResult.nextPageToken);
+    
+    if (!secondResult.channelDeleted) {
+      const morePublicVideos = secondResult.videos.filter((v: any) => !v.isDeleted);
+      const allPublicVideos = [...publicVideos, ...morePublicVideos].slice(0, maxResults);
+      
+      console.log(`[${channelId}] After second fetch: returning ${allPublicVideos.length} public videos`);
+      return { channelDeleted: false, videos: allPublicVideos };
+    }
+  }
+
+  // Se ainda assim não temos suficientes, retorna o que temos (apenas públicos)
+  console.log(`[${channelId}] Returning ${publicVideos.length} public videos (max available)`);
+  return { channelDeleted: false, videos: publicVideos };
 };
 
 const getChannelVideos = async (channelId: string, maxResults: number = 50) => {
