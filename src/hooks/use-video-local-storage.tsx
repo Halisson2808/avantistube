@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 const STORAGE_KEY = 'yt_channel_videos_cache';
-const MAX_CHANNELS = 400; // Limite de segurança
+const MAX_CHANNELS = 400;
 
 export interface CachedVideo {
   videoId: string;
@@ -19,7 +19,7 @@ export interface CachedVideo {
 export interface CachedChannelData {
   channelId: string;
   videos: CachedVideo[];
-  lastFetched: string; // ISO date string
+  lastFetched: string;
 }
 
 interface VideoCache {
@@ -27,38 +27,50 @@ interface VideoCache {
   lastUpdated: string;
 }
 
-export function useVideoLocalStorage() {
-  const [cache, setCache] = useState<VideoCache>({ channels: {}, lastUpdated: '' });
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  // Carregar cache do localStorage na inicialização
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as VideoCache;
-        setCache(parsed);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar cache de vídeos:', error);
-    } finally {
-      setIsLoaded(true);
+const getInitialCache = (): VideoCache => {
+  try {
+    if (typeof window === 'undefined') {
+      return { channels: {}, lastUpdated: '' };
     }
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored) as VideoCache;
+    }
+  } catch (error) {
+    console.error('Erro ao carregar cache de vídeos:', error);
+  }
+  return { channels: {}, lastUpdated: '' };
+};
+
+export function useVideoLocalStorage() {
+  const [cache, setCache] = useState<VideoCache>(getInitialCache);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const cacheRef = useRef(cache);
+
+  // Manter ref atualizada
+  useEffect(() => {
+    cacheRef.current = cache;
+  }, [cache]);
+
+  // Marcar como carregado após montagem
+  useEffect(() => {
+    setIsLoaded(true);
   }, []);
 
-  // Salvar cache no localStorage quando mudar
-  const saveToStorage = useCallback((newCache: VideoCache) => {
+  // Salvar no localStorage quando cache mudar
+  useEffect(() => {
+    if (!isLoaded) return;
+    
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newCache));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
     } catch (error) {
-      console.error('Erro ao salvar cache de vídeos:', error);
-      // Se exceder limite, limpar canais mais antigos
+      console.error('Erro ao salvar cache:', error);
+      // Se exceder limite, limpar canais antigos
       if (error instanceof Error && error.name === 'QuotaExceededError') {
-        const channelIds = Object.keys(newCache.channels);
+        const channelIds = Object.keys(cache.channels);
         if (channelIds.length > 50) {
-          // Manter apenas os 200 canais mais recentes
           const sorted = channelIds
-            .map(id => ({ id, date: new Date(newCache.channels[id].lastFetched).getTime() }))
+            .map(id => ({ id, date: new Date(cache.channels[id].lastFetched).getTime() }))
             .sort((a, b) => b.date - a.date)
             .slice(0, 200);
           
@@ -66,93 +78,78 @@ export function useVideoLocalStorage() {
             channels: {},
             lastUpdated: new Date().toISOString(),
           };
-          
           sorted.forEach(({ id }) => {
-            trimmedCache.channels[id] = newCache.channels[id];
+            trimmedCache.channels[id] = cache.channels[id];
           });
           
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmedCache));
           setCache(trimmedCache);
         }
       }
     }
-  }, []);
+  }, [cache, isLoaded]);
 
-  // Salvar vídeos de um canal
   const saveChannelVideos = useCallback((channelId: string, videos: CachedVideo[]) => {
     setCache(prev => {
-      const newCache: VideoCache = {
-        ...prev,
-        channels: {
-          ...prev.channels,
-          [channelId]: {
-            channelId,
-            videos: videos.slice(0, 10), // Limitar a 10 vídeos por canal
-            lastFetched: new Date().toISOString(),
-          },
+      const newChannels = {
+        ...prev.channels,
+        [channelId]: {
+          channelId,
+          videos: videos.slice(0, 10),
+          lastFetched: new Date().toISOString(),
         },
-        lastUpdated: new Date().toISOString(),
       };
       
-      // Verificar limite de canais
-      const channelCount = Object.keys(newCache.channels).length;
+      // Limitar número de canais
+      const channelCount = Object.keys(newChannels).length;
       if (channelCount > MAX_CHANNELS) {
-        // Remover canais mais antigos
-        const sorted = Object.entries(newCache.channels)
+        const sorted = Object.entries(newChannels)
           .sort((a, b) => new Date(b[1].lastFetched).getTime() - new Date(a[1].lastFetched).getTime())
           .slice(0, MAX_CHANNELS);
-        
-        newCache.channels = Object.fromEntries(sorted);
+        return {
+          channels: Object.fromEntries(sorted),
+          lastUpdated: new Date().toISOString(),
+        };
       }
       
-      saveToStorage(newCache);
-      return newCache;
+      return {
+        channels: newChannels,
+        lastUpdated: new Date().toISOString(),
+      };
     });
-  }, [saveToStorage]);
+  }, []);
 
-  // Obter vídeos de um canal
   const getChannelVideos = useCallback((channelId: string): CachedChannelData | null => {
-    return cache.channels[channelId] || null;
-  }, [cache]);
+    return cacheRef.current.channels[channelId] || null;
+  }, []);
 
-  // Verificar se cache de um canal está válido (menos de X horas)
   const isCacheValid = useCallback((channelId: string, maxHours: number = 2): boolean => {
-    const channelData = cache.channels[channelId];
+    const channelData = cacheRef.current.channels[channelId];
     if (!channelData || !channelData.lastFetched) return false;
     
     const hoursSince = (Date.now() - new Date(channelData.lastFetched).getTime()) / 3600000;
     return hoursSince < maxHours;
-  }, [cache]);
+  }, []);
 
-  // Obter todos os vídeos em cache
   const getAllCachedChannels = useCallback((): CachedChannelData[] => {
-    return Object.values(cache.channels);
-  }, [cache]);
+    return Object.values(cacheRef.current.channels);
+  }, []);
 
-  // Remover canal do cache
   const removeChannelFromCache = useCallback((channelId: string) => {
     setCache(prev => {
       const newChannels = { ...prev.channels };
       delete newChannels[channelId];
-      
-      const newCache: VideoCache = {
+      return {
         channels: newChannels,
         lastUpdated: new Date().toISOString(),
       };
-      
-      saveToStorage(newCache);
-      return newCache;
     });
-  }, [saveToStorage]);
+  }, []);
 
-  // Limpar todo o cache
   const clearCache = useCallback(() => {
-    const emptyCache: VideoCache = { channels: {}, lastUpdated: '' };
-    setCache(emptyCache);
+    setCache({ channels: {}, lastUpdated: '' });
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
-  // Obter tamanho aproximado do cache
   const getCacheSize = useCallback((): { bytes: number; formatted: string } => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
