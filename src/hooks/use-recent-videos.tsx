@@ -323,6 +323,70 @@ export const useRecentVideos = () => {
     }
   }, [channels, needsUpdate, saveVideosToCache]);
 
+  // Função auxiliar para atualizar o histórico do canal (para gráfico de crescimento)
+  const updateChannelHistory = useCallback(async (channelId: string) => {
+    try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      // Buscar dados atualizados do canal via YouTube API
+      const { data, error } = await supabase.functions.invoke('youtube', {
+        body: { action: 'channelDetails', channelId },
+      });
+
+      if (error) throw error;
+
+      // Verificar se já existe um registro de histórico para hoje
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const { data: existingHistory } = await supabase
+        .from('channel_history')
+        .select('id')
+        .eq('channel_id', channelId)
+        .eq('user_id', userData.user.id)
+        .gte('recorded_at', today.toISOString())
+        .limit(1);
+
+      if (existingHistory && existingHistory.length > 0) {
+        // Atualizar registro existente
+        await supabase
+          .from('channel_history')
+          .update({
+            subscriber_count: data.subscriberCount,
+            video_count: data.videoCount,
+            view_count: data.viewCount,
+          })
+          .eq('id', existingHistory[0].id);
+      } else {
+        // Criar novo registro
+        await supabase.from('channel_history').insert({
+          user_id: userData.user.id,
+          channel_id: channelId,
+          subscriber_count: data.subscriberCount,
+          video_count: data.videoCount,
+          view_count: data.viewCount,
+        });
+      }
+
+      // Atualizar tabela principal de canais monitorados
+      await supabase
+        .from('monitored_channels')
+        .update({
+          subscriber_count: data.subscriberCount,
+          video_count: data.videoCount,
+          view_count: data.viewCount,
+          last_updated: new Date().toISOString(),
+        })
+        .eq('channel_id', channelId);
+
+    } catch (error) {
+      console.error(`Erro ao atualizar histórico do canal ${channelId}:`, error);
+    }
+  }, []);
+
   // Atualizar canais por nichos selecionados
   const updateChannelsByNiches = useCallback(async (
     selectedNiches: string[],
@@ -382,7 +446,11 @@ export const useRecentVideos = () => {
               return;
             }
 
-            await updateChannelVideos(channelId, false);
+            // Atualizar vídeos E histórico do canal para gráfico de crescimento
+            await Promise.all([
+              updateChannelVideos(channelId, false),
+              updateChannelHistory(channelId),
+            ]);
             results.success++;
 
             // Delay entre requisições
@@ -407,7 +475,7 @@ export const useRecentVideos = () => {
     );
 
     return results;
-  }, [channels, needsUpdate, updateChannelVideos]);
+  }, [channels, needsUpdate, updateChannelVideos, updateChannelHistory]);
 
   // Obter todos os nichos disponíveis (normalizados)
   const getAvailableNiches = useCallback((): string[] => {
