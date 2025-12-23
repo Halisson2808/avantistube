@@ -234,9 +234,9 @@ const RecentVideos = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Vídeos Recentes</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Monitoramento</h1>
           <p className="text-muted-foreground text-sm sm:text-base">
-            Últimos 5 vídeos de todos os canais monitorados
+            {channels.length} canais monitorados • Últimos 5 vídeos de cada
             {videosByChannel.length > 0 && (
               <span className="ml-2">
                 • Mostrando {videosByChannel.length} de {channels.length} canal(is)

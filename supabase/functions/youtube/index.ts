@@ -167,7 +167,7 @@ const getUploadPlaylistId = (channelId: string): string => {
 // Busca os últimos vídeos de um canal usando a playlist de uploads
 const getLatestChannelVideos = async (
   channelId: string,
-  maxResults: number = 10,
+  maxResults: number = 5,
 ) => {
   if (!YOUTUBE_API_KEY) {
     throw new Error(
@@ -415,7 +415,7 @@ serve(async (req) => {
           try {
             const result = await getLatestChannelVideos(
               channelId,
-              maxResults || 10,
+              maxResults || 5,
             );
             results.push({
               channelId,
