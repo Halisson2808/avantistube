@@ -39,7 +39,15 @@ export interface UpdateProgress {
 const CACHE_HOURS = 1; // Cache válido por 1 hora
 
 export const useRecentVideos = () => {
-  const { channels } = useMonitoredChannels();
+  const { 
+    channels, 
+    updateNotes, 
+    updateNiche, 
+    updateContentType, 
+    removeChannel, 
+    updateChannelStats,
+    isLoading: isLoadingChannels 
+  } = useMonitoredChannels();
   const [selectedChannelIds, setSelectedChannelIds] = useState<Set<string>>(new Set());
   const [channelVideosData, setChannelVideosData] = useState<Map<string, ChannelVideosData>>(new Map());
   const [isLoadingAll, setIsLoadingAll] = useState(false);
@@ -621,6 +629,7 @@ export const useRecentVideos = () => {
     selectedChannelIds,
     channelVideosData,
     isLoadingAll,
+    isLoadingChannels,
     filters,
     setFilters,
     updateProgress,
@@ -637,5 +646,11 @@ export const useRecentVideos = () => {
     loadVideosFromCache,
     filterVideosByDatePeriod,
     getTotalViewsForPeriod,
+    // Funções reexportadas do useMonitoredChannels
+    updateNotes,
+    updateNiche,
+    updateContentType,
+    removeChannel,
+    updateChannelStats,
   };
 };
