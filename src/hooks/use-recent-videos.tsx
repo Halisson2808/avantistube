@@ -515,6 +515,20 @@ export const useRecentVideos = () => {
     return filteredVideos.reduce((sum, v) => sum + (v.viewCount || 0), 0);
   }, [filterVideosByDatePeriod]);
 
+  // Atualizar um único canal (vídeos + histórico)
+  const updateSingleChannel = useCallback(async (channelId: string) => {
+    try {
+      await Promise.all([
+        updateChannelVideos(channelId, true),
+        updateChannelHistory(channelId),
+      ]);
+      toast.success('Dados do canal atualizados!');
+    } catch (error) {
+      console.error(`Erro ao atualizar canal ${channelId}:`, error);
+      toast.error('Erro ao atualizar dados do canal');
+    }
+  }, [updateChannelVideos, updateChannelHistory]);
+
   return {
     channels,
     selectedChannelIds,
@@ -527,6 +541,7 @@ export const useRecentVideos = () => {
     isUpdating,
     updateChannelVideos,
     updateChannelsByNiches,
+    updateSingleChannel,
     getAvailableNiches,
     getChannelCountByNiche,
     toggleChannelSelection,
