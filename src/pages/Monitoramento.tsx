@@ -29,6 +29,7 @@ const RecentVideos = () => {
     isUpdating,
     updateChannelVideos,
     updateChannelsByNiches,
+    updateSingleChannel,
     getAvailableNiches,
     getChannelCountByNiche,
     clearFilters,
@@ -207,9 +208,15 @@ const RecentVideos = () => {
         throw new Error(data.error);
       }
 
-      toast.success("Canal adicionado com sucesso!");
+      toast.success("Canal adicionado! Atualizando dados...");
       setIsAddDialogOpen(false);
       resetAddForm();
+
+      // Atualiza automaticamente os dados do canal recém-adicionado
+      if (data.channel?.channel_id) {
+        await updateSingleChannel(data.channel.channel_id);
+      }
+
       window.location.reload();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erro ao adicionar canal";
