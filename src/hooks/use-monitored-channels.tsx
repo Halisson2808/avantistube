@@ -314,6 +314,7 @@ export const useMonitoredChannels = () => {
   return {
     channels,
     isLoading,
+    loadChannels,
     addChannel,
     updateChannel,
     removeChannel,
