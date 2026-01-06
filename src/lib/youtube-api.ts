@@ -70,6 +70,7 @@ export interface LatestVideo {
   viewCount: number;
   likeCount: number;
   commentCount: number;
+  duration?: string;
   isDeleted?: boolean;
 }
 

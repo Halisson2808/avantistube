@@ -14,6 +14,7 @@ export interface RecentVideo extends LatestVideo {
   position?: number;
   isDeleted?: boolean;
   channelDeleted?: boolean;
+  duration?: string;
 }
 
 export interface ChannelVideosData {
