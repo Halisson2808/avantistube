@@ -68,6 +68,7 @@ const RecentVideos = () => {
   const [showDeleteAlert, setShowDeleteAlert] = useState<string | null>(null);
   const [showChartDialog, setShowChartDialog] = useState<{ channelId: string; channelTitle: string } | null>(null);
   const [editedCustomNiche, setEditedCustomNiche] = useState("");
+  const [showExactTime, setShowExactTime] = useState(false);
 
   // Carregar do cache na inicialização
   useEffect(() => {
@@ -513,15 +514,28 @@ const RecentVideos = () => {
               <Filter className="w-5 h-5" />
               Filtros
             </CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="text-xs"
-            >
-              <X className="w-4 h-4 mr-1" />
-              Limpar Filtros
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Toggle de formato de hora */}
+              <Button
+                variant={showExactTime ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setShowExactTime(!showExactTime)}
+                className="text-xs"
+                title={showExactTime ? "Mostrando hora exata" : "Mostrando tempo relativo"}
+              >
+                <Clock className="w-4 h-4 mr-1" />
+                {showExactTime ? "Hora Exata" : "Tempo Relativo"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="text-xs"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Limpar Filtros
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -895,7 +909,7 @@ const RecentVideos = () => {
                   /* Grid de Vídeos */
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {channelData.videos.map((video) => (
-                      <RecentVideoCard key={video.videoId} video={video} />
+                      <RecentVideoCard key={video.videoId} video={video} showExactTime={showExactTime} />
                     ))}
                   </div>
                 )}

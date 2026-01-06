@@ -1,14 +1,16 @@
 import { Badge } from "@/components/ui/badge";
 import { Eye, Clock, AlertTriangle } from "lucide-react";
-import { formatNumber } from "@/lib/youtube-api";
+import { formatNumber, formatDuration } from "@/lib/youtube-api";
 import { RecentVideo } from "@/hooks/use-recent-videos";
+import { format } from "date-fns";
 
 interface RecentVideoCardProps {
   video: RecentVideo;
   onVideoClick?: (videoId: string) => void;
+  showExactTime?: boolean;
 }
 
-export const RecentVideoCard = ({ video, onVideoClick }: RecentVideoCardProps) => {
+export const RecentVideoCard = ({ video, onVideoClick, showExactTime = false }: RecentVideoCardProps) => {
   const handleClick = () => {
     if (video.isDeleted) return; // Não abrir vídeos excluídos
     if (onVideoClick) {
@@ -19,6 +21,16 @@ export const RecentVideoCard = ({ video, onVideoClick }: RecentVideoCardProps) =
   };
 
   const isDeleted = video.isDeleted || video.title.startsWith('[EXCLUÍDO]');
+
+  // Formatar hora exata
+  const getExactTime = () => {
+    if (!video.publishedAt) return '';
+    try {
+      return format(new Date(video.publishedAt), 'HH:mm');
+    } catch {
+      return '';
+    }
+  };
 
   return (
     <div 
@@ -39,6 +51,13 @@ export const RecentVideoCard = ({ video, onVideoClick }: RecentVideoCardProps) =
           <div className="w-full aspect-video bg-muted rounded-lg flex items-center justify-center">
             <AlertTriangle className="w-8 h-8 text-muted-foreground" />
           </div>
+        )}
+        
+        {/* Duration Badge - igual ao YouTube */}
+        {video.duration && !isDeleted && (
+          <Badge className="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] px-1 py-0.5 font-medium">
+            {formatDuration(video.duration)}
+          </Badge>
         )}
         
         {video.isViral && !isDeleted && (
@@ -70,7 +89,7 @@ export const RecentVideoCard = ({ video, onVideoClick }: RecentVideoCardProps) =
         </div>
         <div className="flex items-center gap-1">
           <Clock className="w-3 h-3" />
-          <span>{video.timeAgo}</span>
+          <span>{showExactTime ? getExactTime() : video.timeAgo}</span>
         </div>
       </div>
     </div>

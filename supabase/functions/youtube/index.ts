@@ -214,11 +214,11 @@ const getLatestChannelVideos = async (
     .map((item: any) => item.contentDetails?.videoId)
     .filter((id: string) => id);
 
-  // 3. Buscar estatísticas
+  // 3. Buscar estatísticas e contentDetails (para duration)
   const statsUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
   statsUrl.searchParams.append("key", YOUTUBE_API_KEY);
   statsUrl.searchParams.append("id", videoIds.join(","));
-  statsUrl.searchParams.append("part", "statistics,status");
+  statsUrl.searchParams.append("part", "statistics,status,contentDetails");
 
   const statsResponse = await fetch(statsUrl.toString());
   if (!statsResponse.ok) {
@@ -255,6 +255,7 @@ const getLatestChannelVideos = async (
         viewCount: stats?.statistics?.viewCount ? parseInt(stats.statistics.viewCount) : 0,
         likeCount: stats?.statistics?.likeCount ? parseInt(stats.statistics.likeCount) : 0,
         commentCount: stats?.statistics?.commentCount ? parseInt(stats.statistics.commentCount) : 0,
+        duration: stats?.contentDetails?.duration || '',
       };
     });
 
