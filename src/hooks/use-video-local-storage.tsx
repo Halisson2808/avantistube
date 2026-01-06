@@ -14,6 +14,7 @@ export interface CachedVideo {
   isViral?: boolean;
   isDeleted?: boolean;
   position?: number;
+  duration?: string;
 }
 
 export interface CachedChannelData {

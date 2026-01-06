@@ -204,6 +204,7 @@ export const useRecentVideos = () => {
           isViral: v.isViral,
           isDeleted: v.isDeleted,
           position: v.position,
+          duration: v.duration,
         }));
         saveChannelVideos(channelId, cachedVideos);
 
