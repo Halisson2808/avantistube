@@ -216,8 +216,6 @@ const RecentVideos = () => {
       if (data.channel?.channel_id) {
         await updateSingleChannel(data.channel.channel_id);
       }
-
-      window.location.reload();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erro ao adicionar canal";
       toast.error(errorMessage);

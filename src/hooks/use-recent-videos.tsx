@@ -44,6 +44,7 @@ const CACHE_HOURS = 2; // Cache válido por 2 horas
 export const useRecentVideos = () => {
   const { 
     channels, 
+    loadChannels,
     updateNotes, 
     updateNiche, 
     updateContentType, 
@@ -522,12 +523,14 @@ export const useRecentVideos = () => {
         updateChannelVideos(channelId, true),
         updateChannelHistory(channelId),
       ]);
+      // Recarrega a lista de canais para mostrar os dados atualizados
+      await loadChannels();
       toast.success('Dados do canal atualizados!');
     } catch (error) {
       console.error(`Erro ao atualizar canal ${channelId}:`, error);
       toast.error('Erro ao atualizar dados do canal');
     }
-  }, [updateChannelVideos, updateChannelHistory]);
+  }, [updateChannelVideos, updateChannelHistory, loadChannels]);
 
   return {
     channels,
