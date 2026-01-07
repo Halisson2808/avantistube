@@ -133,6 +133,7 @@ export const useRecentVideos = () => {
             timeAgo: calculateTimeAgo(video.publishedAt),
             isViral: video.isViral || isViral,
             position: video.position || index + 1,
+            channelDeleted: cached.channelDeleted,
           };
         });
 
@@ -141,6 +142,7 @@ export const useRecentVideos = () => {
           videos,
           isLoading: false,
           lastFetched: new Date(cached.lastFetched),
+          error: cached.error,
         });
       });
       
@@ -208,7 +210,7 @@ export const useRecentVideos = () => {
           position: v.position,
           duration: v.duration,
         }));
-        saveChannelVideos(channelId, cachedVideos);
+        saveChannelVideos(channelId, cachedVideos, { channelDeleted: result.channelDeleted });
 
         // Atualizar estado
         setChannelVideosData(prev => {
@@ -441,8 +443,12 @@ export const useRecentVideos = () => {
     // 4. Status do canal (ativo/caído)
     if (filters.channelStatus && filters.channelStatus !== 'all') {
       filtered = filtered.filter(data => {
-        // Verifica se algum vídeo indica que o canal foi deletado
-        const isChannelDeleted = data.videos.some(v => v.channelDeleted) || data.error?.includes('not found');
+        // Verifica se o canal foi deletado (através dos vídeos ou erro)
+        const hasChannelDeletedFlag = data.videos.some(v => v.channelDeleted);
+        const hasNotFoundError = data.error?.toLowerCase().includes('not found');
+        const hasNoVideosAndZeroStats = data.videos.length === 0 && data.channel.currentVideos === 0 && data.channel.currentViews === 0;
+        
+        const isChannelDeleted = hasChannelDeletedFlag || hasNotFoundError || hasNoVideosAndZeroStats;
         
         if (filters.channelStatus === 'active') {
           return !isChannelDeleted;

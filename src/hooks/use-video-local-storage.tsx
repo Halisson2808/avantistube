@@ -15,12 +15,20 @@ export interface CachedVideo {
   isDeleted?: boolean;
   position?: number;
   duration?: string;
+  channelDeleted?: boolean;
+}
+
+export interface CachedChannelMeta {
+  channelDeleted?: boolean;
+  error?: string;
 }
 
 export interface CachedChannelData {
   channelId: string;
   videos: CachedVideo[];
   lastFetched: string;
+  channelDeleted?: boolean;
+  error?: string;
 }
 
 interface VideoCache {
@@ -89,7 +97,7 @@ export function useVideoLocalStorage() {
     }
   }, [cache, isLoaded]);
 
-  const saveChannelVideos = useCallback((channelId: string, videos: CachedVideo[]) => {
+  const saveChannelVideos = useCallback((channelId: string, videos: CachedVideo[], meta?: CachedChannelMeta) => {
     setCache(prev => {
       const newChannels = {
         ...prev.channels,
@@ -97,6 +105,8 @@ export function useVideoLocalStorage() {
           channelId,
           videos: videos.slice(0, 10),
           lastFetched: new Date().toISOString(),
+          channelDeleted: meta?.channelDeleted,
+          error: meta?.error,
         },
       };
       
