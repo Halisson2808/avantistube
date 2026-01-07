@@ -31,6 +31,7 @@ export interface FilterOptions {
   contentType?: string;
   sortBy?: string;
   datePeriod?: 'all' | '7days' | '30days';
+  channelStatus?: 'all' | 'active' | 'deleted';
 }
 
 export interface UpdateProgress {
@@ -71,6 +72,7 @@ export const useRecentVideos = () => {
     contentType: 'Todos',
     sortBy: 'recent',
     datePeriod: 'all',
+    channelStatus: 'active',
   });
   const [updateProgress, setUpdateProgress] = useState<UpdateProgress>({
     current: 0,
@@ -436,6 +438,21 @@ export const useRecentVideos = () => {
       );
     }
 
+    // 4. Status do canal (ativo/caído)
+    if (filters.channelStatus && filters.channelStatus !== 'all') {
+      filtered = filtered.filter(data => {
+        // Verifica se algum vídeo indica que o canal foi deletado
+        const isChannelDeleted = data.videos.some(v => v.channelDeleted) || data.error?.includes('not found');
+        
+        if (filters.channelStatus === 'active') {
+          return !isChannelDeleted;
+        } else if (filters.channelStatus === 'deleted') {
+          return isChannelDeleted;
+        }
+        return true;
+      });
+    }
+
     // Ordenação
     filtered.sort((a, b) => {
       if (filters.sortBy === 'totalViews') {
@@ -495,6 +512,7 @@ export const useRecentVideos = () => {
       contentType: 'Todos',
       sortBy: 'recent',
       datePeriod: 'all',
+      channelStatus: 'active',
     });
   }, []);
 

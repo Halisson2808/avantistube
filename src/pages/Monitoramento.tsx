@@ -539,7 +539,7 @@ const RecentVideos = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
             {/* Busca */}
             <div className="space-y-2">
               <Label className="text-xs">Buscar Canal ou Nicho</Label>
@@ -585,6 +585,24 @@ const RecentVideos = () => {
                   <SelectItem value="Todos">Todos</SelectItem>
                   <SelectItem value="longform">LongForm</SelectItem>
                   <SelectItem value="shorts">Shorts</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Status do Canal */}
+            <div className="space-y-2">
+              <Label className="text-xs">Status do Canal</Label>
+              <Select
+                value={filters.channelStatus || 'active'}
+                onValueChange={(value: 'all' | 'active' | 'deleted') => setFilters({ ...filters, channelStatus: value })}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="active">Ativos</SelectItem>
+                  <SelectItem value="deleted">Caídos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
