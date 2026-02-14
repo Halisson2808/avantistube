@@ -1,45 +1,44 @@
 
 
-# Exportar Backup Completo do Sistema
+# Backup Completo com Schema e Codigo do Sistema
 
-## O que sera feito
+## Situacao Atual
 
-Criar uma nova pagina "Exportar Dados" acessivel pela sidebar, que permite exportar em JSON todos os dados do banco de dados e informacoes do sistema para backup antes de remover o banco.
+A pagina de exportacao atual exporta **apenas os dados (registros)** das tabelas. Para recriar o sistema do zero, faltam:
 
-## Dados que serao exportados
+- Schema SQL (CREATE TABLE, tipos, triggers, funcoes)
+- Politicas RLS (Row Level Security)
+- Codigo das Edge Functions
+- Migrations existentes
 
-### Dados do Banco (Supabase)
-1. **monitored_channels** - Todos os canais monitorados (nome, ID, inscritos, views, nicho, notas, tipo de conteudo, datas)
-2. **channel_history** - Historico completo de metricas de cada canal (inscritos, views, videos ao longo do tempo)
-3. **my_channels** - Seus proprios canais (nome, ID, inscritos, views, idioma, nicho)
-4. **video_snapshots** - Snapshots de videos salvos (titulo, views, likes, comentarios)
-5. **profiles** - Dados do perfil do usuario
+## O que sera adicionado
 
-### Dados Locais (localStorage)
-6. **Cache de videos recentes** - Videos em cache com thumbnails, metricas e duracao
+Uma nova secao **"Estrutura do Sistema"** na pagina `/exportar` que inclui no JSON exportado:
 
-## Estrutura da Pagina
+### 1. Schema do Banco de Dados
+Sera embutido diretamente no codigo como um objeto JSON contendo:
+- Definicao de todas as 5 tabelas (colunas, tipos, defaults, nullable)
+- Tipo customizado `content_type_enum` (longform, shorts, etc.)
+- Todas as politicas RLS de cada tabela
+- Funcoes do banco (`handle_new_user`, `handle_updated_at`, `update_monitored_channels_last_updated`)
+- Triggers associados
 
-- Nova rota `/exportar` com link na sidebar
-- Botoes individuais para exportar cada tabela separadamente
-- Botao "Exportar Tudo" que gera um unico JSON com todas as tabelas
-- Indicador de progresso durante a exportacao
-- Preview da quantidade de registros em cada tabela antes de exportar
+### 2. Codigo das Edge Functions
+Os 3 edge functions serao incluidos como texto no JSON:
+- `add-channel` - Adicionar canal ao monitoramento
+- `youtube` - Busca, detalhes e videos do YouTube
+- `update-all-channels` - Atualizacao em lote de todos os canais
 
-## Detalhes Tecnicos
+### 3. Configuracoes
+- Lista de secrets necessarios (nomes, sem valores)
+- URL e chave do Supabase (anonima)
 
-### Arquivos a criar
-1. **`src/pages/Exportar.tsx`** - Pagina principal de exportacao com:
-   - Cards mostrando cada tabela e quantidade de registros
-   - Botao por tabela para exportar individualmente
-   - Botao geral "Exportar Tudo" que baixa um JSON completo
-   - Funcao que consulta cada tabela via Supabase client e gera o arquivo JSON para download
+## Como funciona
 
-2. Atualizacoes nos arquivos existentes:
-   - **`src/App.tsx`** - Adicionar rota `/exportar`
-   - **`src/components/AppSidebar.tsx`** - Adicionar item "Exportar Dados" no menu com icone `Download`
+O botao **"Exportar Backup Completo"** ja existente passara a incluir tudo isso automaticamente. Alem disso, havera um novo card **"Estrutura do Sistema"** com botao separado para exportar apenas o schema + edge functions sem os dados.
 
-### Formato do JSON exportado (Exportar Tudo)
+## Formato do JSON completo atualizado
+
 ```text
 {
   "exportedAt": "2026-02-14T...",
@@ -51,10 +50,39 @@ Criar uma nova pagina "Exportar Dados" acessivel pela sidebar, que permite expor
     "video_snapshots": [...],
     "profiles": [...],
     "localStorage_cache": {...}
+  },
+  "schema": {
+    "tables": {
+      "monitored_channels": { columns: [...], rls_policies: [...] },
+      ...
+    },
+    "enums": ["content_type_enum"],
+    "functions": [...],
+    "triggers": [...]
+  },
+  "edge_functions": {
+    "add-channel": "// codigo completo...",
+    "youtube": "// codigo completo...",
+    "update-all-channels": "// codigo completo..."
+  },
+  "config": {
+    "required_secrets": ["VITE_YOUTUBE_API_KEY", "SUPABASE_SERVICE_ROLE_KEY", ...],
+    "supabase_url": "...",
+    "supabase_anon_key": "..."
   }
 }
 ```
 
-### Tratamento de limites
-- Supabase retorna no maximo 1000 registros por query. A implementacao fara paginacao automatica para tabelas com mais de 1000 registros (especialmente `channel_history`), garantindo exportacao completa.
+## Detalhes Tecnicos
+
+### Arquivo modificado
+- **`src/pages/Exportar.tsx`** - Adicionar:
+  - Constante `SYSTEM_SCHEMA` com toda a definicao do banco (tabelas, colunas, tipos, RLS, funcoes, triggers) hardcoded como objeto JS
+  - Constante `EDGE_FUNCTIONS_CODE` com o codigo fonte das 3 edge functions como strings
+  - Constante `SYSTEM_CONFIG` com nomes dos secrets e configuracoes
+  - Novo card "Estrutura do Sistema" com botao de exportar separado
+  - Incluir tudo isso no "Exportar Backup Completo"
+
+### Por que hardcoded?
+O Supabase client nao permite consultar `information_schema` nem ler arquivos do servidor pelo frontend. Entao o schema e o codigo das edge functions serao embutidos diretamente no componente. Isso garante que o backup tenha tudo necessario para reconstruir o sistema.
 
