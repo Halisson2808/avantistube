@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import Search from "./pages/Search";
 import MyChannels from "./pages/MyChannels";
 import Monitoramento from "./pages/Monitoramento";
+import Exportar from "./pages/Exportar";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { Menu, Youtube } from "lucide-react"; 
@@ -86,6 +87,7 @@ const App = () => (
           <Route path="/search" element={<ProtectedLayout><Search /></ProtectedLayout>} />
           <Route path="/my-channels" element={<ProtectedLayout><MyChannels /></ProtectedLayout>} />
           <Route path="/monitoramento" element={<ProtectedLayout><Monitoramento /></ProtectedLayout>} />
+          <Route path="/exportar" element={<ProtectedLayout><Exportar /></ProtectedLayout>} />
           {/* Redirect old routes */}
           <Route path="/monitored" element={<Navigate to="/monitoramento" replace />} />
           <Route path="/recent-videos" element={<Navigate to="/monitoramento" replace />} />
