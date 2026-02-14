@@ -1,4 +1,4 @@
-import { Home, Search, TrendingUp, Youtube, Lock, ExternalLink } from "lucide-react";
+import { Home, Search, TrendingUp, Youtube, Lock, ExternalLink, Download } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import logo from "@/assets/logo.png";
@@ -22,6 +22,7 @@ const items = [
   { title: "Buscar Vídeos", url: "/search", icon: Search, locked: false },
   { title: "Monitoramento", url: "/monitoramento", icon: TrendingUp, locked: false },
   { title: "Meus Canais", url: "/my-channels", icon: Youtube, locked: false },
+  { title: "Exportar Dados", url: "/exportar", icon: Download, locked: false },
 ];
 
 export function AppSidebar() {
