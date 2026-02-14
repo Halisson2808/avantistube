@@ -3,8 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Download, Database, HardDrive, CheckCircle2, Loader2 } from "lucide-react";
+import { Download, Database, HardDrive, Loader2, Code2, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { SYSTEM_SCHEMA, SYSTEM_CONFIG } from "@/lib/backup-data";
+
+// Import edge function source code as raw text via Vite
+import addChannelCode from "../../supabase/functions/add-channel/index.ts?raw";
+import youtubeCode from "../../supabase/functions/youtube/index.ts?raw";
+import updateAllChannelsCode from "../../supabase/functions/update-all-channels/index.ts?raw";
 
 const STORAGE_KEY = "yt_channel_videos_cache";
 
@@ -23,6 +29,12 @@ const TABLES_CONFIG = [
   { name: "video_snapshots", label: "Snapshots de Vídeos", description: "Dados salvos de vídeos (views, likes, comentários)" },
   { name: "profiles", label: "Perfil", description: "Dados do seu perfil de usuário" },
 ];
+
+const EDGE_FUNCTIONS_CODE: Record<string, string> = {
+  "add-channel": addChannelCode,
+  "youtube": youtubeCode,
+  "update-all-channels": updateAllChannelsCode,
+};
 
 async function fetchAllRows(tableName: string) {
   const rows: any[] = [];
@@ -71,13 +83,11 @@ export default function Exportar() {
   const [exportingSingle, setExportingSingle] = useState<string | null>(null);
 
   useEffect(() => {
-    // Count rows for each table
     TABLES_CONFIG.forEach(async (t) => {
       try {
         const { count, error } = await supabase
           .from(t.name as any)
           .select("*", { count: "exact", head: true });
-
         setTables((prev) =>
           prev.map((p) => (p.name === t.name ? { ...p, count: error ? 0 : (count ?? 0), loading: false } : p))
         );
@@ -88,7 +98,6 @@ export default function Exportar() {
       }
     });
 
-    // localStorage info
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
@@ -125,10 +134,22 @@ export default function Exportar() {
     }
   }, [toast]);
 
+  const exportSystemStructure = useCallback(() => {
+    const structureExport = {
+      exportedAt: new Date().toISOString(),
+      system: "AvantisTube",
+      schema: SYSTEM_SCHEMA,
+      edge_functions: EDGE_FUNCTIONS_CODE,
+      config: SYSTEM_CONFIG,
+    };
+    downloadJSON(structureExport, `avantistube_estrutura_sistema_${new Date().toISOString().slice(0, 10)}.json`);
+    toast({ title: "Estrutura exportada!", description: "Schema, edge functions e configurações salvos." });
+  }, [toast]);
+
   const exportAll = useCallback(async () => {
     setExportingAll(true);
     setExportProgress(0);
-    const totalSteps = TABLES_CONFIG.length + 1; // +1 for localStorage
+    const totalSteps = TABLES_CONFIG.length + 1;
     const result: Record<string, any> = {};
 
     try {
@@ -138,7 +159,6 @@ export default function Exportar() {
         setExportProgress(((i + 1) / totalSteps) * 100);
       }
 
-      // localStorage
       try {
         const stored = localStorage.getItem(STORAGE_KEY);
         result.localStorage_cache = stored ? JSON.parse(stored) : {};
@@ -151,10 +171,13 @@ export default function Exportar() {
         exportedAt: new Date().toISOString(),
         system: "AvantisTube",
         data: result,
+        schema: SYSTEM_SCHEMA,
+        edge_functions: EDGE_FUNCTIONS_CODE,
+        config: SYSTEM_CONFIG,
       };
 
       downloadJSON(fullExport, `avantistube_backup_completo_${new Date().toISOString().slice(0, 10)}.json`);
-      toast({ title: "Backup completo exportado!", description: "Todos os dados foram salvos em JSON." });
+      toast({ title: "Backup completo exportado!", description: "Dados + estrutura + código salvos em JSON." });
     } catch (err: any) {
       toast({ title: "Erro na exportação", description: err.message, variant: "destructive" });
     } finally {
@@ -170,7 +193,7 @@ export default function Exportar() {
       <div>
         <h1 className="text-2xl font-bold">Exportar Dados</h1>
         <p className="text-muted-foreground mt-1">
-          Exporte todos os dados do sistema para backup antes de remover o banco de dados.
+          Exporte todos os dados e estrutura do sistema para backup completo.
         </p>
       </div>
 
@@ -179,12 +202,12 @@ export default function Exportar() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Download className="h-5 w-5 text-primary" />
-            Exportar Tudo
+            Exportar Tudo (Dados + Estrutura + Código)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Gera um único arquivo JSON com todos os dados do banco + cache local.
+            Gera um único arquivo JSON com todos os dados, schema SQL, políticas RLS, edge functions e configurações.
             {!tables.some((t) => t.loading) && (
               <span className="font-medium text-foreground"> ({totalRecords} registros + {localStorageSize.count} canais em cache)</span>
             )}
@@ -199,6 +222,43 @@ export default function Exportar() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* System Structure */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <Code2 className="h-5 w-5" /> Estrutura do Sistema
+        </h2>
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="grid gap-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2"><Database className="h-3.5 w-3.5 text-muted-foreground" /> Tabelas</span>
+                <span className="font-mono bg-muted px-2 py-0.5 rounded text-xs">{Object.keys(SYSTEM_SCHEMA.tables).length} tabelas</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2"><Shield className="h-3.5 w-3.5 text-muted-foreground" /> Políticas RLS</span>
+                <span className="font-mono bg-muted px-2 py-0.5 rounded text-xs">
+                  {Object.values(SYSTEM_SCHEMA.tables).reduce((sum, t) => sum + t.rls_policies.length, 0)} políticas
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2"><Code2 className="h-3.5 w-3.5 text-muted-foreground" /> Edge Functions</span>
+                <span className="font-mono bg-muted px-2 py-0.5 rounded text-xs">{Object.keys(EDGE_FUNCTIONS_CODE).length} funções</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2"><Code2 className="h-3.5 w-3.5 text-muted-foreground" /> DB Functions + Triggers</span>
+                <span className="font-mono bg-muted px-2 py-0.5 rounded text-xs">{SYSTEM_SCHEMA.functions.length} funções</span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Schema SQL, políticas RLS, funções do banco, triggers, código das edge functions e lista de secrets.
+            </p>
+            <Button size="sm" variant="outline" className="w-full" onClick={exportSystemStructure}>
+              <Code2 className="h-3 w-3" /> Exportar Apenas Estrutura
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Individual tables */}
       <div>
