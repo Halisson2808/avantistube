@@ -23,11 +23,10 @@ interface TableInfo {
 }
 
 const TABLES_CONFIG = [
-  { name: "monitored_channels", label: "Canais Monitorados", description: "Canais que você monitora com nicho, notas e métricas" },
-  { name: "channel_history", label: "Histórico de Canais", description: "Histórico completo de métricas ao longo do tempo" },
-  { name: "my_channels", label: "Meus Canais", description: "Seus próprios canais do YouTube" },
-  { name: "video_snapshots", label: "Snapshots de Vídeos", description: "Dados salvos de vídeos (views, likes, comentários)" },
-  { name: "profiles", label: "Perfil", description: "Dados do seu perfil de usuário" },
+  { name: "monitored_channels", label: "Canais Monitorados", filename: "Canais-Monitorados", description: "Canais que você monitora com nicho, notas e métricas" },
+  { name: "channel_history", label: "Histórico de Canais", filename: "Historico-de-Canais", description: "Histórico completo de métricas ao longo do tempo" },
+  { name: "my_channels", label: "Meus Canais", filename: "Meus-Canais", description: "Seus próprios canais do YouTube" },
+  { name: "profiles", label: "Perfil", filename: "Perfil", description: "Dados do seu perfil de usuário" },
 ];
 
 const EDGE_FUNCTIONS_CODE: Record<string, string> = {
@@ -113,9 +112,11 @@ export default function Exportar() {
   const exportSingleTable = useCallback(async (tableName: string) => {
     setExportingSingle(tableName);
     try {
+      const config = TABLES_CONFIG.find(t => t.name === tableName);
+      const filename = config?.filename ?? tableName;
       const data = await fetchAllRows(tableName);
-      downloadJSON({ exportedAt: new Date().toISOString(), table: tableName, records: data.length, data }, `avantistube_${tableName}.json`);
-      toast({ title: "Exportado!", description: `${data.length} registros de ${tableName}` });
+      downloadJSON({ exportedAt: new Date().toISOString(), table: tableName, records: data.length, data }, `${filename}.json`);
+      toast({ title: "Exportado!", description: `${data.length} registros de ${config?.label ?? tableName}` });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
@@ -149,35 +150,40 @@ export default function Exportar() {
   const exportAll = useCallback(async () => {
     setExportingAll(true);
     setExportProgress(0);
-    const totalSteps = TABLES_CONFIG.length + 1;
-    const result: Record<string, any> = {};
+    const totalSteps = TABLES_CONFIG.length + 2; // tables + cache + structure
 
     try {
+      // Export each table as separate file
       for (let i = 0; i < TABLES_CONFIG.length; i++) {
         const t = TABLES_CONFIG[i];
-        result[t.name] = await fetchAllRows(t.name);
+        const data = await fetchAllRows(t.name);
+        downloadJSON({ exportedAt: new Date().toISOString(), table: t.name, records: data.length, data }, `${t.filename}.json`);
         setExportProgress(((i + 1) / totalSteps) * 100);
+        // Small delay between downloads so browser doesn't block them
+        await new Promise(r => setTimeout(r, 500));
       }
 
+      // Export localStorage cache
       try {
         const stored = localStorage.getItem(STORAGE_KEY);
-        result.localStorage_cache = stored ? JSON.parse(stored) : {};
-      } catch {
-        result.localStorage_cache = {};
-      }
-      setExportProgress(100);
+        const data = stored ? JSON.parse(stored) : {};
+        downloadJSON({ exportedAt: new Date().toISOString(), source: "localStorage", data }, "Cache-Videos.json");
+      } catch {}
+      setExportProgress(((TABLES_CONFIG.length + 1) / totalSteps) * 100);
+      await new Promise(r => setTimeout(r, 500));
 
-      const fullExport = {
+      // Export system structure
+      const structureExport = {
         exportedAt: new Date().toISOString(),
         system: "AvantisTube",
-        data: result,
         schema: SYSTEM_SCHEMA,
         edge_functions: EDGE_FUNCTIONS_CODE,
         config: SYSTEM_CONFIG,
       };
+      downloadJSON(structureExport, "Estrutura-Sistema.json");
+      setExportProgress(100);
 
-      downloadJSON(fullExport, `avantistube_backup_completo_${new Date().toISOString().slice(0, 10)}.json`);
-      toast({ title: "Backup completo exportado!", description: "Dados + estrutura + código salvos em JSON." });
+      toast({ title: "Backup completo!", description: `${TABLES_CONFIG.length + 2} arquivos exportados separadamente.` });
     } catch (err: any) {
       toast({ title: "Erro na exportação", description: err.message, variant: "destructive" });
     } finally {
@@ -202,14 +208,14 @@ export default function Exportar() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Download className="h-5 w-5 text-primary" />
-            Exportar Tudo (Dados + Estrutura + Código)
+            Exportar Tudo (Arquivos Separados)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Gera um único arquivo JSON com todos os dados, schema SQL, políticas RLS, edge functions e configurações.
+            Baixa {TABLES_CONFIG.length + 2} arquivos separados: {TABLES_CONFIG.map(t => t.filename).join(', ')}, Cache-Videos e Estrutura-Sistema.
             {!tables.some((t) => t.loading) && (
-              <span className="font-medium text-foreground"> ({totalRecords} registros + {localStorageSize.count} canais em cache)</span>
+              <span className="font-medium text-foreground"> ({totalRecords} registros no total)</span>
             )}
           </p>
           {exportingAll && <Progress value={exportProgress} className="h-2" />}
