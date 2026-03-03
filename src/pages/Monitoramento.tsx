@@ -9,15 +9,79 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Tag, Download, StickyNote, Pencil, Trash2, BarChart3, Users, Eye, Video } from "lucide-react";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Tag, Download, Pencil, Trash2, BarChart3, Users, Eye, Video } from "lucide-react";
 import { useRecentVideos } from "@/hooks/use-recent-videos";
 import { RecentVideoCard } from "@/components/RecentVideoCard";
 import { toast } from "sonner";
 import { useNiches } from "@/hooks/use-niches";
 import { formatNumber } from "@/lib/youtube-api";
-import { supabase } from "@/integrations/supabase/client";
+const LOCAL_API = 'http://localhost:3001/api';
 import { ChannelGrowthChart } from "@/components/ChannelGrowthChart";
+
+/* Sub-componente: thumbnail do canal com botão de download no hover */
+const ChannelThumb = ({ channelId, channelTitle, channelThumbnail }: {
+  channelId: string;
+  channelTitle: string;
+  channelThumbnail: string;
+}) => {
+  const [hover, setHover] = useState(false);
+  return (
+    <div
+      className="relative flex-shrink-0"
+      style={{ width: 40, height: 40 }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <a href={`https://youtube.com/channel/${channelId}`} target="_blank" rel="noopener noreferrer">
+        <img
+          src={channelThumbnail}
+          alt={channelTitle}
+          className="w-10 h-10 rounded-full ring-2 ring-transparent hover:ring-primary transition-all cursor-pointer"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
+      </a>
+      {/* Botão de download no canto superior direito, aparece no hover */}
+      <button
+        title="Baixar thumbnail do canal"
+        style={{
+          position: 'absolute',
+          top: -5,
+          right: -5,
+          width: 18,
+          height: 18,
+          borderRadius: '50%',
+          background: 'hsl(var(--primary))',
+          border: '2px solid hsl(var(--background))',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          opacity: hover ? 1 : 0,
+          transition: 'opacity 0.15s',
+          zIndex: 10,
+          padding: 0,
+        }}
+        onClick={async (e) => {
+          e.preventDefault();
+          try {
+            const res = await fetch(channelThumbnail);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${channelTitle.replace(/[^a-z0-9]/gi, '_')}_thumb.jpg`;
+            a.click();
+            URL.revokeObjectURL(url);
+          } catch { window.open(channelThumbnail, '_blank'); }
+        }}
+      >
+        <Download style={{ width: 9, height: 9, color: 'white' }} />
+      </button>
+    </div>
+  );
+};
 
 const RecentVideos = () => {
   const {
@@ -29,6 +93,7 @@ const RecentVideos = () => {
     isUpdating,
     updateChannelVideos,
     updateChannelsByNiches,
+    updateAllChannels,
     updateSingleChannel,
     getAvailableNiches,
     getChannelCountByNiche,
@@ -48,7 +113,7 @@ const RecentVideos = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [selectedNiches, setSelectedNiches] = useState<string[]>([]);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  
+
   // Dialog de adicionar canal
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [channelUrl, setChannelUrl] = useState("");
@@ -69,6 +134,12 @@ const RecentVideos = () => {
   const [showChartDialog, setShowChartDialog] = useState<{ channelId: string; channelTitle: string } | null>(null);
   const [editedCustomNiche, setEditedCustomNiche] = useState("");
   const [showExactTime, setShowExactTime] = useState(false);
+  const [maisFilterOpen, setMaisFilterOpen] = useState(true); // PC: aberto por padrão
+
+  // No mobile, fechar "Mais Filtros" por padrão
+  useEffect(() => {
+    if (window.innerWidth < 768) setMaisFilterOpen(false);
+  }, []);
 
   // Carregar do cache na inicialização
   useEffect(() => {
@@ -87,7 +158,7 @@ const RecentVideos = () => {
 
   // Exportar CSV dos vídeos recentes
   const exportToCSV = () => {
-    const allVideos = videosByChannel.flatMap(cd => 
+    const allVideos = videosByChannel.flatMap(cd =>
       cd.videos.map(v => ({
         ...v,
         channelNiche: cd.channel.niche,
@@ -146,8 +217,8 @@ const RecentVideos = () => {
   };
 
   const handleNicheToggle = (niche: string) => {
-    setSelectedNiches(prev => 
-      prev.includes(niche) 
+    setSelectedNiches(prev =>
+      prev.includes(niche)
         ? prev.filter(n => n !== niche)
         : [...prev, niche]
     );
@@ -172,7 +243,7 @@ const RecentVideos = () => {
   };
 
   const totalSelectedChannels = selectedNiches.reduce(
-    (sum, niche) => sum + getChannelCountByNiche(niche), 
+    (sum, niche) => sum + getChannelCountByNiche(niche),
     0
   );
 
@@ -185,40 +256,38 @@ const RecentVideos = () => {
     setIsAddingChannel(true);
     try {
       const finalNiche = selectedNiche === "__new__" ? customNiche : selectedNiche;
-      
-      const { data, error } = await supabase.functions.invoke('add-channel', {
-        body: {
+
+      const res = await fetch(`${LOCAL_API}/channels`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           channelInput: channelUrl,
           niche: finalNiche,
           notes: newNotes,
           contentType: contentType,
-        },
+        }),
       });
 
-      if (error) {
-        throw new Error(error.message);
+      const data = await res.json();
+
+      if (res.status === 409 || data.error?.includes('already being monitored')) {
+        toast.info('Este canal já está sendo monitorado');
+        setIsAddDialogOpen(false);
+        resetAddForm();
+        return;
       }
 
-      if (data.error) {
-        if (data.error.includes("already being monitored")) {
-          toast.info("Este canal já está sendo monitorado");
-          setIsAddDialogOpen(false);
-          resetAddForm();
-          return;
-        }
-        throw new Error(data.error);
-      }
+      if (!res.ok) throw new Error(data.error || 'Erro ao adicionar canal');
 
-      toast.success("Canal adicionado! Atualizando dados...");
+      toast.success('Canal adicionado! Atualizando dados...');
       setIsAddDialogOpen(false);
       resetAddForm();
 
-      // Atualiza automaticamente os dados do canal recém-adicionado
       if (data.channel?.channel_id) {
         await updateSingleChannel(data.channel.channel_id);
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Erro ao adicionar canal";
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao adicionar canal';
       toast.error(errorMessage);
       console.error(error);
     } finally {
@@ -243,7 +312,7 @@ const RecentVideos = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Monitoramento</h1>
           <p className="text-muted-foreground text-sm sm:text-base">
-            {channels.length} canais monitorados • Últimos 5 vídeos de cada
+            {channels.length} canais monitorados • Últimos 7 vídeos de cada
             {videosByChannel.length > 0 && (
               <span className="ml-2">
                 • Mostrando {videosByChannel.length} de {channels.length} canal(is)
@@ -252,238 +321,194 @@ const RecentVideos = () => {
           </p>
         </div>
 
-        <div className="flex gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
-          {/* Botão Gerenciar Nichos */}
-          <Dialog open={isManageNichesOpen} onOpenChange={setIsManageNichesOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="flex-1 sm:flex-auto text-xs sm:text-sm">
-                <Tag className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Gerenciar Nichos</span>
-                <span className="sm:hidden">Nichos</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Gerenciar Nichos</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                {niches.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    Nenhum nicho cadastrado ainda.
-                  </p>
-                ) : (
-                  niches.map((niche) => (
-                    <div key={niche} className="flex items-center gap-2">
-                      {editingNiche?.old === niche ? (
-                        <>
-                          <Input
-                            value={editingNiche.new}
-                            onChange={(e) => setEditingNiche({ old: niche, new: e.target.value })}
-                            className="flex-1"
-                            placeholder="Novo nome do nicho"
-                          />
-                          <Button
-                            size="sm"
-                            onClick={() => handleRenameNiche(editingNiche.old, editingNiche.new)}
-                          >
-                            Salvar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setEditingNiche(null)}
-                          >
-                            Cancelar
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex-1 px-3 py-2 rounded-md bg-muted text-sm">
-                            {niche}
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setEditingNiche({ old: niche, new: niche })}
-                          >
-                            Renomear
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
+        {/* Botões de ação - layout responsivo */}
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
 
-          {/* Botão Exportar CSV */}
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={exportToCSV}
-            className="flex-1 sm:flex-auto text-xs sm:text-sm"
-          >
-            <Download className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">Exportar CSV</span>
-            <span className="sm:hidden">CSV</span>
-          </Button>
-
-          {/* Botão Adicionar Canal */}
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="flex-1 sm:flex-auto text-xs sm:text-sm">
-                <Plus className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Adicionar Canal</span>
-                <span className="sm:hidden">Adicionar</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Adicionar Canal ao Monitoramento</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>URL ou ID do Canal</Label>
-                  <Input
-                    value={channelUrl}
-                    onChange={(e) => setChannelUrl(e.target.value)}
-                    placeholder="UCxxxx, youtube.com/channel/UCxxxx ou youtube.com/@username"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Formatos aceitos: ID do canal, URL completa ou username (@)
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label>Tipo de Conteúdo *</Label>
-                  <Select value={contentType} onValueChange={(value: "longform" | "shorts") => setContentType(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="longform">Vídeos Longos</SelectItem>
-                      <SelectItem value="shorts">Shorts</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Nicho (opcional)</Label>
-                  <Select value={selectedNiche} onValueChange={setSelectedNiche}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione ou crie um nicho" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {niches.map((niche) => (
-                        <SelectItem key={niche} value={niche}>
-                          {niche}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="__new__">➕ Novo Nicho</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {selectedNiche === "__new__" && (
-                    <Input
-                      value={customNiche}
-                      onChange={(e) => setCustomNiche(e.target.value)}
-                      placeholder="Digite o nome do novo nicho"
-                    />
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label>Notas (opcional)</Label>
-                  <Textarea
-                    value={newNotes}
-                    onChange={(e) => setNewNotes(e.target.value)}
-                    placeholder="Adicione notas sobre este canal..."
-                  />
-                </div>
-                <Button
-                  onClick={handleAddChannel}
-                  disabled={isAddingChannel}
-                  className="w-full gradient-primary"
-                >
-                  {isAddingChannel ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Adicionando...
-                    </>
-                  ) : (
-                    "Adicionar Canal"
-                  )}
+          {/* Linha 1 mobile / inline desktop: Gerenciar Nichos + CSV */}
+          <div className="flex gap-2 w-full sm:w-auto">
+            {/* Botão Gerenciar Nichos */}
+            <Dialog open={isManageNichesOpen} onOpenChange={setIsManageNichesOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="flex-1 sm:flex-auto text-xs sm:text-sm">
+                  <Tag className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Gerenciar Nichos</span>
+                  <span className="sm:hidden">Nichos</span>
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Gerenciar Nichos</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {niches.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">
+                      Nenhum nicho cadastrado ainda.
+                    </p>
+                  ) : (
+                    niches.map((niche) => (
+                      <div key={niche} className="flex items-center gap-2">
+                        {editingNiche?.old === niche ? (
+                          <>
+                            <Input
+                              value={editingNiche.new}
+                              onChange={(e) => setEditingNiche({ old: niche, new: e.target.value })}
+                              className="flex-1"
+                              placeholder="Novo nome do nicho"
+                            />
+                            <Button size="sm" onClick={() => handleRenameNiche(editingNiche.old, editingNiche.new)}>Salvar</Button>
+                            <Button size="sm" variant="outline" onClick={() => setEditingNiche(null)}>Cancelar</Button>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex-1 px-3 py-2 rounded-md bg-muted text-sm">{niche}</div>
+                            <Button size="sm" variant="outline" onClick={() => setEditingNiche({ old: niche, new: niche })}>Renomear</Button>
+                          </>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
 
-          {/* Botão Atualizar */}
-          <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="default"
-                size="sm"
-                disabled={isUpdating || channels.length === 0}
-                className="flex-1 sm:flex-auto gradient-primary"
-              >
-                {isUpdating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Atualizando...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Atualizar
-                    <ChevronDown className="w-4 h-4 ml-1" />
-                  </>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-72 p-4" align="end">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-sm">Selecionar Nichos</h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleSelectAllNiches}
-                    className="h-7 text-xs"
-                  >
-                    {selectedNiches.length === availableNiches.length ? 'Desmarcar' : 'Selecionar'} Todos
+            {/* Botão Exportar CSV */}
+            <Button variant="outline" size="sm" onClick={exportToCSV} className="flex-1 sm:flex-auto text-xs sm:text-sm">
+              <Download className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Exportar CSV</span>
+              <span className="sm:hidden">CSV</span>
+            </Button>
+          </div>
+
+          {/* Linha 2 mobile / inline desktop: Adicionar Canal + Atualizar + Por Nicho */}
+          <div className="flex gap-2 w-full sm:w-auto">
+            {/* Botão Adicionar Canal */}
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="flex-1 sm:flex-auto text-xs sm:text-sm">
+                  <Plus className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Adicionar Canal</span>
+                  <span className="sm:hidden">Adicionar</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Adicionar Canal ao Monitoramento</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>URL ou ID do Canal</Label>
+                    <Input
+                      value={channelUrl}
+                      onChange={(e) => setChannelUrl(e.target.value)}
+                      placeholder="UCxxxx, youtube.com/channel/UCxxxx ou youtube.com/@username"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Formatos aceitos: ID do canal, URL completa ou username (@)
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo de Conteúdo *</Label>
+                    <Select value={contentType} onValueChange={(value: "longform" | "shorts") => setContentType(value)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="longform">Vídeos Longos</SelectItem>
+                        <SelectItem value="shorts">Shorts</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nicho (opcional)</Label>
+                    <Select value={selectedNiche} onValueChange={setSelectedNiche}>
+                      <SelectTrigger><SelectValue placeholder="Selecione ou crie um nicho" /></SelectTrigger>
+                      <SelectContent>
+                        {niches.map((niche) => (
+                          <SelectItem key={niche} value={niche}>{niche}</SelectItem>
+                        ))}
+                        <SelectItem value="__new__">➕ Novo Nicho</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {selectedNiche === "__new__" && (
+                      <Input value={customNiche} onChange={(e) => setCustomNiche(e.target.value)} placeholder="Digite o nome do novo nicho" />
+                    )}
+                  </div>
+                  <Button onClick={handleAddChannel} disabled={isAddingChannel} className="w-full gradient-primary">
+                    {isAddingChannel ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Adicionando...</>) : "Adicionar Canal"}
                   </Button>
                 </div>
-                
-                <div className="max-h-60 overflow-y-auto space-y-2">
-                  {availableNiches.map((niche) => (
-                    <label
-                      key={niche}
-                      className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer"
+              </DialogContent>
+            </Dialog>
+
+            {/* Botão Atualizar Todos */}
+            <Button
+              variant="default"
+              size="sm"
+              disabled={isUpdating || channels.length === 0}
+              className="flex-1 sm:flex-auto gradient-primary text-xs sm:text-sm"
+              onClick={updateAllChannels}
+            >
+              {isUpdating ? (
+                <><Loader2 className="w-4 h-4 mr-1 sm:mr-2 animate-spin" /><span className="hidden sm:inline">Atualizando...</span><span className="sm:hidden">...</span></>
+              ) : (
+                <><RefreshCw className="w-4 h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Atualizar Todos ({channels.length})</span><span className="sm:hidden">+{channels.length}</span></>
+              )}
+            </Button>
+
+            {/* Botão Por Nicho (Popover) */}
+            <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" disabled={isUpdating || channels.length === 0} className="flex-1 sm:flex-auto text-xs sm:text-sm">
+                  <Filter className="w-4 h-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Por Nicho</span>
+                  <ChevronDown className="w-4 h-4 ml-1" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-4" align="end">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium text-sm">Selecionar Nichos</h4>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleSelectAllNiches}
+                      className="h-7 text-xs"
                     >
-                      <Checkbox
-                        checked={selectedNiches.includes(niche)}
-                        onCheckedChange={() => handleNicheToggle(niche)}
-                      />
-                      <span className="flex-1 text-sm">{niche}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {getChannelCountByNiche(niche)}
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                      {selectedNiches.length === availableNiches.length ? 'Desmarcar' : 'Selecionar'} Todos
+                    </Button>
+                  </div>
 
-                <div className="pt-2 border-t border-border">
-                  <Button
-                    onClick={handleUpdateSelected}
-                    disabled={selectedNiches.length === 0}
-                    className="w-full gradient-primary"
-                    size="sm"
-                  >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Atualizar {totalSelectedChannels} canal(is)
-                  </Button>
+                  <div className="max-h-60 overflow-y-auto space-y-2">
+                    {availableNiches.map((niche) => (
+                      <label
+                        key={niche}
+                        className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer"
+                      >
+                        <Checkbox
+                          checked={selectedNiches.includes(niche)}
+                          onCheckedChange={() => handleNicheToggle(niche)}
+                        />
+                        <span className="flex-1 text-sm">{niche}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {getChannelCountByNiche(niche)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="pt-2 border-t border-border">
+                    <Button
+                      onClick={handleUpdateSelected}
+                      disabled={selectedNiches.length === 0}
+                      className="w-full gradient-primary"
+                      size="sm"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Atualizar {totalSelectedChannels} canal(is)
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </div>
 
@@ -506,142 +531,189 @@ const RecentVideos = () => {
         </Card>
       )}
 
-      {/* Sistema de Filtros */}
+      {/* Sistema de Filtros - sempre visível, sem toggle */}
       <Card className="shadow-card">
-        <CardHeader>
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Filter className="w-5 h-5" />
               Filtros
             </CardTitle>
             <div className="flex items-center gap-2">
-              {/* Toggle de formato de hora */}
               <Button
                 variant={showExactTime ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => setShowExactTime(!showExactTime)}
-                className="text-xs"
+                className="text-xs hidden sm:flex"
                 title={showExactTime ? "Mostrando hora exata" : "Mostrando tempo relativo"}
               >
                 <Clock className="w-4 h-4 mr-1" />
                 {showExactTime ? "Hora Exata" : "Tempo Relativo"}
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-                className="text-xs"
-              >
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs">
                 <X className="w-4 h-4 mr-1" />
-                Limpar Filtros
+                Limpar
               </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-            {/* Busca */}
-            <div className="space-y-2">
-              <Label className="text-xs">Buscar Canal ou Nicho</Label>
-              <Input
-                placeholder="🔍 Buscar por nome, ID ou nicho..."
-                value={filters.search}
-                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                className="h-9"
-              />
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Busca Principal */}
+              <div className="space-y-2">
+                <Label className="text-xs">Buscar Canal ou Nicho</Label>
+                <Input
+                  placeholder="🔍 Nome, ID ou nicho..."
+                  value={filters.search}
+                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                  className="h-9"
+                />
+              </div>
+
+              {/* Categoria Primária */}
+              <div className="space-y-2">
+                <Label className="text-xs">Categoria</Label>
+                <Select
+                  value={filters.category}
+                  onValueChange={(value) => setFilters({ ...filters, category: value })}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            {/* Categoria */}
-            <div className="space-y-2">
-              <Label className="text-xs">Categoria</Label>
-              <Select
-                value={filters.category}
-                onValueChange={(value) => setFilters({ ...filters, category: value })}
+            {/* Filtro rápido: canais caídos/excluídos */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() =>
+                  setFilters({
+                    ...filters,
+                    channelStatus: filters.channelStatus === 'deleted' ? 'active' : 'deleted',
+                  })
+                }
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '4px 12px',
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  border: '1px solid',
+                  transition: 'all 0.15s',
+                  background: filters.channelStatus === 'deleted' ? 'hsl(var(--destructive))' : 'transparent',
+                  borderColor: filters.channelStatus === 'deleted' ? 'hsl(var(--destructive))' : 'hsl(var(--border))',
+                  color: filters.channelStatus === 'deleted' ? 'white' : 'hsl(var(--muted-foreground))',
+                }}
+                title="Mostrar apenas canais caídos ou excluídos"
               >
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <span>⚠️</span>
+                <span>Canais Caídos</span>
+                {filters.channelStatus === 'deleted' && <span style={{ fontSize: 10, opacity: 0.8 }}>✕</span>}
+              </button>
+              {filters.channelStatus === 'deleted' && (
+                <span className="text-xs text-muted-foreground italic">
+                  Mostrando apenas canais inativos ou excluídos
+                </span>
+              )}
             </div>
 
-            {/* Formato de Vídeo */}
-            <div className="space-y-2">
-              <Label className="text-xs">Formato de Vídeo</Label>
-              <Select
-                value={filters.contentType || 'Todos'}
-                onValueChange={(value) => setFilters({ ...filters, contentType: value })}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Todos">Todos</SelectItem>
-                  <SelectItem value="longform">LongForm</SelectItem>
-                  <SelectItem value="shorts">Shorts</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="w-full sm:w-auto h-8 px-2 gap-1 hover:bg-muted/50 justify-between sm:justify-start"
+                  onClick={() => setMaisFilterOpen(o => !o)}
+                >
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mais Filtros</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${maisFilterOpen ? 'rotate-180' : ''}`} />
+                </Button>
+              </CollapsibleTrigger>
+              {maisFilterOpen && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Formato de Vídeo */}
+                  <div className="space-y-2">
+                    <Label className="text-xs">Formato</Label>
+                    <Select
+                      value={filters.contentType || 'Todos'}
+                      onValueChange={(value) => setFilters({ ...filters, contentType: value })}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Todos">Todos</SelectItem>
+                        <SelectItem value="longform">LongForm</SelectItem>
+                        <SelectItem value="shorts">Shorts</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-            {/* Status do Canal */}
-            <div className="space-y-2">
-              <Label className="text-xs">Status do Canal</Label>
-              <Select
-                value={filters.channelStatus || 'active'}
-                onValueChange={(value: 'all' | 'active' | 'deleted') => setFilters({ ...filters, channelStatus: value })}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="active">Ativos</SelectItem>
-                  <SelectItem value="deleted">Caídos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                  {/* Status do Canal */}
+                  <div className="space-y-2">
+                    <Label className="text-xs">Status</Label>
+                    <Select
+                      value={filters.channelStatus || 'active'}
+                      onValueChange={(value: 'all' | 'active' | 'deleted') => setFilters({ ...filters, channelStatus: value })}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="active">Ativos</SelectItem>
+                        <SelectItem value="deleted">Caídos</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-            {/* Período (Data) */}
-            <div className="space-y-2">
-              <Label className="text-xs">Período</Label>
-              <Select
-                value={filters.datePeriod || 'all'}
-                onValueChange={(value: 'all' | '7days' | '30days') => setFilters({ ...filters, datePeriod: value })}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todo o tempo</SelectItem>
-                  <SelectItem value="7days">Últimos 7 dias</SelectItem>
-                  <SelectItem value="30days">Últimos 30 dias</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                  {/* Período (Data) */}
+                  <div className="space-y-2">
+                    <Label className="text-xs">Período</Label>
+                    <Select
+                      value={filters.datePeriod || 'all'}
+                      onValueChange={(value: 'all' | '7days' | '30days') => setFilters({ ...filters, datePeriod: value })}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todo o tempo</SelectItem>
+                        <SelectItem value="7days">Últimos 7 dias</SelectItem>
+                        <SelectItem value="30days">Últimos 30 dias</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-            {/* Ordenar por */}
-            <div className="space-y-2">
-              <Label className="text-xs">Ordenar por</Label>
-              <Select
-                value={filters.sortBy || 'name'}
-                onValueChange={(value) => setFilters({ ...filters, sortBy: value })}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="name">Nome (A-Z)</SelectItem>
-                  <SelectItem value="totalViews">Total de Views</SelectItem>
-                  <SelectItem value="recent">Recém Adicionado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                  {/* Ordenar por */}
+                  <div className="space-y-2">
+                    <Label className="text-xs">Ordenar por</Label>
+                    <Select
+                      value={filters.sortBy || 'name'}
+                      onValueChange={(value) => setFilters({ ...filters, sortBy: value })}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="name">Nome (A-Z)</SelectItem>
+                        <SelectItem value="totalViews">Total de Views</SelectItem>
+                        <SelectItem value="recent">Recém Adicionado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </Collapsible>
           </div>
         </CardContent>
       </Card>
@@ -682,7 +754,7 @@ const RecentVideos = () => {
               const diffMinutes = Math.floor(diffMs / 60000);
               const diffHours = Math.floor(diffMs / 3600000);
               const diffDays = Math.floor(diffMs / 86400000);
-              
+
               if (diffDays > 0) return `Atualizado há ${diffDays} dia${diffDays > 1 ? 's' : ''}`;
               if (diffHours > 0) return `Atualizado há ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
               return `Atualizado há ${diffMinutes} minuto${diffMinutes !== 1 ? 's' : ''}`;
@@ -693,7 +765,7 @@ const RecentVideos = () => {
               if (!channelData.channel.addedAt) return null;
               const diffMs = new Date().getTime() - new Date(channelData.channel.addedAt).getTime();
               const diffDays = Math.floor(diffMs / 86400000);
-              
+
               if (diffDays === 0) return 'Adicionado hoje';
               if (diffDays === 1) return 'Adicionado há 1 dia';
               return `Adicionado há ${diffDays} dias`;
@@ -702,10 +774,10 @@ const RecentVideos = () => {
             // Somar views dos vídeos filtrados pelo período
             const totalViews = getTotalViewsForPeriod(channelData.videos, filters.datePeriod || 'all');
             const filteredVideos = filterVideosByDatePeriod(channelData.videos, filters.datePeriod || 'all');
-            
+
             // Label do período para exibição
-            const periodLabel = filters.datePeriod === '7days' ? 'últimos 7 dias' : 
-                               filters.datePeriod === '30days' ? 'últimos 30 dias' : 'totais';
+            const periodLabel = filters.datePeriod === '7days' ? 'últimos 7 dias' :
+              filters.datePeriod === '30days' ? 'últimos 30 dias' : 'totais';
 
             // Atualizar canal (vídeos + stats)
             const handleUpdateChannel = async () => {
@@ -713,23 +785,58 @@ const RecentVideos = () => {
               await updateChannelStats(channelData.channel.channelId);
             };
 
+            const isDeletedChannel = channelData.videos.some(v => v.channelDeleted) ||
+              channelData.error?.toLowerCase().includes('not found') ||
+              (channelData.videos.length === 0 && channelData.channel.currentVideos === 0 && channelData.channel.currentViews === 0);
+
+            // Lógica de filtro de status:
+            // - 'active': mostra apenas canais normais (pula os caídos)
+            // - 'deleted': mostra apenas canais caídos (pula os normais)
+            // - 'all': mostra tudo
+            const statusFilter = filters.channelStatus || 'active';
+            if (statusFilter === 'active' && isDeletedChannel) return null;
+            if (statusFilter === 'deleted' && !isDeletedChannel) return null;
+
+            // Renderização especial para canais caídos
+            if (isDeletedChannel) {
+              return (
+                <div key={channelData.channel.channelId} className="flex items-center justify-between p-4 bg-muted/20 border border-destructive/30 rounded-lg opacity-90">
+                  <div className="flex items-center gap-3">
+                    {channelData.channel.channelThumbnail ? (
+                      <img src={channelData.channel.channelThumbnail} alt={channelData.channel.channelTitle} className="w-10 h-10 rounded-full grayscale" loading="lazy" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                        <Video className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div>
+                      <h2 className="text-sm font-bold truncate line-through decoration-muted-foreground">{channelData.channel.channelTitle}</h2>
+                      <p className="text-xs text-destructive">⚠️ Canal Indisponível ou Excluído (404)</p>
+                      {channelData.channel.niche && (
+                        <p className="text-xs text-muted-foreground">{channelData.channel.niche}</p>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost" size="sm" onClick={() => setShowDeleteAlert(channelData.channel.channelId)}
+                    className="text-destructive hover:text-destructive" title="Remover da lista"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              );
+            }
+
             return (
               <div key={channelData.channel.channelId} className="space-y-4">
                 {/* Header do Canal */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   {channelData.channel.channelThumbnail && (
-                    <a
-                      href={`https://youtube.com/channel/${channelData.channel.channelId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-shrink-0"
-                    >
-                      <img
-                        src={channelData.channel.channelThumbnail}
-                        alt={channelData.channel.channelTitle}
-                        className="w-10 h-10 rounded-full hover:ring-2 hover:ring-primary transition-all cursor-pointer"
-                      />
-                    </a>
+                    <ChannelThumb
+                      channelId={channelData.channel.channelId}
+                      channelTitle={channelData.channel.channelTitle}
+                      channelThumbnail={channelData.channel.channelThumbnail}
+                    />
                   )}
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -755,18 +862,7 @@ const RecentVideos = () => {
                         >
                           <RefreshCw className="w-3 h-3" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setShowNotesDialog({ 
-                            channelId: channelData.channel.channelId, 
-                            notes: channelData.channel.notes || '' 
-                          })}
-                          className="h-7 px-2"
-                          title="Notas"
-                        >
-                          <StickyNote className="w-3 h-3" />
-                        </Button>
+                        {/* Download Thumbnail - movido para overlay na thumb */}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -808,11 +904,10 @@ const RecentVideos = () => {
                         <span className="px-2 py-0.5 bg-muted rounded">{channelData.channel.niche}</span>
                       )}
                       {channelData.channel.contentType && (
-                        <span className={`px-2 py-0.5 rounded ${
-                          channelData.channel.contentType === 'shorts'
-                            ? 'bg-purple-500/10 text-purple-400'
-                            : 'bg-blue-500/10 text-blue-400'
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded ${channelData.channel.contentType === 'shorts'
+                          ? 'bg-purple-500/10 text-purple-400'
+                          : 'bg-blue-500/10 text-blue-400'
+                          }`}>
                           {channelData.channel.contentType === 'shorts' ? 'Shorts' : 'Longos'}
                         </span>
                       )}
@@ -862,35 +957,31 @@ const RecentVideos = () => {
                     <p className="text-lg font-bold">{formatNumber(channelData.channel.currentViews)}</p>
                   </div>
                   {/* Inscritos 7 Dias */}
-                  <div className={`p-3 rounded-lg border ${
-                    (channelData.channel.subscribersLast7Days || 0) >= 0
-                      ? 'bg-green-500/10 border-green-500/30'
-                      : 'bg-red-500/10 border-red-500/30'
-                  }`}>
+                  <div className={`p-3 rounded-lg border ${(channelData.channel.subscribersLast7Days || 0) >= 0
+                    ? 'bg-green-500/10 border-green-500/30'
+                    : 'bg-red-500/10 border-red-500/30'
+                    }`}>
                     <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                       <Users className="w-3 h-3" />
                       <span>7 Dias</span>
                     </div>
-                    <p className={`text-lg font-bold ${
-                      (channelData.channel.subscribersLast7Days || 0) >= 0 ? 'text-green-500' : 'text-red-500'
-                    }`}>
+                    <p className={`text-lg font-bold ${(channelData.channel.subscribersLast7Days || 0) >= 0 ? 'text-green-500' : 'text-red-500'
+                      }`}>
                       {(channelData.channel.subscribersLast7Days || 0) >= 0 ? '+' : ''}
                       {formatNumber(channelData.channel.subscribersLast7Days || 0)}
                     </p>
                   </div>
                   {/* Views 7 Dias */}
-                  <div className={`p-3 rounded-lg border ${
-                    (channelData.channel.viewsLast7Days || 0) >= 0
-                      ? 'bg-green-500/10 border-green-500/30'
-                      : 'bg-red-500/10 border-red-500/30'
-                  }`}>
+                  <div className={`p-3 rounded-lg border ${(channelData.channel.viewsLast7Days || 0) >= 0
+                    ? 'bg-green-500/10 border-green-500/30'
+                    : 'bg-red-500/10 border-red-500/30'
+                    }`}>
                     <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                       <Eye className="w-3 h-3" />
                       <span>7 Dias</span>
                     </div>
-                    <p className={`text-lg font-bold ${
-                      (channelData.channel.viewsLast7Days || 0) >= 0 ? 'text-green-500' : 'text-red-500'
-                    }`}>
+                    <p className={`text-lg font-bold ${(channelData.channel.viewsLast7Days || 0) >= 0 ? 'text-green-500' : 'text-red-500'
+                      }`}>
                       {(channelData.channel.viewsLast7Days || 0) >= 0 ? '+' : ''}
                       {formatNumber(channelData.channel.viewsLast7Days || 0)}
                     </p>
@@ -924,8 +1015,8 @@ const RecentVideos = () => {
                     </CardContent>
                   </Card>
                 ) : (
-                  /* Grid de Vídeos */
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  /* Grid de Vídeos - 7 colunas no desktop, menor no mobile */
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-2">
                     {channelData.videos.map((video) => (
                       <RecentVideoCard key={video.videoId} video={video} showExactTime={showExactTime} />
                     ))}
@@ -936,39 +1027,6 @@ const RecentVideos = () => {
           })}
         </div>
       )}
-
-      {/* Dialog de Notas */}
-      <Dialog open={!!showNotesDialog} onOpenChange={(open) => !open && setShowNotesDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Notas do Canal</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Textarea
-              value={showNotesDialog?.notes || ''}
-              onChange={(e) => setShowNotesDialog(prev => prev ? { ...prev, notes: e.target.value } : null)}
-              placeholder="Adicione notas sobre este canal..."
-              rows={5}
-            />
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowNotesDialog(null)}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={async () => {
-                  if (showNotesDialog) {
-                    await updateNotes(showNotesDialog.channelId, showNotesDialog.notes);
-                    setShowNotesDialog(null);
-                  }
-                }}
-                className="gradient-primary"
-              >
-                Salvar
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Dialog de Edição */}
       <Dialog open={!!showEditDialog} onOpenChange={(open) => !open && setShowEditDialog(null)}>
@@ -1007,7 +1065,7 @@ const RecentVideos = () => {
               <Label>Tipo de Conteúdo</Label>
               <Select
                 value={showEditDialog?.contentType || 'longform'}
-                onValueChange={(value: 'longform' | 'shorts') => 
+                onValueChange={(value: 'longform' | 'shorts') =>
                   setShowEditDialog(prev => prev ? { ...prev, contentType: value } : null)
                 }
               >

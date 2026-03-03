@@ -1,57 +1,62 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+/**
+ * use-niches.tsx
+ * Deriva os nichos diretamente dos canais monitorados (arquivo local).
+ * Sem Supabase, sem Docker.
+ */
+
+import { useState, useEffect, useCallback } from 'react';
+
+const API = 'http://localhost:3001/api';
 
 export const useNiches = () => {
   const [niches, setNiches] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const loadNiches = async () => {
+  const loadNiches = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const res = await fetch(`${API}/channels`);
+      if (!res.ok) return;
+      const channels: any[] = await res.json();
 
       const allNiches = new Set<string>();
-
-      // Buscar nichos dos canais monitorados
-      const { data: monitoredChannels } = await supabase
-        .from('monitored_channels')
-        .select('niche')
-        .eq('user_id', user.id);
-
-      monitoredChannels?.forEach((channel) => {
-        if (channel.niche && channel.niche.trim()) {
-          // Normalizar o nicho: primeira letra maiúscula, resto minúsculo
-          const trimmed = channel.niche.trim();
-          const normalizedNiche = trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
-          allNiches.add(normalizedNiche);
+      channels.forEach((ch) => {
+        if (ch.niche?.trim()) {
+          const t = ch.niche.trim();
+          allNiches.add(t.charAt(0).toUpperCase() + t.slice(1).toLowerCase());
         }
       });
 
-      // Ordenar alfabeticamente com suporte a português
-      const sortedNiches = Array.from(allNiches).sort((a, b) => 
-        a.localeCompare(b, 'pt-BR', { sensitivity: 'base' })
+      setNiches(
+        Array.from(allNiches).sort((a, b) =>
+          a.localeCompare(b, 'pt-BR', { sensitivity: 'base' })
+        )
       );
-      
-      setNiches(sortedNiches);
     } catch (error) {
       console.error('Erro ao carregar nichos:', error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   const renameNiche = async (oldNiche: string, newNiche: string): Promise<boolean> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return false;
+      const res = await fetch(`${API}/channels`);
+      if (!res.ok) return false;
+      const channels: any[] = await res.json();
 
-      // Atualizar monitored_channels
-      await supabase
-        .from('monitored_channels')
-        .update({ niche: newNiche })
-        .eq('user_id', user.id)
-        .eq('niche', oldNiche);
+      // Atualizar todos os canais com o nicho antigo
+      await Promise.all(
+        channels
+          .filter((ch) => ch.niche?.toLowerCase() === oldNiche.toLowerCase())
+          .map((ch) =>
+            fetch(`${API}/channels/${ch.channel_id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ niche: newNiche }),
+            })
+          )
+      );
 
       await loadNiches();
       return true;
@@ -61,30 +66,9 @@ export const useNiches = () => {
     }
   };
 
-  // Carregar nichos na inicialização e quando houver mudanças
   useEffect(() => {
     loadNiches();
-
-    // Subscribe para mudanças em tempo real
-    const channel = supabase
-      .channel('niches-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'monitored_channels',
-        },
-        () => {
-          loadNiches();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+  }, [loadNiches]);
 
   return { niches, isLoading, renameNiche, loadNiches };
 };

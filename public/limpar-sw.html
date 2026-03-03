@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Limpar Service Workers</title>
+</head>
+
+<body style="font-family:monospace;padding:20px;background:#111;color:#0f0">
+    <h2>Limpando Service Workers...</h2>
+    <pre id="log"></pre>
+    <script>
+        const log = document.getElementById('log');
+        async function limpar() {
+            if ('serviceWorker' in navigator) {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                log.textContent += `Encontrados: ${regs.length} Service Workers\n`;
+                for (const reg of regs) {
+                    await reg.unregister();
+                    log.textContent += `✅ Removido: ${reg.scope}\n`;
+                }
+                if (regs.length === 0) log.textContent += 'Nenhum SW encontrado\n';
+            }
+            if ('caches' in window) {
+                const names = await caches.keys();
+                log.textContent += `\nEncontrados: ${names.length} caches\n`;
+                for (const name of names) {
+                    await caches.delete(name);
+                    log.textContent += `✅ Cache apagado: ${name}\n`;
+                }
+                if (names.length === 0) log.textContent += 'Nenhum cache encontrado\n';
+            }
+            log.textContent += '\n🎉 FEITO! Feche essa aba e abra: http://localhost:8080\n';
+        }
+        limpar();
+    </script>
+</body>
+
+</html>

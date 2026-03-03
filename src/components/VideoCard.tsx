@@ -30,11 +30,19 @@ export const VideoCard = ({ video, onChannelClick }: VideoCardProps) => {
   return (
     <Card className="overflow-hidden hover:shadow-primary transition-smooth group">
       <div className="relative aspect-video overflow-hidden">
-        <img
-          src={video.thumbnail}
-          alt={video.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-smooth"
-        />
+        {video.thumbnail ? (
+          <img
+            src={video.thumbnail}
+            alt={video.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-smooth"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="w-full h-full bg-muted flex items-center justify-center group-hover:scale-105 transition-smooth">
+            <span className="text-muted-foreground opacity-50">Sem Imagem</span>
+          </div>
+        )}
         {video.duration && (
           <Badge className="absolute bottom-2 right-2 bg-black/80 text-white">
             <Clock className="w-3 h-3 mr-1" />

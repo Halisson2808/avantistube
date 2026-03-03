@@ -15,7 +15,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 }
- from "@/components/ui/sidebar";
+  from "@/components/ui/sidebar";
 
 const items = [
   { title: "Dashboard", url: "/", icon: Home, locked: false },
@@ -29,14 +29,14 @@ export function AppSidebar() {
   const location = useLocation();
   const currentPath = location.pathname;
   const { channels } = useMonitoredChannels();
-  
+
   const isActive = (path: string) => currentPath === path;
 
   return (
-    <Sidebar className="w-64 bg-card border-r border-border z-40" collapsible="offcanvas"> 
+    <Sidebar className="w-64 bg-card border-r border-border z-40" collapsible="offcanvas">
       <SidebarContent className="bg-card">
         <div className="p-4 flex items-center gap-3 border-b border-border">
-          <img src={logo} alt="Logo" className="w-10 h-10 rounded-xl object-cover" />
+          {/* <img src={logo} alt="Logo" className="w-10 h-10 rounded-xl object-cover" loading="lazy" /> */}
           <span className="font-bold text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
             AvantisTube
           </span>
@@ -55,7 +55,7 @@ export function AppSidebar() {
                       className="hover:bg-muted/50 transition-smooth flex items-center justify-between"
                       activeClassName="sidebar-active font-medium"
                     >
-                      <> 
+                      <>
                         <div className="flex items-center">
                           <item.icon className="mr-2" />
                           <span>{item.title}</span>
@@ -73,52 +73,55 @@ export function AppSidebar() {
         {/* Lista de Canais Monitorados */}
         {channels.length > 0 && (
           <SidebarGroup>
-          <SidebarGroupLabel>
+            <SidebarGroupLabel>
               <span>Canais ({channels.length})</span>
             </SidebarGroupLabel>
-          <SidebarGroupContent>
+            <SidebarGroupContent>
               <ScrollArea className="h-[350px]">
                 <div className="space-y-1 pr-2">
-                  {channels.map((channel) => (
-                    <a
-                      key={channel.channelId}
-                      href={`https://youtube.com/channel/${channel.channelId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 transition-smooth group cursor-pointer"
-                    >
-                      {channel.channelThumbnail && (
-                        <img
-                          src={channel.channelThumbnail}
-                          alt={channel.channelTitle}
-                          className="w-6 h-6 rounded-full flex-shrink-0"
-                        />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate group-hover:text-foreground">
-                          {channel.channelTitle}
-                        </p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          {channel.niche && (
-                            <span className="text-[9px] text-muted-foreground truncate max-w-[50px]">
-                              {channel.niche}
-                            </span>
-                          )}
-                          {channel.niche && channel.contentType && (
-                            <span className="text-[9px] text-muted-foreground">•</span>
-                          )}
-                          {channel.contentType && (
-                            <span className={`text-[9px] ${
-                              channel.contentType === 'shorts' ? 'text-purple-400' : 'text-blue-400'
-                            }`}>
-                              {channel.contentType === 'shorts' ? 'Shorts' : 'Long'}
-                            </span>
-                          )}
+                  {[...channels]
+                    .sort((a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime())
+                    .map((channel) => (
+                      <a
+                        key={channel.channelId}
+                        href={`https://youtube.com/channel/${channel.channelId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 transition-smooth group cursor-pointer"
+                      >
+                        {channel.channelThumbnail && (
+                          <img
+                            src={channel.channelThumbnail}
+                            alt={channel.channelTitle}
+                            className="w-6 h-6 rounded-full flex-shrink-0"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate group-hover:text-foreground">
+                            {channel.channelTitle}
+                          </p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            {channel.niche && (
+                              <span className="text-[9px] text-muted-foreground truncate max-w-[50px]">
+                                {channel.niche}
+                              </span>
+                            )}
+                            {channel.niche && channel.contentType && (
+                              <span className="text-[9px] text-muted-foreground">•</span>
+                            )}
+                            {channel.contentType && (
+                              <span className={`text-[9px] ${channel.contentType === 'shorts' ? 'text-purple-400' : 'text-blue-400'
+                                }`}>
+                                {channel.contentType === 'shorts' ? 'Shorts' : 'Long'}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                    </a>
-                  ))}
+                        <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                      </a>
+                    ))}
                 </div>
               </ScrollArea>
             </SidebarGroupContent>

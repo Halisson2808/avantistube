@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { useMonitoredChannels, ChannelMonitorData } from '@/hooks/use-monitored-channels';
 import { useVideoLocalStorage, CachedVideo } from '@/hooks/use-video-local-storage';
 import { getLatestChannelVideos, LatestVideo, calculateTimeAgo } from '@/lib/youtube-api';
@@ -44,17 +43,17 @@ export interface UpdateProgress {
 const CACHE_HOURS = 2; // Cache válido por 2 horas
 
 export const useRecentVideos = () => {
-  const { 
-    channels, 
+  const {
+    channels,
     loadChannels,
-    updateNotes, 
-    updateNiche, 
-    updateContentType, 
-    removeChannel, 
+    updateNotes,
+    updateNiche,
+    updateContentType,
+    removeChannel,
     updateChannelStats,
-    isLoading: isLoadingChannels 
+    isLoading: isLoadingChannels
   } = useMonitoredChannels();
-  
+
   const {
     isLoaded: isLocalStorageLoaded,
     saveChannelVideos,
@@ -62,7 +61,7 @@ export const useRecentVideos = () => {
     isCacheValid,
     getAllCachedChannels,
   } = useVideoLocalStorage();
-  
+
   const [selectedChannelIds, setSelectedChannelIds] = useState<Set<string>>(new Set());
   const [channelVideosData, setChannelVideosData] = useState<Map<string, ChannelVideosData>>(new Map());
   const [isLoadingAll, setIsLoadingAll] = useState(false);
@@ -86,8 +85,8 @@ export const useRecentVideos = () => {
   useEffect(() => {
     if (channels.length > 0) {
       const allChannelIds = new Set(channels.map(ch => ch.channelId));
-      if (selectedChannelIds.size !== allChannelIds.size || 
-          !Array.from(selectedChannelIds).every(id => allChannelIds.has(id))) {
+      if (selectedChannelIds.size !== allChannelIds.size ||
+        !Array.from(selectedChannelIds).every(id => allChannelIds.has(id))) {
         setSelectedChannelIds(allChannelIds);
       }
     }
@@ -104,12 +103,12 @@ export const useRecentVideos = () => {
   // Função para carregar vídeos do localStorage
   const loadVideosFromLocalStorage = useCallback(() => {
     const cachedChannels = getAllCachedChannels();
-    
+
     if (cachedChannels.length === 0) return;
 
     setChannelVideosData(prev => {
       const newMap = new Map(prev);
-      
+
       cachedChannels.forEach(cached => {
         const channel = channels.find(ch => ch.channelId === cached.channelId);
         if (!channel) return;
@@ -145,7 +144,7 @@ export const useRecentVideos = () => {
           error: cached.error,
         });
       });
-      
+
       return newMap;
     });
   }, [channels, getAllCachedChannels]);
@@ -168,7 +167,7 @@ export const useRecentVideos = () => {
     if (!channel) return;
 
     try {
-      const results = await getLatestChannelVideos([channelId], 5);
+      const results = await getLatestChannelVideos([channelId], 7);
       const result = results[0];
 
       if (result.success && result.videos) {
@@ -230,65 +229,10 @@ export const useRecentVideos = () => {
     }
   }, [channels, needsUpdate, saveChannelVideos]);
 
-  // Função para atualizar o histórico do canal no Supabase (para gráfico de crescimento)
+  // Atualiza stats do canal via API local (grava no JSON)
   const updateChannelHistory = useCallback(async (channelId: string) => {
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData.user) {
-        throw new Error('Usuário não autenticado');
-      }
-
-      // Buscar dados atualizados do canal via YouTube API
-      const { data, error } = await supabase.functions.invoke('youtube', {
-        body: { action: 'channelDetails', channelId },
-      });
-
-      if (error) throw error;
-
-      // Verificar se já existe um registro de histórico para hoje
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const { data: existingHistory } = await supabase
-        .from('channel_history')
-        .select('id')
-        .eq('channel_id', channelId)
-        .eq('user_id', userData.user.id)
-        .gte('recorded_at', today.toISOString())
-        .limit(1);
-
-      if (existingHistory && existingHistory.length > 0) {
-        // Atualizar registro existente
-        await supabase
-          .from('channel_history')
-          .update({
-            subscriber_count: data.subscriberCount,
-            video_count: data.videoCount,
-            view_count: data.viewCount,
-          })
-          .eq('id', existingHistory[0].id);
-      } else {
-        // Criar novo registro
-        await supabase.from('channel_history').insert({
-          user_id: userData.user.id,
-          channel_id: channelId,
-          subscriber_count: data.subscriberCount,
-          video_count: data.videoCount,
-          view_count: data.viewCount,
-        });
-      }
-
-      // Atualizar tabela principal de canais monitorados
-      await supabase
-        .from('monitored_channels')
-        .update({
-          subscriber_count: data.subscriberCount,
-          video_count: data.videoCount,
-          view_count: data.viewCount,
-          last_updated: new Date().toISOString(),
-        })
-        .eq('channel_id', channelId);
-
+      await fetch(`http://localhost:3001/api/youtube/channel?channelId=${encodeURIComponent(channelId)}`);
     } catch (error) {
       console.error(`Erro ao atualizar histórico do canal ${channelId}:`, error);
     }
@@ -302,7 +246,7 @@ export const useRecentVideos = () => {
   ) => {
     // Normalizar nichos selecionados para comparação case-insensitive
     const normalizedSelectedNiches = selectedNiches.map(n => n.toLowerCase().trim());
-    
+
     // Filtrar canais pelos nichos selecionados (case-insensitive)
     const channelsToUpdate = channels
       .filter((ch) => {
@@ -392,7 +336,7 @@ export const useRecentVideos = () => {
     channels.forEach(ch => {
       const originalNiche = ch.niche || 'Sem Nicho';
       const normalizedKey = originalNiche.toLowerCase().trim();
-      
+
       if (!nichesMap.has(normalizedKey)) {
         const normalized = normalizedKey.charAt(0).toUpperCase() + normalizedKey.slice(1);
         nichesMap.set(normalizedKey, normalized);
@@ -447,9 +391,9 @@ export const useRecentVideos = () => {
         const hasChannelDeletedFlag = data.videos.some(v => v.channelDeleted);
         const hasNotFoundError = data.error?.toLowerCase().includes('not found');
         const hasNoVideosAndZeroStats = data.videos.length === 0 && data.channel.currentVideos === 0 && data.channel.currentViews === 0;
-        
+
         const isChannelDeleted = hasChannelDeletedFlag || hasNotFoundError || hasNoVideosAndZeroStats;
-        
+
         if (filters.channelStatus === 'active') {
           return !isChannelDeleted;
         } else if (filters.channelStatus === 'deleted') {
@@ -463,7 +407,7 @@ export const useRecentVideos = () => {
     filtered.sort((a, b) => {
       if (filters.sortBy === 'totalViews') {
         const datePeriod = filters.datePeriod || 'all';
-        
+
         const filterByPeriod = (videos: RecentVideo[]) => {
           if (datePeriod === 'all') return videos;
           const now = new Date();
@@ -471,7 +415,7 @@ export const useRecentVideos = () => {
           const cutoffDate = new Date(now.getTime() - cutoffDays * 24 * 60 * 60 * 1000);
           return videos.filter(video => new Date(video.publishedAt) >= cutoffDate);
         };
-        
+
         const totalViewsA = filterByPeriod(a.videos).reduce((sum, v) => sum + (v.viewCount || 0), 0);
         const totalViewsB = filterByPeriod(b.videos).reduce((sum, v) => sum + (v.viewCount || 0), 0);
         return totalViewsB - totalViewsA;
@@ -525,11 +469,11 @@ export const useRecentVideos = () => {
   // Função para filtrar vídeos por período
   const filterVideosByDatePeriod = useCallback((videos: RecentVideo[], datePeriod: 'all' | '7days' | '30days'): RecentVideo[] => {
     if (datePeriod === 'all') return videos;
-    
+
     const now = new Date();
     const cutoffDays = datePeriod === '7days' ? 7 : 30;
     const cutoffDate = new Date(now.getTime() - cutoffDays * 24 * 60 * 60 * 1000);
-    
+
     return videos.filter(video => {
       const publishedDate = new Date(video.publishedAt);
       return publishedDate >= cutoffDate;
@@ -558,6 +502,53 @@ export const useRecentVideos = () => {
     }
   }, [updateChannelVideos, updateChannelHistory, loadChannels]);
 
+  // Atualizar TODOS os canais (ignora filtro de nicho)
+  const updateAllChannels = useCallback(async () => {
+    if (channels.length === 0) {
+      toast.info('Nenhum canal para atualizar');
+      return;
+    }
+
+    setIsUpdating(true);
+    setIsLoadingAll(true);
+
+    const results = { success: 0, failed: 0 };
+    const batchSize = 10;
+
+    for (let i = 0; i < channels.length; i += batchSize) {
+      const batch = channels.slice(i, i + batchSize);
+
+      await Promise.all(
+        batch.map(async (channel, batchIndex) => {
+          const currentIndex = i + batchIndex + 1;
+          setUpdateProgress({
+            current: currentIndex,
+            total: channels.length,
+            percentage: Math.round((currentIndex / channels.length) * 100),
+            channelName: channel.channelTitle,
+          });
+
+          try {
+            await Promise.all([
+              updateChannelVideos(channel.channelId, true),
+              updateChannelHistory(channel.channelId),
+            ]);
+            results.success++;
+            await new Promise(r => setTimeout(r, 150));
+          } catch {
+            results.failed++;
+          }
+        })
+      );
+    }
+
+    setIsUpdating(false);
+    setIsLoadingAll(false);
+    await loadChannels();
+    toast.success(`✅ Todos atualizados! Sucesso: ${results.success} | Falhas: ${results.failed}`);
+  }, [channels, updateChannelVideos, updateChannelHistory, loadChannels]);
+
+
   return {
     channels,
     selectedChannelIds,
@@ -570,6 +561,7 @@ export const useRecentVideos = () => {
     isUpdating,
     updateChannelVideos,
     updateChannelsByNiches,
+    updateAllChannels,
     updateSingleChannel,
     getAvailableNiches,
     getChannelCountByNiche,

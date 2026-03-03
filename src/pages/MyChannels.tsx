@@ -17,50 +17,50 @@ type SortBy = "addedAtDesc" | "addedAtAsc" | "subscribersDesc" | "viewsDesc";
 
 const MyChannels = () => {
   const { channels, addChannel, updateChannel, removeChannel, updateChannelStats, getUniqueNiches } = useMyChannels();
-  
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingChannel, setEditingChannel] = useState<MyChannelData | null>(null);
   const [isGrowthChartOpen, setIsGrowthChartOpen] = useState(false);
   const [selectedChannelForChart, setSelectedChannelForChart] = useState<{ id: string; title: string } | null>(null);
-  
+
   const [channelUrl, setChannelUrl] = useState("");
   const [niche, setNiche] = useState("");
   const [language, setLanguage] = useState("pt-BR");
   const [notes, setNotes] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdatingAll, setIsUpdatingAll] = useState(false);
-  
+
   // FILTRO E ORDENAÇÃO
   const [nicheFilter, setNicheFilter] = useState("all");
   const [sortBy, setSortBy] = useState<SortBy>("addedAtDesc");
 
   const extractChannelId = (url: string): { id: string; type: 'id' | 'username' | 'handle' } | null => {
     const input = url.trim();
-    
+
     // 1. ID Direto
     if (/^UC[\w-]{22}$/.test(input)) {
       return { id: input, type: 'id' };
     }
-    
+
     // 2. URL de Canal
     const channelMatch = input.match(/youtube\.com\/channel\/(UC[\w-]{22})/);
     if (channelMatch) {
       return { id: channelMatch[1], type: 'id' };
     }
-    
+
     // 3. Handle (@username)
     const handleMatch = input.match(/@([\w-]+)/);
     if (handleMatch) {
       return { id: handleMatch[1], type: 'handle' };
     }
-    
+
     // 4. URL Personalizada (/c/ ou /user/)
     const customMatch = input.match(/youtube\.com\/(?:c|user)\/([\w-]+)/);
     if (customMatch) {
       return { id: customMatch[1], type: 'username' };
     }
-    
+
     return null;
   };
 
@@ -96,7 +96,7 @@ const MyChannels = () => {
       }
 
       const channelId = extracted.id;
-      
+
       // Verifica duplicatas antes de buscar dados
       const isDuplicate = channels.some(ch => ch.channelId === channelId);
       if (isDuplicate) {
@@ -111,7 +111,7 @@ const MyChannels = () => {
 
       try {
         const details = await getChannelDetails(channelId);
-        
+
         const newChannel: MyChannelData = {
           id: crypto.randomUUID(),
           channelId: details.id,
@@ -134,7 +134,7 @@ const MyChannels = () => {
       } catch (error) {
         // Fallback: criar canal com dados zerados
         console.warn("Erro ao buscar dados, criando canal com dados zerados:", error);
-        
+
         const fallbackChannel: MyChannelData = {
           id: crypto.randomUUID(),
           channelId: channelId,
@@ -150,11 +150,11 @@ const MyChannels = () => {
           addedAt: new Date().toISOString(),
           lastUpdated: new Date().toISOString(),
         };
-        
+
         await addChannel(fallbackChannel);
         setIsAddDialogOpen(false);
         resetForm();
-        
+
         toast({
           title: "Canal adicionado",
           description: "Canal adicionado com dados zerados. Atualize para buscar informações.",
@@ -175,13 +175,13 @@ const MyChannels = () => {
 
   const handleSaveEdit = async () => {
     if (!editingChannel) return;
-    
+
     await updateChannel(editingChannel.id, {
       language,
       niche,
       notes,
     });
-    
+
     setIsEditDialogOpen(false);
     setEditingChannel(null);
     resetForm();
@@ -189,7 +189,7 @@ const MyChannels = () => {
 
   const handleUpdateAll = async () => {
     setIsUpdatingAll(true);
-    
+
     for (const channel of channels) {
       try {
         await updateChannelStats(channel.id, true);
@@ -197,7 +197,7 @@ const MyChannels = () => {
         console.error(`Erro ao atualizar ${channel.channelTitle}:`, error);
       }
     }
-    
+
     setIsUpdatingAll(false);
     toast({
       title: "Atualização completa",
@@ -222,8 +222,8 @@ const MyChannels = () => {
   };
 
   // 1. Filtrar canais por nicho
-  const filteredByNiche = nicheFilter === "all" 
-    ? channels 
+  const filteredByNiche = nicheFilter === "all"
+    ? channels
     : channels.filter(ch => ch.niche.toLowerCase() === nicheFilter);
 
   // 2. Ordenar canais
@@ -254,18 +254,19 @@ const MyChannels = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Meus Canais</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl md:text-3xl font-bold">Meus Canais</h1>
+          <p className="text-muted-foreground text-sm md:text-base">
             Gerencie e monitore seus canais do YouTube
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             onClick={handleUpdateAll}
             disabled={isUpdatingAll || channels.length === 0}
+            className="flex-1 sm:flex-none"
           >
             {isUpdatingAll ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -276,7 +277,7 @@ const MyChannels = () => {
           </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gradient-primary">
+              <Button className="gradient-primary flex-1 sm:flex-none">
                 <Plus className="w-4 h-4 mr-2" />
                 Adicionar Canal
               </Button>
@@ -355,47 +356,53 @@ const MyChannels = () => {
 
       {/* Filtro e Ordenação */}
       {channels.length > 0 && (
-        <div className="flex items-center gap-3 flex-wrap">
-          <Label className="text-sm font-medium">Filtrar por nicho:</Label>
-          <Select value={nicheFilter} onValueChange={setNicheFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos ({channels.length})</SelectItem>
-              {uniqueNiches.map(n => {
-                const count = channels.filter(ch => ch.niche.toLowerCase() === n).length;
-                return (
-                  <SelectItem key={n} value={n}>
-                    {n.charAt(0).toUpperCase() + n.slice(1)} ({count})
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-          
-          <Label className="text-sm font-medium ml-4">Ordenar por:</Label>
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Ordenar" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="addedAtDesc">Mais Recentes</SelectItem>
-              <SelectItem value="addedAtAsc">Mais Antigos</SelectItem>
-              <SelectItem value="subscribersDesc">Mais Inscritos</SelectItem>
-              <SelectItem value="viewsDesc">Mais Visualizações</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-3">
+          <div className="space-y-1">
+            <Label className="text-sm font-medium">Filtrar por nicho:</Label>
+            <Select value={nicheFilter} onValueChange={setNicheFilter}>
+              <SelectTrigger className="w-full lg:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos ({channels.length})</SelectItem>
+                {uniqueNiches.map(n => {
+                  const count = channels.filter(ch => ch.niche.toLowerCase() === n).length;
+                  return (
+                    <SelectItem key={n} value={n}>
+                      {n.charAt(0).toUpperCase() + n.slice(1)} ({count})
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <span className="text-sm text-muted-foreground">
-            {sortedChannels.length} de {channels.length} canais
-          </span>
+          <div className="space-y-1">
+            <Label className="text-sm font-medium">Ordenar por:</Label>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
+              <SelectTrigger className="w-full lg:w-48">
+                <SelectValue placeholder="Ordenar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="addedAtDesc">Mais Recentes</SelectItem>
+                <SelectItem value="addedAtAsc">Mais Antigos</SelectItem>
+                <SelectItem value="subscribersDesc">Mais Inscritos</SelectItem>
+                <SelectItem value="viewsDesc">Mais Visualizações</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex lg:ml-4 sm:col-span-2 lg:col-span-1 items-end h-[42px] pb-[10px]">
+            <span className="text-sm text-muted-foreground pt-3">
+              Mostrando {sortedChannels.length} de {channels.length} canais
+            </span>
+          </div>
         </div>
       )}
 
       {/* Cards de Estatísticas */}
       {sortedChannels.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <Card className="shadow-card">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium">Total Inscritos</CardTitle>
@@ -438,7 +445,7 @@ const MyChannels = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {sortedChannels.length > 0 
+                {sortedChannels.length > 0
                   ? formatNumber(Math.floor(totalGrowth / sortedChannels.length))
                   : "0"}
               </div>
@@ -462,6 +469,8 @@ const MyChannels = () => {
                       src={channel.channelThumbnail}
                       alt={channel.channelTitle}
                       className="w-12 h-12 rounded-full"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
                     />
                   )}
                   <div className="flex-1 min-w-0">

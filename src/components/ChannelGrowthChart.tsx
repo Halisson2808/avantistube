@@ -2,12 +2,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { formatNumber } from "@/lib/youtube-api";
 import { format, subDays, eachDayOfInterval, parseISO } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
+const API = "http://localhost:3001/api";
+
 interface ChannelHistory {
-  channel_id: string;
+  channel_id?: string;
   recorded_at: string;
   subscriber_count: number;
   view_count: number;
@@ -29,29 +30,28 @@ export const ChannelGrowthChart = ({ channelId, channelTitle, isOpen, onClose }:
   useEffect(() => {
     const fetchHistory = async () => {
       if (!isOpen) return;
-      
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('channel_history')
-        .select('*')
-        .eq('channel_id', channelId)
-        .order('recorded_at', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching channel history:', error);
-      } else {
+      try {
+        const res = await fetch(`${API}/history/${encodeURIComponent(channelId)}`);
+        if (!res.ok) throw new Error(`Erro ${res.status}`);
+        const data = await res.json();
         setHistory(data || []);
+      } catch (error) {
+        console.error('Error fetching channel history:', error);
+        setHistory([]);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     fetchHistory();
   }, [channelId, isOpen]);
 
+
   // Filtrar por período
   let filteredHistory = history;
   const now = new Date();
-  
+
   if (periodFilter === '7days') {
     const sevenDaysAgo = subDays(now, 7);
     filteredHistory = history.filter(item => new Date(item.recorded_at) >= sevenDaysAgo);
@@ -66,12 +66,12 @@ export const ChannelGrowthChart = ({ channelId, channelTitle, isOpen, onClose }:
     const dateKey = format(date, 'yyyy-MM-dd');
 
     if (!acc[dateKey]) {
-      acc[dateKey] = { 
+      acc[dateKey] = {
         date: dateKey,
         displayDate: format(date, 'dd/MM'),
-        subscribers: item.subscriber_count, 
-        views: item.view_count, 
-        recordedAt: item.recorded_at 
+        subscribers: item.subscriber_count,
+        views: item.view_count,
+        recordedAt: item.recorded_at
       };
     } else {
       // Se já existe, pega o mais recente do dia
@@ -86,24 +86,24 @@ export const ChannelGrowthChart = ({ channelId, channelTitle, isOpen, onClose }:
 
   // Preencher dias faltantes com valores anteriores
   let dailyData = Object.values(consolidatedData);
-  
+
   if (dailyData.length > 0) {
-    const sortedDates = dailyData.sort((a: any, b: any) => 
+    const sortedDates = dailyData.sort((a: any, b: any) =>
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
-    
+
     const firstDate = parseISO(sortedDates[0].date);
     const lastDate = parseISO(sortedDates[sortedDates.length - 1].date);
-    
+
     const allDates = eachDayOfInterval({ start: firstDate, end: lastDate });
-    
+
     const filledData: any[] = [];
     let lastKnownData = sortedDates[0];
-    
+
     allDates.forEach(date => {
       const dateKey = format(date, 'yyyy-MM-dd');
       const existingData = consolidatedData[dateKey];
-      
+
       if (existingData) {
         filledData.push(existingData);
         lastKnownData = existingData;
@@ -118,16 +118,16 @@ export const ChannelGrowthChart = ({ channelId, channelTitle, isOpen, onClose }:
         });
       }
     });
-    
+
     dailyData = filledData;
   }
 
   // Calcular ganhos diários
   const chartData = dailyData.map((item: any, index) => {
     if (index === 0) {
-      return { 
-        date: item.displayDate, 
-        inscritos: 0, 
+      return {
+        date: item.displayDate,
+        inscritos: 0,
         views: 0,
         inscritosTotal: item.subscribers,
         viewsTotal: item.views
@@ -144,17 +144,17 @@ export const ChannelGrowthChart = ({ channelId, channelTitle, isOpen, onClose }:
   });
 
   // Calcular estatísticas do período
-  const totalGrowthSubs = chartData.length > 1 
-    ? chartData[chartData.length - 1].inscritosTotal - chartData[0].inscritosTotal 
+  const totalGrowthSubs = chartData.length > 1
+    ? chartData[chartData.length - 1].inscritosTotal - chartData[0].inscritosTotal
     : 0;
-  const totalGrowthViews = chartData.length > 1 
-    ? chartData[chartData.length - 1].viewsTotal - chartData[0].viewsTotal 
+  const totalGrowthViews = chartData.length > 1
+    ? chartData[chartData.length - 1].viewsTotal - chartData[0].viewsTotal
     : 0;
-  const maxDailyGainSubs = chartData.length > 1 
-    ? Math.max(...chartData.slice(1).map(d => d.inscritos)) 
+  const maxDailyGainSubs = chartData.length > 1
+    ? Math.max(...chartData.slice(1).map(d => d.inscritos))
     : 0;
-  const maxDailyGainViews = chartData.length > 1 
-    ? Math.max(...chartData.slice(1).map(d => d.views)) 
+  const maxDailyGainViews = chartData.length > 1
+    ? Math.max(...chartData.slice(1).map(d => d.views))
     : 0;
   const avgDailyGainSubs = chartData.length > 1
     ? totalGrowthSubs / (chartData.length - 1)
@@ -194,24 +194,24 @@ export const ChannelGrowthChart = ({ channelId, channelTitle, isOpen, onClose }:
         <DialogHeader>
           <DialogTitle>Crescimento: {channelTitle}</DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           <div className="flex gap-2">
-            <Button 
+            <Button
               variant={periodFilter === '7days' ? 'default' : 'outline'}
               onClick={() => setPeriodFilter('7days')}
               size="sm"
             >
               Últimos 7 dias
             </Button>
-            <Button 
+            <Button
               variant={periodFilter === '30days' ? 'default' : 'outline'}
               onClick={() => setPeriodFilter('30days')}
               size="sm"
             >
               Últimos 30 dias
             </Button>
-            <Button 
+            <Button
               variant={periodFilter === 'all' ? 'default' : 'outline'}
               onClick={() => setPeriodFilter('all')}
               size="sm"
@@ -235,33 +235,33 @@ export const ChannelGrowthChart = ({ channelId, channelTitle, isOpen, onClose }:
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis 
-                      dataKey="date" 
+                    <XAxis
+                      dataKey="date"
                       stroke="hsl(var(--muted-foreground))"
                       style={{ fontSize: '12px' }}
                     />
-                    <YAxis 
+                    <YAxis
                       stroke="hsl(var(--muted-foreground))"
                       style={{ fontSize: '12px' }}
                       tickFormatter={(value) => formatNumber(value)}
                     />
                     <Tooltip content={<CustomTooltip />} />
-                    <Legend 
+                    <Legend
                       wrapperStyle={{ fontSize: '14px' }}
                       formatter={(value) => value === 'inscritos' ? 'Ganho de Inscritos' : 'Ganho de Views'}
                     />
-                    <Line 
-                      type="monotone" 
-                      dataKey="inscritos" 
-                      stroke="hsl(var(--primary))" 
+                    <Line
+                      type="monotone"
+                      dataKey="inscritos"
+                      stroke="hsl(var(--primary))"
                       strokeWidth={2}
                       dot={{ fill: 'hsl(var(--primary))', r: 4 }}
                       activeDot={{ r: 6 }}
                     />
-                    <Line 
-                      type="monotone" 
-                      dataKey="views" 
-                      stroke="hsl(var(--accent))" 
+                    <Line
+                      type="monotone"
+                      dataKey="views"
+                      stroke="hsl(var(--accent))"
                       strokeWidth={2}
                       dot={{ fill: 'hsl(var(--accent))', r: 4 }}
                       activeDot={{ r: 6 }}

@@ -37,14 +37,14 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const { niches } = useNiches();
-  
+
   const handleDelete = () => {
     if (onRemove) {
       onRemove(channel.channelId);
       setShowDeleteAlert(false);
     }
   };
-  
+
   const handleSaveNotes = async () => {
     if (!onUpdateNotes) return;
     setIsSavingNotes(true);
@@ -60,31 +60,31 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
     setIsSavingEdit(true);
     try {
       const finalNiche = editedNiche === "__new__" ? customNiche : editedNiche;
-      
+
       // Always update if niche is provided
       if (onUpdateNiche && finalNiche && finalNiche.trim() !== "") {
         await onUpdateNiche(channel.channelId, finalNiche);
       }
-      
+
       // Always update content type
       if (onUpdateContentType) {
         await onUpdateContentType(channel.channelId, editedContentType);
       }
-      
+
       setShowEditDialog(false);
     } finally {
       setIsSavingEdit(false);
     }
   };
-  
+
   // Cálculos dos quadros superiores (totais desde que foi adicionado)
   const totalSubsGained = (channel.currentSubscribers || 0) - (channel.initialSubscribers || 0);
   const totalViewsGained = (channel.currentViews || 0) - (channel.initialViews || 0);
-  
+
   const subscribersGrowth = channel.initialSubscribers > 0
     ? ((totalSubsGained / channel.initialSubscribers) * 100).toFixed(1)
     : "0.0";
-  
+
   const viewsGrowth = channel.initialViews > 0
     ? ((totalViewsGained / channel.initialViews) * 100).toFixed(1)
     : "0.0";
@@ -122,6 +122,8 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                   src={channel.channelThumbnail}
                   alt={channel.channelTitle}
                   className="w-12 h-12 rounded-full hover:ring-2 hover:ring-primary transition-all cursor-pointer"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
                 />
               </a>
             )}
@@ -144,11 +146,10 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                   </span>
                 )}
                 {channel.contentType && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    channel.contentType === 'shorts' 
-                      ? 'bg-purple-500/10 text-purple-600 border border-purple-500/30' 
-                      : 'bg-blue-500/10 text-blue-600 border border-blue-500/30'
-                  }`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${channel.contentType === 'shorts'
+                    ? 'bg-purple-500/10 text-purple-600 border border-purple-500/30'
+                    : 'bg-blue-500/10 text-blue-600 border border-blue-500/30'
+                    }`}>
                     {channel.contentType === 'shorts' ? 'Shorts' : 'Longos'}
                   </span>
                 )}
@@ -161,7 +162,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
               </Badge>
             )}
           </div>
-          
+
           {/* Botões em uma linha só */}
           <div className="flex gap-1 justify-end">
             {onShowChart && (
@@ -242,6 +243,8 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
                   src={channel.channelThumbnail}
                   alt={channel.channelTitle}
                   className="w-10 h-10 rounded-full hover:ring-2 hover:ring-primary transition-all cursor-pointer"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
                 />
               </a>
             )}
@@ -263,7 +266,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
               </Badge>
             )}
           </div>
-          
+
           {/* Linha 2: Nicho + Botões (Gráfico, Notas, Editar) */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
@@ -314,16 +317,15 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
               )}
             </div>
           </div>
-          
+
           {/* Linha 3: Formato de vídeo + Botões (Atualizar, Excluir) */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
               {channel.contentType && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                  channel.contentType === 'shorts' 
-                    ? 'bg-purple-500/10 text-purple-600 border border-purple-500/30' 
-                    : 'bg-blue-500/10 text-blue-600 border border-blue-500/30'
-                }`}>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${channel.contentType === 'shorts'
+                  ? 'bg-purple-500/10 text-purple-600 border border-purple-500/30'
+                  : 'bg-blue-500/10 text-blue-600 border border-blue-500/30'
+                  }`}>
                   {channel.contentType === 'shorts' ? 'Shorts' : 'Longos'}
                 </span>
               )}
@@ -394,36 +396,32 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
           </div>
 
           {/* Quadro 3: Inscritos 7 Dias */}
-          <div className={`space-y-0.5 sm:space-y-1 p-2 sm:p-3 rounded-lg border ${
-            recentSubs >= 0 
-              ? 'bg-green-500/10 border-green-500/30' 
-              : 'bg-red-500/10 border-red-500/30'
-          }`}>
+          <div className={`space-y-0.5 sm:space-y-1 p-2 sm:p-3 rounded-lg border ${recentSubs >= 0
+            ? 'bg-green-500/10 border-green-500/30'
+            : 'bg-red-500/10 border-red-500/30'
+            }`}>
             <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
               <Users className="w-3 h-3" />
               <span>7 Dias</span>
             </div>
-            <p className={`text-base sm:text-xl font-bold ${
-              recentSubs >= 0 ? 'text-green-600' : 'text-red-600'
-            }`}>
+            <p className={`text-base sm:text-xl font-bold ${recentSubs >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
               {recentSubs >= 0 ? '+' : ''}{formatNumber(recentSubs)}
             </p>
             <p className="text-[10px] sm:text-xs text-muted-foreground">inscritos</p>
           </div>
 
           {/* Quadro 4: Views 7 Dias */}
-          <div className={`space-y-0.5 sm:space-y-1 p-2 sm:p-3 rounded-lg border ${
-            recentViews >= 0 
-              ? 'bg-green-500/10 border-green-500/30' 
-              : 'bg-red-500/10 border-red-500/30'
-          }`}>
+          <div className={`space-y-0.5 sm:space-y-1 p-2 sm:p-3 rounded-lg border ${recentViews >= 0
+            ? 'bg-green-500/10 border-green-500/30'
+            : 'bg-red-500/10 border-red-500/30'
+            }`}>
             <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
               <Eye className="w-3 h-3" />
               <span>7 Dias</span>
             </div>
-            <p className={`text-base sm:text-xl font-bold ${
-              recentViews >= 0 ? 'text-green-600' : 'text-red-600'
-            }`}>
+            <p className={`text-base sm:text-xl font-bold ${recentViews >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
               {recentViews >= 0 ? '+' : ''}{formatNumber(recentViews)}
             </p>
             <p className="text-[10px] sm:text-xs text-muted-foreground">views</p>
@@ -553,7 +551,7 @@ export const ChannelCard = ({ channel, onUpdate, onRemove, onEdit, onShowChart, 
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover o canal <strong>{channel.channelTitle}</strong> do monitoramento? 
+              Tem certeza que deseja remover o canal <strong>{channel.channelTitle}</strong> do monitoramento?
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
