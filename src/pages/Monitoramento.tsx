@@ -10,20 +10,22 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Tag, Download, Pencil, Trash2, BarChart3, Users, Eye, Video } from "lucide-react";
+import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Tag, Download, Pencil, Trash2, BarChart3, Users, Eye, Video, EyeOff, Eraser } from "lucide-react";
 import { useRecentVideos } from "@/hooks/use-recent-videos";
 import { RecentVideoCard } from "@/components/RecentVideoCard";
 import { toast } from "sonner";
 import { useNiches } from "@/hooks/use-niches";
 import { formatNumber } from "@/lib/youtube-api";
 const LOCAL_API = 'http://localhost:3001/api';
+const VIDEO_CACHE_KEY = 'yt_channel_videos_cache';
 import { ChannelGrowthChart } from "@/components/ChannelGrowthChart";
 
 /* Sub-componente: thumbnail do canal com botão de download no hover */
-const ChannelThumb = ({ channelId, channelTitle, channelThumbnail }: {
+const ChannelThumb = ({ channelId, channelTitle, channelThumbnail, hideThumbs }: {
   channelId: string;
   channelTitle: string;
   channelThumbnail: string;
+  hideThumbs?: boolean;
 }) => {
   const [hover, setHover] = useState(false);
   return (
@@ -34,51 +36,57 @@ const ChannelThumb = ({ channelId, channelTitle, channelThumbnail }: {
       onMouseLeave={() => setHover(false)}
     >
       <a href={`https://youtube.com/channel/${channelId}`} target="_blank" rel="noopener noreferrer">
-        <img
-          src={channelThumbnail}
-          alt={channelTitle}
-          className="w-10 h-10 rounded-full ring-2 ring-transparent hover:ring-primary transition-all cursor-pointer"
-          loading="lazy"
-          referrerPolicy="no-referrer"
-        />
+        {hideThumbs ? (
+          <div className="w-10 h-10 rounded-full bg-muted ring-2 ring-transparent" />
+        ) : (
+          <img
+            src={channelThumbnail}
+            alt={channelTitle}
+            className="w-10 h-10 rounded-full ring-2 ring-transparent hover:ring-primary transition-all cursor-pointer"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+          />
+        )}
       </a>
       {/* Botão de download no canto superior direito, aparece no hover */}
-      <button
-        title="Baixar thumbnail do canal"
-        style={{
-          position: 'absolute',
-          top: -5,
-          right: -5,
-          width: 18,
-          height: 18,
-          borderRadius: '50%',
-          background: 'hsl(var(--primary))',
-          border: '2px solid hsl(var(--background))',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          opacity: hover ? 1 : 0,
-          transition: 'opacity 0.15s',
-          zIndex: 10,
-          padding: 0,
-        }}
-        onClick={async (e) => {
-          e.preventDefault();
-          try {
-            const res = await fetch(channelThumbnail);
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${channelTitle.replace(/[^a-z0-9]/gi, '_')}_thumb.jpg`;
-            a.click();
-            URL.revokeObjectURL(url);
-          } catch { window.open(channelThumbnail, '_blank'); }
-        }}
-      >
-        <Download style={{ width: 9, height: 9, color: 'white' }} />
-      </button>
+      {!hideThumbs && (
+        <button
+          title="Baixar thumbnail do canal"
+          style={{
+            position: 'absolute',
+            top: -5,
+            right: -5,
+            width: 18,
+            height: 18,
+            borderRadius: '50%',
+            background: 'hsl(var(--primary))',
+            border: '2px solid hsl(var(--background))',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            opacity: hover ? 1 : 0,
+            transition: 'opacity 0.15s',
+            zIndex: 10,
+            padding: 0,
+          }}
+          onClick={async (e) => {
+            e.preventDefault();
+            try {
+              const res = await fetch(channelThumbnail);
+              const blob = await res.blob();
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `${channelTitle.replace(/[^a-z0-9]/gi, '_')}_thumb.jpg`;
+              a.click();
+              URL.revokeObjectURL(url);
+            } catch { window.open(channelThumbnail, '_blank'); }
+          }}
+        >
+          <Download style={{ width: 9, height: 9, color: 'white' }} />
+        </button>
+      )}
     </div>
   );
 };
@@ -135,6 +143,8 @@ const RecentVideos = () => {
   const [editedCustomNiche, setEditedCustomNiche] = useState("");
   const [showExactTime, setShowExactTime] = useState(false);
   const [maisFilterOpen, setMaisFilterOpen] = useState(true); // PC: aberto por padrão
+  const [hideThumbs, setHideThumbs] = useState(false);
+  const [showClearCacheAlert, setShowClearCacheAlert] = useState(false);
 
   // No mobile, fechar "Mais Filtros" por padrão
   useEffect(() => {
@@ -376,6 +386,32 @@ const RecentVideos = () => {
               <Download className="w-4 h-4 sm:mr-2" />
               <span className="hidden sm:inline">Exportar CSV</span>
               <span className="sm:hidden">CSV</span>
+            </Button>
+
+            {/* Botão Modo Leve (sem thumbnails) */}
+            <Button
+              variant={hideThumbs ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setHideThumbs(h => !h)}
+              className="flex-1 sm:flex-auto text-xs sm:text-sm"
+              title={hideThumbs ? "Mostrar thumbnails" : "Modo leve: ocultar thumbnails para reduzir uso do navegador"}
+            >
+              <EyeOff className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">{hideThumbs ? "Modo Normal" : "Modo Leve"}</span>
+              <span className="sm:hidden">{hideThumbs ? "Normal" : "Leve"}</span>
+            </Button>
+
+            {/* Botão Limpar Cache */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowClearCacheAlert(true)}
+              className="flex-1 sm:flex-auto text-xs sm:text-sm text-destructive hover:text-destructive"
+              title="Limpar cache de vídeos do LocalStorage para liberar memória do navegador"
+            >
+              <Eraser className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Limpar Cache</span>
+              <span className="sm:hidden">Cache</span>
             </Button>
           </div>
 
@@ -831,11 +867,12 @@ const RecentVideos = () => {
               <div key={channelData.channel.channelId} className="space-y-4">
                 {/* Header do Canal */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                  {channelData.channel.channelThumbnail && (
+                  {(channelData.channel.channelThumbnail || hideThumbs) && (
                     <ChannelThumb
                       channelId={channelData.channel.channelId}
                       channelTitle={channelData.channel.channelTitle}
                       channelThumbnail={channelData.channel.channelThumbnail}
+                      hideThumbs={hideThumbs}
                     />
                   )}
                   <div className="flex-1">
@@ -1018,7 +1055,7 @@ const RecentVideos = () => {
                   /* Grid de Vídeos - 7 colunas no desktop, menor no mobile */
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-2">
                     {channelData.videos.map((video) => (
-                      <RecentVideoCard key={video.videoId} video={video} showExactTime={showExactTime} />
+                      <RecentVideoCard key={video.videoId} video={video} showExactTime={showExactTime} hideThumbs={hideThumbs} />
                     ))}
                   </div>
                 )}
@@ -1139,6 +1176,37 @@ const RecentVideos = () => {
           onClose={() => setShowChartDialog(null)}
         />
       )}
+
+      {/* Alert Limpar Cache */}
+      <AlertDialog open={showClearCacheAlert} onOpenChange={setShowClearCacheAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Limpar Cache de Vídeos</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso vai remover todos os vídeos em cache do LocalStorage, liberando memória do navegador.
+              Os dados dos canais não serão afetados. Você precisará atualizar os canais novamente para ver os vídeos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                try {
+                  localStorage.removeItem(VIDEO_CACHE_KEY);
+                  toast.success("Cache limpo! Recarregando...");
+                  setTimeout(() => window.location.reload(), 800);
+                } catch {
+                  toast.error("Erro ao limpar cache");
+                }
+              }}
+            >
+              <Eraser className="w-4 h-4 mr-2" />
+              Limpar Cache
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

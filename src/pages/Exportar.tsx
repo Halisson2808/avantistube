@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, HardDrive, Database, FileJson } from "lucide-react";
+import { Download, HardDrive, Database, FileJson, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMonitoredChannels } from "@/hooks/use-monitored-channels";
 
@@ -87,6 +87,56 @@ export default function Exportar() {
     }
   }, [toast]);
 
+  const exportChannelsCSV = useCallback(async () => {
+    setExporting("csv");
+    try {
+      const res = await fetch("http://localhost:3001/api/channels");
+      const data = await res.json();
+
+      const headers = [
+        "Nome do Canal", "Canal ID", "Nicho", "Tipo",
+        "Inscritos", "Views Totais", "Qtd Vídeos",
+        "Inscritos (7 dias)", "Views (7 dias)",
+        "Inscritos (1 dia)", "Views (1 dia)",
+        "Adicionado em", "Última Atualização"
+      ];
+
+      const rows = data.map((ch: any) => [
+        `"${(ch.channelTitle || '').replace(/"/g, '""')}"`,
+        ch.channelId || '',
+        `"${(ch.niche || '').replace(/"/g, '""')}"`,
+        ch.contentType === 'shorts' ? 'Shorts' : 'Longos',
+        ch.currentSubscribers || 0,
+        ch.currentViews || 0,
+        ch.currentVideos || 0,
+        ch.subscribersLast7Days || 0,
+        ch.viewsLast7Days || 0,
+        ch.subscribersLastDay || 0,
+        ch.viewsLastDay || 0,
+        ch.addedAt ? new Date(ch.addedAt).toLocaleDateString('pt-BR') : '',
+        ch.lastUpdated ? new Date(ch.lastUpdated).toLocaleDateString('pt-BR') : '',
+      ]);
+
+      const csv = [headers.join(';'), ...rows.map((r: any[]) => r.join(';'))].join('\n');
+      const BOM = '\uFEFF'; // necessário para Excel reconhecer UTF-8
+      const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Canais-Monitorados-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({ title: "✅ Planilha exportada!", description: `${data.length} canais exportados. Abra no Excel ou Google Sheets.` });
+    } catch {
+      toast({ title: "Erro", description: "Servidor local offline. Rode npm run dev.", variant: "destructive" });
+    } finally {
+      setExporting(null);
+    }
+  }, [toast]);
+
   const exportAll = useCallback(async () => {
     setExporting("all");
     try {
@@ -123,6 +173,35 @@ export default function Exportar() {
           Faça backup dos seus dados locais em JSON.
         </p>
       </div>
+
+      {/* Exportar Planilha — destaque */}
+      <Card className="border-green-500/40 bg-green-500/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <FileSpreadsheet className="h-5 w-5 text-green-500" />
+            Exportar como Planilha (CSV)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Exporta todos os canais monitorados como planilha compatível com{" "}
+            <span className="font-medium text-foreground">Excel e Google Sheets</span>.
+            Inclui nome, nicho, tipo, inscritos, views, crescimento 7 dias e datas.
+            <span className="font-medium text-foreground"> ({channels.length} canais)</span>
+          </p>
+          <Button
+            onClick={exportChannelsCSV}
+            disabled={exporting === "csv"}
+            className="w-full bg-green-600 hover:bg-green-700 text-white"
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            {exporting === "csv" ? "Exportando..." : "Baixar Planilha (.csv)"}
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Dica: ao abrir no Excel, use "Dados → De Texto/CSV" para melhor formatação.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Exportar Tudo */}
       <Card className="border-primary/30">

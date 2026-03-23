@@ -1,4 +1,4 @@
-import { Home, Search, TrendingUp, Youtube, ListVideo } from "lucide-react";
+import { Home, Search, TrendingUp, ListVideo, Download } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
 export function BottomNav() {
@@ -6,11 +6,11 @@ export function BottomNav() {
     const currentPath = location.pathname;
 
     const items = [
-        { title: "Início", url: "/", icon: Home },
-        { title: "Buscar", url: "/search", icon: Search },
-        { title: "Monitorar", url: "/monitoramento", icon: TrendingUp },
-        { title: "Canais", url: "/canais-monitorados", icon: ListVideo },
-        { title: "Meus", url: "/my-channels", icon: Youtube },
+        { title: "Início", url: "/avantistube", icon: Home },
+        { title: "Buscar", url: "/avantistube/search", icon: Search },
+        { title: "Monitorar", url: "/avantistube/monitoramento", icon: TrendingUp },
+        { title: "Canais", url: "/avantistube/canais-monitorados", icon: ListVideo },
+        { title: "Exportar", url: "/avantistube/exportar", icon: Download },
     ];
 
     return (

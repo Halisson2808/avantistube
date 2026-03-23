@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Variáveis de ambiente (API keys, segredos) - NUNCA commitar!
+.env
+.env.*
+!.env.example
+
+# Dados locais (canais e histórico - não commitar dados pessoais)
+data/

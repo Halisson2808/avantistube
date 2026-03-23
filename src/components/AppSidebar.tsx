@@ -1,7 +1,7 @@
-import { Home, Search, TrendingUp, Youtube, Lock, ExternalLink, Download } from "lucide-react";
+import { Home, Search, TrendingUp, Lock, ExternalLink, Download, ArrowLeft } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
-import logo from "@/assets/logo.png";
+import { useLocation, useNavigate } from "react-router-dom";
+import tubeLogo from "@/assets/logo.png";
 import { useMonitoredChannels } from "@/hooks/use-monitored-channels";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -18,15 +18,15 @@ import {
   from "@/components/ui/sidebar";
 
 const items = [
-  { title: "Dashboard", url: "/", icon: Home, locked: false },
-  { title: "Buscar Vídeos", url: "/search", icon: Search, locked: false },
-  { title: "Monitoramento", url: "/monitoramento", icon: TrendingUp, locked: false },
-  { title: "Meus Canais", url: "/my-channels", icon: Youtube, locked: false },
-  { title: "Exportar Dados", url: "/exportar", icon: Download, locked: false },
+  { title: "Dashboard", url: "/avantistube", icon: Home, locked: false },
+  { title: "Buscar Vídeos", url: "/avantistube/search", icon: Search, locked: false },
+  { title: "Monitoramento", url: "/avantistube/monitoramento", icon: TrendingUp, locked: false },
+  { title: "Exportar Dados", url: "/avantistube/exportar", icon: Download, locked: false },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const currentPath = location.pathname;
   const { channels } = useMonitoredChannels();
 
@@ -36,10 +36,12 @@ export function AppSidebar() {
     <Sidebar className="w-64 bg-card border-r border-border z-40" collapsible="offcanvas">
       <SidebarContent className="bg-card">
         <div className="p-4 flex items-center gap-3 border-b border-border">
-          {/* <img src={logo} alt="Logo" className="w-10 h-10 rounded-xl object-cover" loading="lazy" /> */}
-          <span className="font-bold text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            AvantisTube
-          </span>
+          <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 shadow-md">
+            <img src={tubeLogo} alt="Avantis Tube" className="w-full h-full object-cover" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="font-bold text-sm block truncate">Avantis Tube</span>
+          </div>
         </div>
 
         <SidebarGroup>
@@ -128,6 +130,16 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
       </SidebarContent>
+      {/* Rodapé fixo — Avantis Studio */}
+      <div className="border-t border-border p-3 mt-auto">
+        <button
+          onClick={() => navigate("/")}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all duration-200 group"
+        >
+          <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+          <span className="text-sm font-medium">Avantis Studio</span>
+        </button>
+      </div>
     </Sidebar>
   );
 }

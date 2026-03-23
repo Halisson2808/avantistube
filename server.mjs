@@ -324,6 +324,55 @@ const server = createServer(async (req, res) => {
             return json(res, data);
         }
 
+        // ── Proxy de Thumbnail do YouTube (evita CORS/referrer block) ──────────
+        if (path === "/api/proxy/thumbnail" && method === "GET") {
+            const videoId = url.searchParams.get("videoId");
+            if (!videoId) return json(res, { error: "Missing videoId" }, 400);
+
+            const YT_HEADERS = { "Referer": "https://www.youtube.com/", "User-Agent": "Mozilla/5.0" };
+
+            // YouTube retorna 200 + placeholder de ~1.8KB quando a qualidade
+            // não existe — detectamos pelo tamanho e tentamos a próxima.
+            async function tryQuality(q) {
+                const r = await fetch(`https://img.youtube.com/vi/${videoId}/${q}.jpg`, { headers: YT_HEADERS });
+                if (!r.ok) return null;
+                const buf = Buffer.from(await r.arrayBuffer());
+                return buf.byteLength > 5000 ? buf : null;
+            }
+
+            // maxresdefault = 1280×720 16:9 (melhor)
+            // sddefault     =  640×480 (fallback se maxres não existir)
+            // hqdefault     =  480×360 (último recurso)
+            const buf = await tryQuality("maxresdefault")
+                     || await tryQuality("sddefault")
+                     || await tryQuality("hqdefault");
+
+            if (!buf) return json(res, { error: "Thumbnail não encontrada" }, 404);
+
+            cors(res);
+            res.writeHead(200, {
+                "Content-Type": "image/jpeg",
+                "Content-Length": buf.byteLength,
+                "Cache-Control": "public, max-age=3600",
+            });
+            res.end(buf);
+            return;
+        }
+
+        // ── Proxy de oEmbed (título do vídeo sem CORS) ──────────────────────
+        if (path === "/api/proxy/oembed" && method === "GET") {
+            const videoId = url.searchParams.get("videoId");
+            if (!videoId) return json(res, { error: "Missing videoId" }, 400);
+
+            const oembedRes = await fetch(
+                `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+                { headers: { "Referer": "https://www.youtube.com/" } }
+            );
+            if (!oembedRes.ok) return json(res, { title: "" });
+            const data = await oembedRes.json();
+            return json(res, { title: data.title || "" });
+        }
+
         json(res, { error: "Not found" }, 404);
 
     } catch (err) {
