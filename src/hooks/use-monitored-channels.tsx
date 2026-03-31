@@ -21,18 +21,38 @@ export interface ChannelMonitorData {
   initialViews: number;
   addedAt: string;
   lastUpdated: string;
-  // Métricas calculadas (opcionais - derivadas dos vídeos)
   subscribersLast7Days?: number;
   viewsLast7Days?: number;
   subscribersLastDay?: number;
   viewsLastDay?: number;
   isExploding?: boolean;
   niche?: string;
+  notes?: string;
   contentType?: 'longform' | 'shorts';
 }
 
+interface ApiChannelRaw {
+  id: string;
+  channel_id: string;
+  channel_name: string;
+  channel_thumbnail?: string;
+  subscriber_count?: number;
+  view_count?: number;
+  video_count?: number;
+  initial_subscribers?: number;
+  initial_views?: number;
+  added_at: string;
+  last_updated: string;
+  niche?: string;
+  notes?: string;
+  content_type?: 'longform' | 'shorts';
+  subscribers_last_7_days?: number;
+  views_last_7_days?: number;
+  is_exploding?: boolean;
+}
+
 // Mapeia o formato do servidor para o formato do componente
-function mapChannel(raw: any): ChannelMonitorData {
+function mapChannel(raw: ApiChannelRaw): ChannelMonitorData {
   return {
     id: raw.id,
     channelId: raw.channel_id,
@@ -46,7 +66,11 @@ function mapChannel(raw: any): ChannelMonitorData {
     addedAt: raw.added_at,
     lastUpdated: raw.last_updated,
     niche: raw.niche || undefined,
+    notes: raw.notes || undefined,
     contentType: (raw.content_type as 'longform' | 'shorts') || 'longform',
+    subscribersLast7Days: raw.subscribers_last_7_days ?? 0,
+    viewsLast7Days: raw.views_last_7_days ?? 0,
+    isExploding: raw.is_exploding ?? false,
   };
 }
 
@@ -60,7 +84,7 @@ export const useMonitoredChannels = () => {
     try {
       const res = await fetch(`${API}/channels`);
       if (!res.ok) throw new Error(`Erro ${res.status}`);
-      const data: any[] = await res.json();
+      const data: ApiChannelRaw[] = await res.json();
       setChannels(data.map(mapChannel));
       setServerOnline(true);
     } catch (error) {
@@ -82,7 +106,7 @@ export const useMonitoredChannels = () => {
 
   const updateChannel = async (channelId: string, updates: Partial<ChannelMonitorData>) => {
     try {
-      const raw: any = {};
+      const raw: Record<string, string | number | undefined> = {};
       if (updates.channelTitle !== undefined) raw.channel_name = updates.channelTitle;
       if (updates.channelThumbnail !== undefined) raw.channel_thumbnail = updates.channelThumbnail;
       if (updates.currentSubscribers !== undefined) raw.subscriber_count = updates.currentSubscribers;
@@ -120,12 +144,12 @@ export const useMonitoredChannels = () => {
     const normalized = niche.trim()
       ? niche.trim().charAt(0).toUpperCase() + niche.trim().slice(1).toLowerCase()
       : niche;
-    await updateChannel(channelId, { niche: normalized } as any);
+    await updateChannel(channelId, { niche: normalized });
     toast.success('Nicho atualizado!');
   };
 
   const updateContentType = async (channelId: string, contentType: 'longform' | 'shorts') => {
-    await updateChannel(channelId, { contentType } as any);
+    await updateChannel(channelId, { contentType });
     toast.success('Tipo de conteúdo atualizado!');
   };
 

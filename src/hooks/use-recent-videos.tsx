@@ -41,6 +41,39 @@ export interface UpdateProgress {
 }
 
 const CACHE_HOURS = 2; // Cache válido por 2 horas
+const API = 'http://localhost:3001/api';
+
+interface ApiChannelRow {
+  id: string;
+  channel_id: string;
+  channel_name: string;
+  channel_thumbnail?: string;
+  subscriber_count?: number;
+  view_count?: number;
+  video_count?: number;
+  initial_subscribers?: number;
+  initial_views?: number;
+  added_at: string;
+  last_updated: string;
+  niche?: string;
+  content_type?: 'longform' | 'shorts';
+}
+
+const mapRawChannelToMonitorData = (raw: ApiChannelRow): ChannelMonitorData => ({
+  id: raw.id,
+  channelId: raw.channel_id,
+  channelTitle: raw.channel_name,
+  channelThumbnail: raw.channel_thumbnail || undefined,
+  currentSubscribers: raw.subscriber_count || 0,
+  currentViews: raw.view_count || 0,
+  currentVideos: raw.video_count || 0,
+  initialSubscribers: raw.initial_subscribers || raw.subscriber_count || 0,
+  initialViews: raw.initial_views || raw.view_count || 0,
+  addedAt: raw.added_at,
+  lastUpdated: raw.last_updated,
+  niche: raw.niche || undefined,
+  contentType: (raw.content_type as 'longform' | 'shorts') || 'longform',
+});
 
 export const useRecentVideos = () => {
   const {
@@ -60,6 +93,7 @@ export const useRecentVideos = () => {
     getChannelVideos: getCachedVideos,
     isCacheValid,
     getAllCachedChannels,
+    removeChannelFromCache,
   } = useVideoLocalStorage();
 
   const [selectedChannelIds, setSelectedChannelIds] = useState<Set<string>>(new Set());
@@ -92,6 +126,25 @@ export const useRecentVideos = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channels.length]);
+
+  // Mantém channelVideosData sincronizado com a lista atual de canais.
+  // Isso evita precisar recarregar a página após remover/adicionar canais.
+  useEffect(() => {
+    setChannelVideosData(prev => {
+      const activeIds = new Set(channels.map(ch => ch.channelId));
+      const channelMap = new Map(channels.map(ch => [ch.channelId, ch]));
+      const next = new Map<string, ChannelVideosData>();
+
+      prev.forEach((data, channelId) => {
+        if (!activeIds.has(channelId)) return;
+        const latestChannel = channelMap.get(channelId);
+        if (!latestChannel) return;
+        next.set(channelId, { ...data, channel: latestChannel });
+      });
+
+      return next;
+    });
+  }, [channels]);
 
   // Carregar vídeos do localStorage na inicialização
   useEffect(() => {
@@ -163,7 +216,21 @@ export const useRecentVideos = () => {
       return; // Usa cache
     }
 
-    const channel = channels.find(ch => ch.channelId === channelId);
+    let channel = channels.find(ch => ch.channelId === channelId);
+    if (!channel) {
+      try {
+        const res = await fetch(`${API}/channels`);
+        if (res.ok) {
+          const allChannels: ApiChannelRow[] = await res.json();
+          const rawChannel = allChannels.find(ch => ch.channel_id === channelId);
+          if (rawChannel) {
+            channel = mapRawChannelToMonitorData(rawChannel);
+          }
+        }
+      } catch (error) {
+        console.error(`Erro ao buscar canal ${channelId} na API local:`, error);
+      }
+    }
     if (!channel) return;
 
     try {
@@ -429,11 +496,29 @@ export const useRecentVideos = () => {
     return filtered;
   }, [filters]);
 
-  // Obter vídeos filtrados
+  // Obter vídeos filtrados.
+  // Para o filtro "deleted" (Canais Caídos), incluímos TODOS os canais monitorados,
+  // mesmo aqueles sem cache, para que canais com stats zerados apareçam.
   const getVideosByChannel = useCallback((): ChannelVideosData[] => {
-    const allData = Array.from(channelVideosData.values());
+    const statusFilter = filters.channelStatus;
+    let allData: ChannelVideosData[];
+
+    if (statusFilter === 'deleted' || statusFilter === 'all') {
+      const merged = new Map<string, ChannelVideosData>();
+      channels.forEach(channel => {
+        merged.set(channel.channelId, { channel, videos: [], isLoading: false });
+      });
+      channelVideosData.forEach((data, channelId) => {
+        const latest = channels.find(ch => ch.channelId === channelId);
+        merged.set(channelId, { ...data, channel: latest || data.channel });
+      });
+      allData = Array.from(merged.values());
+    } else {
+      allData = Array.from(channelVideosData.values());
+    }
+
     return filterChannels(allData);
-  }, [channelVideosData, filterChannels]);
+  }, [channelVideosData, channels, filterChannels, filters.channelStatus]);
 
   const toggleChannelSelection = useCallback((channelId: string) => {
     setSelectedChannelIds(prev => {
@@ -501,6 +586,16 @@ export const useRecentVideos = () => {
       toast.error('Erro ao atualizar dados do canal');
     }
   }, [updateChannelVideos, updateChannelHistory, loadChannels]);
+
+  const removeChannelSafely = useCallback(async (channelId: string) => {
+    await removeChannel(channelId);
+    removeChannelFromCache(channelId);
+    setChannelVideosData(prev => {
+      const next = new Map(prev);
+      next.delete(channelId);
+      return next;
+    });
+  }, [removeChannel, removeChannelFromCache]);
 
   // Atualizar TODOS os canais (ignora filtro de nicho)
   const updateAllChannels = useCallback(async () => {
@@ -577,7 +672,7 @@ export const useRecentVideos = () => {
     updateNotes,
     updateNiche,
     updateContentType,
-    removeChannel,
+    removeChannel: removeChannelSafely,
     updateChannelStats,
   };
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Tag, Download, Pencil, Trash2, BarChart3, Users, Eye, Video, EyeOff, Eraser } from "lucide-react";
+import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Tag, Download, Pencil, Trash2, BarChart3, Users, Eye, Video, EyeOff, Eraser, CheckSquare, Square } from "lucide-react";
 import { useRecentVideos } from "@/hooks/use-recent-videos";
 import { RecentVideoCard } from "@/components/RecentVideoCard";
 import { toast } from "sonner";
@@ -101,7 +101,6 @@ const RecentVideos = () => {
     isUpdating,
     updateChannelVideos,
     updateChannelsByNiches,
-    updateAllChannels,
     updateSingleChannel,
     getAvailableNiches,
     getChannelCountByNiche,
@@ -117,7 +116,7 @@ const RecentVideos = () => {
     updateChannelStats,
   } = useRecentVideos();
 
-  const { niches, renameNiche } = useNiches();
+  const { niches, renameNiche, loadNiches } = useNiches();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [selectedNiches, setSelectedNiches] = useState<string[]>([]);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
@@ -145,6 +144,17 @@ const RecentVideos = () => {
   const [maisFilterOpen, setMaisFilterOpen] = useState(true); // PC: aberto por padrão
   const [hideThumbs, setHideThumbs] = useState(false);
   const [showClearCacheAlert, setShowClearCacheAlert] = useState(false);
+  const nicheListRef = useRef<HTMLDivElement | null>(null);
+  const nicheItemRefs = useRef<Map<string, HTMLLabelElement | null>>(new Map());
+
+  // Multi-select
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedChannelIds, setSelectedChannelIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteAlert, setShowBulkDeleteAlert] = useState(false);
+  const [showBulkNicheDialog, setShowBulkNicheDialog] = useState(false);
+  const [bulkNiche, setBulkNiche] = useState("");
+  const [bulkCustomNiche, setBulkCustomNiche] = useState("");
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
   // No mobile, fechar "Mais Filtros" por padrão
   useEffect(() => {
@@ -166,39 +176,46 @@ const RecentVideos = () => {
 
   const availableNiches = getAvailableNiches();
 
-  // Exportar CSV dos vídeos recentes
-  const exportToCSV = () => {
-    const allVideos = videosByChannel.flatMap(cd =>
-      cd.videos.map(v => ({
-        ...v,
-        channelNiche: cd.channel.niche,
-        channelContentType: cd.channel.contentType,
-      }))
-    );
+  const normalizeLetter = (value: string) =>
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
 
-    const csv = [
-      ["Canal", "Nicho", "Tipo", "Título do Vídeo", "Views", "Likes", "Comentários", "Publicado Em", "URL do Vídeo"].join(","),
-      ...allVideos.map(v => [
-        `"${v.channelName.replace(/"/g, '""')}"`,
-        `"${(v.channelNiche || "").replace(/"/g, '""')}"`,
-        v.channelContentType === "shorts" ? "Shorts" : "Longos",
-        `"${v.title.replace(/"/g, '""')}"`,
-        v.viewCount || 0,
-        v.likeCount || 0,
-        v.commentCount || 0,
-        v.publishedAt ? new Date(v.publishedAt).toLocaleDateString("pt-BR") : "",
-        `"https://youtube.com/watch?v=${v.videoId}"`
-      ].join(","))
-    ].join("\n");
+  // Atalho de teclado no popover "Por Nicho":
+  // ao pressionar uma letra, rola para o primeiro nicho que começa com ela.
+  useEffect(() => {
+    if (!isPopoverOpen) return;
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `videos-recentes-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    toast.success("CSV exportado com sucesso!");
-  };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.altKey || event.metaKey) return;
+      if (event.key.length !== 1) return;
+      const target = event.target as HTMLElement | null;
+      const isTyping =
+        !!target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
+      if (isTyping) return;
+
+      const key = normalizeLetter(event.key);
+      if (!/^[a-z]$/.test(key)) return;
+
+      const match = availableNiches.find((niche) =>
+        normalizeLetter(niche).startsWith(key)
+      );
+      if (!match) return;
+
+      event.preventDefault();
+      const item = nicheItemRefs.current.get(match);
+      item?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      item?.focus();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isPopoverOpen, availableNiches]);
 
   // Renomear nicho
   const handleRenameNiche = async (oldNiche: string, newNiche: string) => {
@@ -284,6 +301,7 @@ const RecentVideos = () => {
         toast.info('Este canal já está sendo monitorado');
         setIsAddDialogOpen(false);
         resetAddForm();
+        await loadNiches();
         return;
       }
 
@@ -296,6 +314,7 @@ const RecentVideos = () => {
       if (data.channel?.channel_id) {
         await updateSingleChannel(data.channel.channel_id);
       }
+      await loadNiches();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao adicionar canal';
       toast.error(errorMessage);
@@ -311,6 +330,58 @@ const RecentVideos = () => {
     setCustomNiche("");
     setNewNotes("");
     setContentType("longform");
+  };
+
+  // ── Multi-select handlers ──────────────────────────────────────────────────
+  const toggleChannelSelect = (channelId: string) => {
+    setSelectedChannelIds(prev => {
+      const next = new Set(prev);
+      if (next.has(channelId)) next.delete(channelId);
+      else next.add(channelId);
+      return next;
+    });
+  };
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedChannelIds(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    setIsBulkProcessing(true);
+    try {
+      for (const channelId of Array.from(selectedChannelIds)) {
+        await removeChannel(channelId);
+      }
+      toast.success(`${selectedChannelIds.size} canal(is) removido(s)`);
+      setShowBulkDeleteAlert(false);
+      exitSelectionMode();
+    } catch {
+      toast.error("Erro ao remover canais");
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const handleBulkChangeNiche = async () => {
+    const finalNiche = bulkNiche === "__new__" ? bulkCustomNiche : bulkNiche;
+    if (!finalNiche?.trim()) { toast.error("Selecione ou digite um nicho"); return; }
+    setIsBulkProcessing(true);
+    try {
+      for (const channelId of Array.from(selectedChannelIds)) {
+        await updateNiche(channelId, finalNiche);
+      }
+      toast.success(`Nicho atualizado para ${selectedChannelIds.size} canal(is)`);
+      setShowBulkNicheDialog(false);
+      setBulkNiche("");
+      setBulkCustomNiche("");
+      exitSelectionMode();
+      await loadNiches();
+    } catch {
+      toast.error("Erro ao atualizar nicho");
+    } finally {
+      setIsBulkProcessing(false);
+    }
   };
 
   const videosByChannel = getVideosByChannel();
@@ -333,6 +404,21 @@ const RecentVideos = () => {
 
         {/* Botões de ação - layout responsivo */}
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+
+          {/* Botão Selecionar (Multi-select) */}
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button
+              variant={selectionMode ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
+              className="flex-1 sm:flex-auto text-xs sm:text-sm"
+            >
+              {selectionMode
+                ? <><Square className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">Cancelar Seleção</span><span className="sm:hidden">Cancelar</span></>
+                : <><CheckSquare className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">Selecionar</span><span className="sm:hidden">Selec.</span></>
+              }
+            </Button>
+          </div>
 
           {/* Linha 1 mobile / inline desktop: Gerenciar Nichos + CSV */}
           <div className="flex gap-2 w-full sm:w-auto">
@@ -380,13 +466,6 @@ const RecentVideos = () => {
                 </div>
               </DialogContent>
             </Dialog>
-
-            {/* Botão Exportar CSV */}
-            <Button variant="outline" size="sm" onClick={exportToCSV} className="flex-1 sm:flex-auto text-xs sm:text-sm">
-              <Download className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Exportar CSV</span>
-              <span className="sm:hidden">CSV</span>
-            </Button>
 
             {/* Botão Modo Leve (sem thumbnails) */}
             <Button
@@ -474,21 +553,6 @@ const RecentVideos = () => {
               </DialogContent>
             </Dialog>
 
-            {/* Botão Atualizar Todos */}
-            <Button
-              variant="default"
-              size="sm"
-              disabled={isUpdating || channels.length === 0}
-              className="flex-1 sm:flex-auto gradient-primary text-xs sm:text-sm"
-              onClick={updateAllChannels}
-            >
-              {isUpdating ? (
-                <><Loader2 className="w-4 h-4 mr-1 sm:mr-2 animate-spin" /><span className="hidden sm:inline">Atualizando...</span><span className="sm:hidden">...</span></>
-              ) : (
-                <><RefreshCw className="w-4 h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Atualizar Todos ({channels.length})</span><span className="sm:hidden">+{channels.length}</span></>
-              )}
-            </Button>
-
             {/* Botão Por Nicho (Popover) */}
             <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
               <PopoverTrigger asChild>
@@ -512,10 +576,14 @@ const RecentVideos = () => {
                     </Button>
                   </div>
 
-                  <div className="max-h-60 overflow-y-auto space-y-2">
+                  <div ref={nicheListRef} className="max-h-60 overflow-y-auto space-y-2">
                     {availableNiches.map((niche) => (
                       <label
                         key={niche}
+                        ref={(el) => {
+                          nicheItemRefs.current.set(niche, el);
+                        }}
+                        tabIndex={-1}
                         className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer"
                       >
                         <Checkbox
@@ -628,43 +696,6 @@ const RecentVideos = () => {
               </div>
             </div>
 
-            {/* Filtro rápido: canais caídos/excluídos */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={() =>
-                  setFilters({
-                    ...filters,
-                    channelStatus: filters.channelStatus === 'deleted' ? 'active' : 'deleted',
-                  })
-                }
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '4px 12px',
-                  borderRadius: 999,
-                  fontSize: 12,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  border: '1px solid',
-                  transition: 'all 0.15s',
-                  background: filters.channelStatus === 'deleted' ? 'hsl(var(--destructive))' : 'transparent',
-                  borderColor: filters.channelStatus === 'deleted' ? 'hsl(var(--destructive))' : 'hsl(var(--border))',
-                  color: filters.channelStatus === 'deleted' ? 'white' : 'hsl(var(--muted-foreground))',
-                }}
-                title="Mostrar apenas canais caídos ou excluídos"
-              >
-                <span>⚠️</span>
-                <span>Canais Caídos</span>
-                {filters.channelStatus === 'deleted' && <span style={{ fontSize: 10, opacity: 0.8 }}>✕</span>}
-              </button>
-              {filters.channelStatus === 'deleted' && (
-                <span className="text-xs text-muted-foreground italic">
-                  Mostrando apenas canais inativos ou excluídos
-                </span>
-              )}
-            </div>
-
             <Collapsible>
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm" className="w-full sm:w-auto h-8 px-2 gap-1 hover:bg-muted/50 justify-between sm:justify-start"
@@ -754,6 +785,30 @@ const RecentVideos = () => {
         </CardContent>
       </Card>
 
+      {/* Barra de controle de seleção múltipla */}
+      {selectionMode && (
+        <div className="flex items-center justify-between px-1 py-2 bg-muted/40 rounded-lg border border-border">
+          <span className="text-sm text-muted-foreground">
+            {selectedChannelIds.size} de {videosByChannel.length} selecionado(s)
+          </span>
+          <div className="flex gap-2">
+            <Button
+              size="sm" variant="ghost" className="h-7 text-xs"
+              onClick={() => setSelectedChannelIds(new Set(videosByChannel.map(cd => cd.channel.channelId)))}
+            >
+              Selecionar todos
+            </Button>
+            <Button
+              size="sm" variant="ghost" className="h-7 text-xs"
+              onClick={() => setSelectedChannelIds(new Set())}
+              disabled={selectedChannelIds.size === 0}
+            >
+              Limpar
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Lista de Vídeos */}
       {videosByChannel.length === 0 && !isLoadingAll && !isUpdating ? (
         <Card className="shadow-card">
@@ -836,8 +891,18 @@ const RecentVideos = () => {
             // Renderização especial para canais caídos
             if (isDeletedChannel) {
               return (
-                <div key={channelData.channel.channelId} className="flex items-center justify-between p-4 bg-muted/20 border border-destructive/30 rounded-lg opacity-90">
-                  <div className="flex items-center gap-3">
+                <div
+                  key={channelData.channel.channelId}
+                  className={`flex items-center gap-2 p-4 bg-muted/20 border rounded-lg opacity-90 ${selectionMode && selectedChannelIds.has(channelData.channel.channelId) ? 'border-primary ring-2 ring-primary/30' : 'border-destructive/30'}`}
+                >
+                  {selectionMode && (
+                    <Checkbox
+                      checked={selectedChannelIds.has(channelData.channel.channelId)}
+                      onCheckedChange={() => toggleChannelSelect(channelData.channel.channelId)}
+                      className="flex-shrink-0"
+                    />
+                  )}
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
                     {channelData.channel.channelThumbnail ? (
                       <img src={channelData.channel.channelThumbnail} alt={channelData.channel.channelTitle} className="w-10 h-10 rounded-full grayscale" loading="lazy" referrerPolicy="no-referrer" />
                     ) : (
@@ -853,18 +918,35 @@ const RecentVideos = () => {
                       )}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost" size="sm" onClick={() => setShowDeleteAlert(channelData.channel.channelId)}
-                    className="text-destructive hover:text-destructive" title="Remover da lista"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  {!selectionMode && (
+                    <Button
+                      variant="ghost" size="sm" onClick={() => setShowDeleteAlert(channelData.channel.channelId)}
+                      className="text-destructive hover:text-destructive flex-shrink-0" title="Remover da lista"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
               );
             }
 
             return (
-              <div key={channelData.channel.channelId} className="space-y-4">
+              <div
+                key={channelData.channel.channelId}
+                className={`space-y-4 ${selectionMode && selectedChannelIds.has(channelData.channel.channelId) ? 'ring-2 ring-primary/40 rounded-xl p-3 bg-primary/5' : ''}`}
+              >
+                {/* Checkbox de seleção múltipla */}
+                {selectionMode && (
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <Checkbox
+                      checked={selectedChannelIds.has(channelData.channel.channelId)}
+                      onCheckedChange={() => toggleChannelSelect(channelData.channel.channelId)}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {selectedChannelIds.has(channelData.channel.channelId) ? 'Selecionado' : 'Selecionar este canal'}
+                    </span>
+                  </label>
+                )}
                 {/* Header do Canal */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   {(channelData.channel.channelThumbnail || hideThumbs) && (
@@ -1156,7 +1238,6 @@ const RecentVideos = () => {
                 if (showDeleteAlert) {
                   await removeChannel(showDeleteAlert);
                   setShowDeleteAlert(null);
-                  window.location.reload();
                 }
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -1176,6 +1257,92 @@ const RecentVideos = () => {
           onClose={() => setShowChartDialog(null)}
         />
       )}
+
+      {/* ── Barra flutuante de ações em massa ───────────────────────────────── */}
+      {selectionMode && selectedChannelIds.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl border border-border bg-background/95 backdrop-blur">
+          <span className="text-sm font-semibold whitespace-nowrap">
+            {selectedChannelIds.size} selecionado(s)
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8"
+            onClick={() => setShowBulkNicheDialog(true)}
+          >
+            <Tag className="w-3.5 h-3.5 mr-1.5" />
+            Mudar Nicho
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-8"
+            onClick={() => setShowBulkDeleteAlert(true)}
+          >
+            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+            Excluir
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8" onClick={exitSelectionMode}>
+            <X className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      )}
+
+      {/* ── Bulk Delete ──────────────────────────────────────────────────────── */}
+      <AlertDialog open={showBulkDeleteAlert} onOpenChange={setShowBulkDeleteAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover {selectedChannelIds.size} canal(is)</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover os {selectedChannelIds.size} canais selecionados do monitoramento? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkProcessing}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isBulkProcessing}
+              onClick={handleBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBulkProcessing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Removendo...</> : "Remover todos"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Bulk Change Niche ─────────────────────────────────────────────────── */}
+      <Dialog open={showBulkNicheDialog} onOpenChange={(o) => { if (!isBulkProcessing) setShowBulkNicheDialog(o); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mudar nicho de {selectedChannelIds.size} canal(is)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Novo Nicho</Label>
+              <Select value={bulkNiche} onValueChange={setBulkNiche}>
+                <SelectTrigger><SelectValue placeholder="Selecione ou crie um nicho" /></SelectTrigger>
+                <SelectContent>
+                  {niches.map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                  <SelectItem value="__new__">➕ Novo Nicho</SelectItem>
+                </SelectContent>
+              </Select>
+              {bulkNiche === "__new__" && (
+                <Input
+                  value={bulkCustomNiche}
+                  onChange={(e) => setBulkCustomNiche(e.target.value)}
+                  placeholder="Digite o nome do novo nicho"
+                />
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkNicheDialog(false)} disabled={isBulkProcessing}>Cancelar</Button>
+            <Button onClick={handleBulkChangeNiche} disabled={isBulkProcessing} className="gradient-primary">
+              {isBulkProcessing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : "Aplicar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Alert Limpar Cache */}
       <AlertDialog open={showClearCacheAlert} onOpenChange={setShowClearCacheAlert}>

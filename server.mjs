@@ -208,7 +208,41 @@ const server = createServer(async (req, res) => {
         // ── Canais Monitorados ─────────────────────────────────────────────────
 
         if (path === "/api/channels" && method === "GET") {
-            return json(res, readDB().monitored || []);
+            const channels = readDB().monitored || [];
+            const hist = readHistory();
+            const now = Date.now();
+            const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+            const enriched = channels.map(ch => {
+                const records = (hist[ch.channel_id] || [])
+                    .slice()
+                    .sort((a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime());
+
+                // Ponto de referência: o mais recente gravado há ≥7 dias atrás.
+                // Se não houver, usa o mais antigo disponível como baseline.
+                const cutoff = now - sevenDaysMs;
+                let baseline = null;
+                for (let i = records.length - 1; i >= 0; i--) {
+                    if (new Date(records[i].recorded_at).getTime() <= cutoff) {
+                        baseline = records[i];
+                        break;
+                    }
+                }
+                if (!baseline && records.length > 0) baseline = records[0];
+
+                const subsDelta = baseline ? (ch.subscriber_count - baseline.subscriber_count) : 0;
+                const viewsDelta = baseline ? (ch.view_count - baseline.view_count) : 0;
+                const isExploding = subsDelta > 1000 || viewsDelta > 50000;
+
+                return {
+                    ...ch,
+                    subscribers_last_7_days: subsDelta,
+                    views_last_7_days: viewsDelta,
+                    is_exploding: isExploding,
+                };
+            });
+
+            return json(res, enriched);
         }
 
         if (path === "/api/channels" && method === "POST") {
