@@ -1,13 +1,12 @@
 /**
  * use-monitored-channels.tsx
- * Busca canais monitorados do servidor local (http://localhost:3001)
- * que salva os dados em data/channels.json — sem Docker, sem Supabase.
+ * Busca canais monitorados via /api (Supabase como storage).
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 export interface ChannelMonitorData {
   id: string;

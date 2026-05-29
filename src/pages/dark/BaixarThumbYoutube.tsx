@@ -28,7 +28,7 @@ export default function BaixarThumbYoutube() {
 
     const fetchVideoTitle = async (videoId: string): Promise<string> => {
         try {
-            const response = await fetch(`http://localhost:3001/api/proxy/oembed?videoId=${videoId}`);
+            const response = await fetch(`/api/proxy/oembed?videoId=${videoId}`);
             if (response.ok) {
                 const data = await response.json();
                 return data.title || "";
@@ -46,7 +46,7 @@ export default function BaixarThumbYoutube() {
         setIsLoading(true);
         const title = await fetchVideoTitle(videoId);
         setVideoTitle(title);
-        setThumbnailUrl(`http://localhost:3001/api/proxy/thumbnail?videoId=${videoId}`);
+        setThumbnailUrl(`/api/proxy/thumbnail?videoId=${videoId}`);
         setIsLoading(false);
     };
 

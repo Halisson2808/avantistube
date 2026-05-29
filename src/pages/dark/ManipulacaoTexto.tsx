@@ -8,22 +8,9 @@ import {
     FileText, AlignLeft, AlignCenter, Sparkles, List
 } from "lucide-react";
 import { toast } from "sonner";
-import { hasApiKeys, getApiKeys } from "@/lib/dark/apiKeysStorage";
-import { useNavigate } from "react-router-dom";
-
-async function callOpenAILocal(messages: any[], model: string, apiKey: string) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({ model, messages, temperature: 0.7 })
-    });
-    if (!response.ok) { const err = await response.json(); throw new Error(err.error?.message || 'Erro na API'); }
-    const data = await response.json();
-    return { content: data.choices[0].message.content };
-}
+import { aiChat } from "@/lib/dark/aiClient";
 
 export default function ManipulacaoTexto() {
-    const navigate = useNavigate();
     const [texto, setTexto] = useState("");
     const [resultado, setResultado] = useState("");
     const [isConverting, setIsConverting] = useState(false);
@@ -52,18 +39,15 @@ export default function ManipulacaoTexto() {
 
     const converterTituloImpacto = async () => {
         if (!texto.trim()) { toast.error("Digite um título para converter"); return; }
-        if (!hasApiKeys()) { toast.error("Configure suas API keys em Configurações"); navigate("/avantisdark/configuracoes"); return; }
-        const keys = getApiKeys();
-        if (!keys.openaiKey) { toast.error("Configure a API key da OpenAI em Configurações"); return; }
         setIsConverting(true);
         toast.info("Convertendo título para impacto...");
         try {
             const prompt = `Converta o seguinte título em 5 versões de ALTO IMPACTO:\nTÍTULO ORIGINAL: "${texto}"\nREGRAS: USE AS MESMAS PALAVRAS, apenas coloque algumas em MAIÚSCULO.\nFORMATO:\n1. [versão]\n2. [versão]\n3. [versão]\n4. [versão]\n5. [versão]\nRetorne APENAS as 5 versões numeradas.`;
-            const response = await callOpenAILocal([
+            const content = await aiChat([
                 { role: "system", content: "Você é especialista em copywriting." },
                 { role: "user", content: prompt }
-            ], "gpt-4o-mini", keys.openaiKey);
-            const versoes = response.content.split('\n').map((l: string) => l.replace(/^\d+\.\s*/, '').trim()).filter((l: string) => l.length > 0).join('\n');
+            ]);
+            const versoes = content.split('\n').map((l: string) => l.replace(/^\d+\.\s*/, '').trim()).filter((l: string) => l.length > 0).join('\n');
             setResultado(versoes);
             toast.success("Título convertido com sucesso!");
         } catch (error: any) { toast.error(error.message || "Erro ao processar"); }

@@ -1,10 +1,9 @@
 /**
  * youtube-api.ts
- * Wrapper que chama o servidor local (porta 3001) em vez de Supabase Edge Functions.
- * O servidor local usa a VITE_YOUTUBE_API_KEY diretamente.
+ * Chama as rotas /api (server.mjs no dev, funções serverless do Vercel em prod).
  */
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 async function localFetch(path: string): Promise<any> {
   const res = await fetch(`${API}${path}`);

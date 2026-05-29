@@ -1,423 +1,91 @@
 /**
- * server.mjs — Servidor local do Avantis Tube
- * Porta: 3001
+ * server.mjs — Servidor local de DEV do Avantis Tube (porta 3001).
  *
- * Arquivos gerados em data/:
- *   channels.json → canais monitorados (add/edit/delete)
- *   history.json  → histórico de crescimento (1 ponto por dia por canal)
+ * Em produção (Vercel) quem responde /api/* são as funções serverless
+ * (api/[...path].mjs). Aqui, no dev, expomos as MESMAS rotas usando o
+ * núcleo compartilhado (api/_core.mjs). Storage = Supabase.
+ *
+ * O Vite (porta 8080) faz proxy de /api para cá — veja vite.config.ts.
  */
-
 import { createServer } from "http";
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = join(__dirname, "data");
-const DB_FILE = join(DATA_DIR, "channels.json");  // canais monitorados
-const HIST_FILE = join(DATA_DIR, "history.json");   // histórico de crescimento
 const PORT = 3001;
 
-// ─── Carregar .env ────────────────────────────────────────────────────────────
-function loadEnv() {
-    try {
-        const env = readFileSync(join(__dirname, ".env"), "utf-8");
-        for (const line of env.replace(/\r/g, "").split("\n")) {
-            const [k, ...rest] = line.split("=");
-            if (k && rest.length) {
-                process.env[k.trim()] = rest.join("=").trim().replace(/^"|"$/g, "");
-            }
-        }
-    } catch { }
-}
-loadEnv();
+// ─── Carregar .env ANTES de importar o núcleo ──────────────────────────────────
+(function loadEnv() {
+  const envPath = join(__dirname, ".env");
+  if (!existsSync(envPath)) return;
+  for (const line of readFileSync(envPath, "utf-8").replace(/\r/g, "").split("\n")) {
+    const t = line.trim();
+    if (!t || t.startsWith("#")) continue;
+    const [k, ...rest] = t.split("=");
+    if (k && rest.length) process.env[k.trim()] = rest.join("=").trim().replace(/^"|"$/g, "");
+  }
+})();
 
-console.log("[server] YT API Key carregada:", process.env.VITE_YOUTUBE_API_KEY ? "OK (" + process.env.VITE_YOUTUBE_API_KEY.slice(0, 8) + "...)" : "❌ NÃO ENCONTRADA");
-
-const YT_BASE = "https://www.googleapis.com/youtube/v3";
-
-// ─── channels.json ───────────────────────────────────────────────────────────
-
-function readDB() {
-    if (!existsSync(DB_FILE)) return { monitored: [], myChannels: [] };
-    try { return JSON.parse(readFileSync(DB_FILE, "utf-8")); }
-    catch { return { monitored: [], myChannels: [] }; }
-}
-
-function writeDB(data) {
-    if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-    writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf-8");
-}
-
-// ─── history.json ─────────────────────────────────────────────────────────────
-// Formato: { "UCxxxx": [ { recorded_at, subscriber_count, view_count, video_count }, ... ] }
-
-function readHistory() {
-    if (!existsSync(HIST_FILE)) return {};
-    try { return JSON.parse(readFileSync(HIST_FILE, "utf-8")); }
-    catch { return {}; }
-}
-
-function writeHistory(data) {
-    if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-    writeFileSync(HIST_FILE, JSON.stringify(data, null, 2), "utf-8");
-}
-
-/** Grava (ou atualiza) o ponto de hoje no histórico de um canal */
-function recordHistory(channelId, subscriberCount, viewCount, videoCount) {
-    const hist = readHistory();
-    if (!hist[channelId]) hist[channelId] = [];
-
-    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-    const idx = hist[channelId].findIndex(r => r.recorded_at.startsWith(today));
-
-    const entry = {
-        recorded_at: new Date().toISOString(),
-        subscriber_count: subscriberCount,
-        view_count: viewCount,
-        video_count: videoCount,
-    };
-
-    if (idx !== -1) {
-        hist[channelId][idx] = entry; // atualiza o do dia
-    } else {
-        hist[channelId].push(entry);  // novo ponto
-    }
-
-    writeHistory(hist);
-}
-
-/** Remove histórico de um canal (quando ele é deletado) */
-function deleteHistory(channelId) {
-    const hist = readHistory();
-    delete hist[channelId];
-    writeHistory(hist);
-}
-
-// ─── YouTube API helpers ──────────────────────────────────────────────────────
-
-async function ytFetch(path) {
-    const apiKey = process.env.VITE_YOUTUBE_API_KEY;
-    if (!apiKey) throw new Error("VITE_YOUTUBE_API_KEY não encontrada no .env");
-    const sep = path.includes("?") ? "&" : "?";
-    const url = `${YT_BASE}${path}${sep}key=${apiKey}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`YouTube API error ${res.status}: ${await res.text()}`);
-    return res.json();
-}
-
-async function resolveChannelId(input) {
-    if (/^UC[\w-]{22}$/.test(input)) return input;
-
-    const urlChannel = input.match(/youtube\.com\/channel\/(UC[\w-]{22})/);
-    if (urlChannel) return urlChannel[1];
-
-    const handle = input.match(/@([\w-]+)/)?.[1] || input.match(/youtube\.com\/@([\w-]+)/)?.[1];
-    if (handle) {
-        const data = await ytFetch(`/channels?part=id&forHandle=@${handle}`);
-        if (data.items?.[0]) return data.items[0].id;
-    }
-
-    const custom = input.match(/youtube\.com\/(?:c|user)\/([\w-]+)/)?.[1];
-    if (custom) {
-        const data = await ytFetch(`/channels?part=id&forUsername=${custom}`);
-        if (data.items?.[0]) return data.items[0].id;
-    }
-
-    throw new Error("Não foi possível identificar o canal. Use o ID UCxxxx ou @handle.");
-}
-
-async function getChannelInfo(channelId) {
-    const data = await ytFetch(`/channels?part=snippet,statistics&id=${channelId}`);
-    const item = data.items?.[0];
-    if (!item) throw new Error("Canal não encontrado");
-    return {
-        id: item.id,
-        title: item.snippet.title,
-        thumbnail: item.snippet.thumbnails?.default?.url,
-        subscriberCount: parseInt(item.statistics?.subscriberCount || "0"),
-        viewCount: parseInt(item.statistics?.viewCount || "0"),
-        videoCount: parseInt(item.statistics?.videoCount || "0"),
-    };
-}
-
-async function getLatestVideos(channelId, maxResults = 7) {
-    const chData = await ytFetch(`/channels?part=contentDetails&id=${channelId}`);
-    const uploadsId = chData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
-    if (!uploadsId) return [];
-
-    const plData = await ytFetch(`/playlistItems?part=snippet&playlistId=${uploadsId}&maxResults=${maxResults}`);
-    const videoIds = plData.items?.map(i => i.snippet.resourceId.videoId).join(",");
-    if (!videoIds) return [];
-
-    const vidData = await ytFetch(`/videos?part=snippet,statistics,contentDetails&id=${videoIds}`);
-    return (vidData.items || []).map(v => ({
-        videoId: v.id,
-        title: v.snippet.title,
-        thumbnailUrl: v.snippet.thumbnails?.medium?.url || v.snippet.thumbnails?.default?.url,
-        publishedAt: v.snippet.publishedAt,
-        viewCount: parseInt(v.statistics?.viewCount || "0"),
-        likeCount: parseInt(v.statistics?.likeCount || "0"),
-        commentCount: parseInt(v.statistics?.commentCount || "0"),
-        duration: v.contentDetails?.duration,
-    }));
-}
-
-// ─── HTTP helpers ─────────────────────────────────────────────────────────────
+// import dinâmico: garante que o .env já está em process.env
+const { handleApiRequest } = await import("./api/_core.mjs");
 
 function cors(res) {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-}
-
-function json(res, data, status = 200) {
-    cors(res);
-    res.writeHead(status, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(data));
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
 function readBody(req) {
-    return new Promise((resolve, reject) => {
-        let body = "";
-        req.on("data", c => body += c);
-        req.on("end", () => {
-            try { resolve(body ? JSON.parse(body) : {}); }
-            catch { reject(new Error("Invalid JSON")); }
-        });
+  return new Promise((resolve) => {
+    let raw = "";
+    req.on("data", (c) => (raw += c));
+    req.on("end", () => {
+      try { resolve(raw ? JSON.parse(raw) : {}); } catch { resolve({}); }
     });
+    req.on("error", () => resolve({}));
+  });
 }
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
-
 const server = createServer(async (req, res) => {
-    const url = new URL(req.url, `http://localhost:${PORT}`);
-    const path = url.pathname;
-    const method = req.method;
+  cors(res);
+  if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
-    cors(res);
-    if (method === "OPTIONS") { res.writeHead(204); res.end(); return; }
+  const url = new URL(req.url, `http://localhost:${PORT}`);
+  const body = req.method === "POST" || req.method === "PUT" ? await readBody(req) : {};
+  const authToken = (req.headers.authorization || "").replace(/^Bearer\s+/i, "") || null;
 
-    try {
+  try {
+    const result = await handleApiRequest({
+      method: req.method,
+      pathname: url.pathname,
+      searchParams: url.searchParams,
+      body,
+      authToken,
+    });
 
-        // ── Status ──────────────────────────────────────────────────────────────
-        if (path === "/api/status" && method === "GET") {
-            return json(res, { status: "ok", version: "1.1.0", ytApiKey: !!process.env.VITE_YOUTUBE_API_KEY });
-        }
-
-        // ── Canais Monitorados ─────────────────────────────────────────────────
-
-        if (path === "/api/channels" && method === "GET") {
-            const channels = readDB().monitored || [];
-            const hist = readHistory();
-            const now = Date.now();
-            const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-
-            const enriched = channels.map(ch => {
-                const records = (hist[ch.channel_id] || [])
-                    .slice()
-                    .sort((a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime());
-
-                // Ponto de referência: o mais recente gravado há ≥7 dias atrás.
-                // Se não houver, usa o mais antigo disponível como baseline.
-                const cutoff = now - sevenDaysMs;
-                let baseline = null;
-                for (let i = records.length - 1; i >= 0; i--) {
-                    if (new Date(records[i].recorded_at).getTime() <= cutoff) {
-                        baseline = records[i];
-                        break;
-                    }
-                }
-                if (!baseline && records.length > 0) baseline = records[0];
-
-                const subsDelta = baseline ? (ch.subscriber_count - baseline.subscriber_count) : 0;
-                const viewsDelta = baseline ? (ch.view_count - baseline.view_count) : 0;
-                const isExploding = subsDelta > 1000 || viewsDelta > 50000;
-
-                return {
-                    ...ch,
-                    subscribers_last_7_days: subsDelta,
-                    views_last_7_days: viewsDelta,
-                    is_exploding: isExploding,
-                };
-            });
-
-            return json(res, enriched);
-        }
-
-        if (path === "/api/channels" && method === "POST") {
-            const body = await readBody(req);
-            const db = readDB();
-            const channelId = await resolveChannelId(body.channelInput || body.channelId);
-
-            if (db.monitored.find(c => c.channel_id === channelId)) {
-                return json(res, { error: "already being monitored" }, 409);
-            }
-
-            const info = await getChannelInfo(channelId);
-
-            const channel = {
-                id: crypto.randomUUID(),
-                channel_id: channelId,
-                channel_name: info.title,
-                channel_thumbnail: info.thumbnail,
-                subscriber_count: info.subscriberCount,
-                view_count: info.viewCount,
-                video_count: info.videoCount,
-                niche: body.niche || null,
-                notes: body.notes || null,
-                content_type: body.contentType || "longform",
-                added_at: new Date().toISOString(),
-                last_updated: new Date().toISOString(),
-            };
-
-            db.monitored.push(channel);
-            writeDB(db);
-
-            // Grava o primeiro ponto no histórico
-            recordHistory(channelId, info.subscriberCount, info.viewCount, info.videoCount);
-
-            return json(res, { channel }, 201);
-        }
-
-        if (path.startsWith("/api/channels/") && method === "PUT") {
-            const id = path.split("/")[3];
-            const body = await readBody(req);
-            const db = readDB();
-            const idx = db.monitored.findIndex(c => c.channel_id === id || c.id === id);
-            if (idx === -1) return json(res, { error: "Not found" }, 404);
-            db.monitored[idx] = { ...db.monitored[idx], ...body, last_updated: new Date().toISOString() };
-            writeDB(db);
-            return json(res, db.monitored[idx]);
-        }
-
-        if (path.startsWith("/api/channels/") && method === "DELETE") {
-            const id = path.split("/")[3];
-            const db = readDB();
-
-            // Descobrir o channel_id real antes de deletar
-            const ch = db.monitored.find(c => c.channel_id === id || c.id === id);
-            db.monitored = db.monitored.filter(c => c.channel_id !== id && c.id !== id);
-            writeDB(db);
-
-            // Apagar histórico do canal deletado
-            if (ch) deleteHistory(ch.channel_id);
-
-            return json(res, { ok: true });
-        }
-
-        // ── Histórico de Crescimento ───────────────────────────────────────────
-
-        if (path.startsWith("/api/history/") && method === "GET") {
-            const channelId = decodeURIComponent(path.split("/")[3]);
-            const hist = readHistory();
-            const records = (hist[channelId] || []).sort(
-                (a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
-            );
-            return json(res, records);
-        }
-
-        // ── YouTube ────────────────────────────────────────────────────────────
-
-        if (path === "/api/youtube/channel" && method === "GET") {
-            const channelId = url.searchParams.get("channelId");
-            if (!channelId) return json(res, { error: "Missing channelId" }, 400);
-
-            const info = await getChannelInfo(channelId);
-
-            // Atualizar stats no channels.json
-            const db = readDB();
-            const idx = db.monitored.findIndex(c => c.channel_id === channelId);
-            if (idx !== -1) {
-                db.monitored[idx].subscriber_count = info.subscriberCount;
-                db.monitored[idx].view_count = info.viewCount;
-                db.monitored[idx].video_count = info.videoCount;
-                db.monitored[idx].last_updated = new Date().toISOString();
-                writeDB(db);
-            }
-
-            // Gravar ponto no histórico (1 por dia)
-            recordHistory(channelId, info.subscriberCount, info.viewCount, info.videoCount);
-
-            return json(res, info);
-        }
-
-        if (path === "/api/youtube/videos" && method === "GET") {
-            const channelId = url.searchParams.get("channelId");
-            const max = parseInt(url.searchParams.get("max") || "7");
-            if (!channelId) return json(res, { error: "Missing channelId" }, 400);
-            const videos = await getLatestVideos(channelId, max);
-            return json(res, { channelId, videos, success: true });
-        }
-
-        if (path === "/api/youtube/search" && method === "GET") {
-            const q = url.searchParams.get("q");
-            const maxResults = url.searchParams.get("max") || "10";
-            if (!q) return json(res, { error: "Missing q" }, 400);
-            const data = await ytFetch(`/search?part=snippet&type=channel&q=${encodeURIComponent(q)}&maxResults=${maxResults}`);
-            return json(res, data);
-        }
-
-        // ── Proxy de Thumbnail do YouTube (evita CORS/referrer block) ──────────
-        if (path === "/api/proxy/thumbnail" && method === "GET") {
-            const videoId = url.searchParams.get("videoId");
-            if (!videoId) return json(res, { error: "Missing videoId" }, 400);
-
-            const YT_HEADERS = { "Referer": "https://www.youtube.com/", "User-Agent": "Mozilla/5.0" };
-
-            // YouTube retorna 200 + placeholder de ~1.8KB quando a qualidade
-            // não existe — detectamos pelo tamanho e tentamos a próxima.
-            async function tryQuality(q) {
-                const r = await fetch(`https://img.youtube.com/vi/${videoId}/${q}.jpg`, { headers: YT_HEADERS });
-                if (!r.ok) return null;
-                const buf = Buffer.from(await r.arrayBuffer());
-                return buf.byteLength > 5000 ? buf : null;
-            }
-
-            // maxresdefault = 1280×720 16:9 (melhor)
-            // sddefault     =  640×480 (fallback se maxres não existir)
-            // hqdefault     =  480×360 (último recurso)
-            const buf = await tryQuality("maxresdefault")
-                     || await tryQuality("sddefault")
-                     || await tryQuality("hqdefault");
-
-            if (!buf) return json(res, { error: "Thumbnail não encontrada" }, 404);
-
-            cors(res);
-            res.writeHead(200, {
-                "Content-Type": "image/jpeg",
-                "Content-Length": buf.byteLength,
-                "Cache-Control": "public, max-age=3600",
-            });
-            res.end(buf);
-            return;
-        }
-
-        // ── Proxy de oEmbed (título do vídeo sem CORS) ──────────────────────
-        if (path === "/api/proxy/oembed" && method === "GET") {
-            const videoId = url.searchParams.get("videoId");
-            if (!videoId) return json(res, { error: "Missing videoId" }, 400);
-
-            const oembedRes = await fetch(
-                `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
-                { headers: { "Referer": "https://www.youtube.com/" } }
-            );
-            if (!oembedRes.ok) return json(res, { title: "" });
-            const data = await oembedRes.json();
-            return json(res, { title: data.title || "" });
-        }
-
-        json(res, { error: "Not found" }, 404);
-
-    } catch (err) {
-        console.error(`[Server] ${method} ${path} →`, err.message);
-        json(res, { error: err.message }, 500);
+    if (result.buffer) {
+      res.writeHead(result.status, {
+        "Content-Type": result.contentType || "application/octet-stream",
+        "Content-Length": result.buffer.byteLength,
+        ...(result.cacheControl ? { "Cache-Control": result.cacheControl } : {}),
+      });
+      res.end(result.buffer);
+      return;
     }
+    res.writeHead(result.status, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(result.json));
+  } catch (err) {
+    console.error(`[server] ${req.method} ${url.pathname} →`, err.message);
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: err.message }));
+  }
 });
 
 server.listen(PORT, () => {
-    console.log(`\x1b[32m✅ Avantis Tube API rodando em http://localhost:${PORT}\x1b[0m`);
-    console.log(`   📁 Canais:    ${DB_FILE}`);
-    console.log(`   📈 Histórico: ${HIST_FILE}`);
-    console.log(`   🔑 YouTube API Key: ${process.env.VITE_YOUTUBE_API_KEY ? "✓ configurada" : "✗ NÃO configurada!"}`);
+  const hasSb = !!(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL) && !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const hasYt = !!(process.env.YOUTUBE_API_KEY || process.env.VITE_YOUTUBE_API_KEY);
+  console.log(`\x1b[32m✅ Avantis Tube API (dev) em http://localhost:${PORT}\x1b[0m`);
+  console.log(`   🗄️  Supabase: ${hasSb ? "✓ configurado" : "✗ FALTANDO (.env)"}`);
+  console.log(`   🔑 YouTube:  ${hasYt ? "✓ configurado" : "✗ FALTANDO (.env)"}`);
 });

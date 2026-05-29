@@ -9,23 +9,21 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Tag, Download, Pencil, Trash2, BarChart3, Users, Eye, Video, EyeOff, Eraser, CheckSquare, Square } from "lucide-react";
+import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Tag, Download, Pencil, Trash2, BarChart3, Users, Eye, Video, Eraser, CheckSquare, Square } from "lucide-react";
 import { useRecentVideos } from "@/hooks/use-recent-videos";
 import { RecentVideoCard } from "@/components/RecentVideoCard";
 import { toast } from "sonner";
 import { useNiches } from "@/hooks/use-niches";
 import { formatNumber } from "@/lib/youtube-api";
-const LOCAL_API = 'http://localhost:3001/api';
+const LOCAL_API = '/api';
 const VIDEO_CACHE_KEY = 'yt_channel_videos_cache';
 import { ChannelGrowthChart } from "@/components/ChannelGrowthChart";
 
 /* Sub-componente: thumbnail do canal com botão de download no hover */
-const ChannelThumb = ({ channelId, channelTitle, channelThumbnail, hideThumbs }: {
+const ChannelThumb = ({ channelId, channelTitle, channelThumbnail }: {
   channelId: string;
   channelTitle: string;
   channelThumbnail: string;
-  hideThumbs?: boolean;
 }) => {
   const [hover, setHover] = useState(false);
   return (
@@ -36,57 +34,50 @@ const ChannelThumb = ({ channelId, channelTitle, channelThumbnail, hideThumbs }:
       onMouseLeave={() => setHover(false)}
     >
       <a href={`https://youtube.com/channel/${channelId}`} target="_blank" rel="noopener noreferrer">
-        {hideThumbs ? (
-          <div className="w-10 h-10 rounded-full bg-muted ring-2 ring-transparent" />
-        ) : (
-          <img
-            src={channelThumbnail}
-            alt={channelTitle}
-            className="w-10 h-10 rounded-full ring-2 ring-transparent hover:ring-primary transition-all cursor-pointer"
-            loading="lazy"
-            referrerPolicy="no-referrer"
-          />
-        )}
+        <img
+          src={channelThumbnail}
+          alt={channelTitle}
+          className="w-10 h-10 rounded-full ring-2 ring-transparent hover:ring-primary transition-all cursor-pointer"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
       </a>
-      {/* Botão de download no canto superior direito, aparece no hover */}
-      {!hideThumbs && (
-        <button
-          title="Baixar thumbnail do canal"
-          style={{
-            position: 'absolute',
-            top: -5,
-            right: -5,
-            width: 18,
-            height: 18,
-            borderRadius: '50%',
-            background: 'hsl(var(--primary))',
-            border: '2px solid hsl(var(--background))',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            opacity: hover ? 1 : 0,
-            transition: 'opacity 0.15s',
-            zIndex: 10,
-            padding: 0,
-          }}
-          onClick={async (e) => {
-            e.preventDefault();
-            try {
-              const res = await fetch(channelThumbnail);
-              const blob = await res.blob();
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `${channelTitle.replace(/[^a-z0-9]/gi, '_')}_thumb.jpg`;
-              a.click();
-              URL.revokeObjectURL(url);
-            } catch { window.open(channelThumbnail, '_blank'); }
-          }}
-        >
-          <Download style={{ width: 9, height: 9, color: 'white' }} />
-        </button>
-      )}
+      <button
+        title="Baixar thumbnail do canal"
+        style={{
+          position: 'absolute',
+          top: -5,
+          right: -5,
+          width: 18,
+          height: 18,
+          borderRadius: '50%',
+          background: 'hsl(var(--primary))',
+          border: '2px solid hsl(var(--background))',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          opacity: hover ? 1 : 0,
+          transition: 'opacity 0.15s',
+          zIndex: 10,
+          padding: 0,
+        }}
+        onClick={async (e) => {
+          e.preventDefault();
+          try {
+            const res = await fetch(channelThumbnail);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${channelTitle.replace(/[^a-z0-9]/gi, '_')}_thumb.jpg`;
+            a.click();
+            URL.revokeObjectURL(url);
+          } catch { window.open(channelThumbnail, '_blank'); }
+        }}
+      >
+        <Download style={{ width: 9, height: 9, color: 'white' }} />
+      </button>
     </div>
   );
 };
@@ -142,7 +133,8 @@ const RecentVideos = () => {
   const [editedCustomNiche, setEditedCustomNiche] = useState("");
   const [showExactTime, setShowExactTime] = useState(false);
   const [maisFilterOpen, setMaisFilterOpen] = useState(true); // PC: aberto por padrão
-  const [hideThumbs, setHideThumbs] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   const [showClearCacheAlert, setShowClearCacheAlert] = useState(false);
   const nicheListRef = useRef<HTMLDivElement | null>(null);
   const nicheItemRefs = useRef<Map<string, HTMLLabelElement | null>>(new Map());
@@ -402,107 +394,14 @@ const RecentVideos = () => {
           </p>
         </div>
 
-        {/* Botões de ação - layout responsivo */}
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+        {/* Topo: Adicionar Canal + Por Nicho */}
+        <div className="flex gap-1.5 w-full sm:w-auto">
 
-          {/* Botão Selecionar (Multi-select) */}
-          <div className="flex gap-2 w-full sm:w-auto">
-            <Button
-              variant={selectionMode ? "secondary" : "outline"}
-              size="sm"
-              onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
-              className="flex-1 sm:flex-auto text-xs sm:text-sm"
-            >
-              {selectionMode
-                ? <><Square className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">Cancelar Seleção</span><span className="sm:hidden">Cancelar</span></>
-                : <><CheckSquare className="w-4 h-4 sm:mr-2" /><span className="hidden sm:inline">Selecionar</span><span className="sm:hidden">Selec.</span></>
-              }
-            </Button>
-          </div>
-
-          {/* Linha 1 mobile / inline desktop: Gerenciar Nichos + CSV */}
-          <div className="flex gap-2 w-full sm:w-auto">
-            {/* Botão Gerenciar Nichos */}
-            <Dialog open={isManageNichesOpen} onOpenChange={setIsManageNichesOpen}>
+          {/* Adicionar Canal */}
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="flex-1 sm:flex-auto text-xs sm:text-sm">
-                  <Tag className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Gerenciar Nichos</span>
-                  <span className="sm:hidden">Nichos</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Gerenciar Nichos</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                  {niches.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      Nenhum nicho cadastrado ainda.
-                    </p>
-                  ) : (
-                    niches.map((niche) => (
-                      <div key={niche} className="flex items-center gap-2">
-                        {editingNiche?.old === niche ? (
-                          <>
-                            <Input
-                              value={editingNiche.new}
-                              onChange={(e) => setEditingNiche({ old: niche, new: e.target.value })}
-                              className="flex-1"
-                              placeholder="Novo nome do nicho"
-                            />
-                            <Button size="sm" onClick={() => handleRenameNiche(editingNiche.old, editingNiche.new)}>Salvar</Button>
-                            <Button size="sm" variant="outline" onClick={() => setEditingNiche(null)}>Cancelar</Button>
-                          </>
-                        ) : (
-                          <>
-                            <div className="flex-1 px-3 py-2 rounded-md bg-muted text-sm">{niche}</div>
-                            <Button size="sm" variant="outline" onClick={() => setEditingNiche({ old: niche, new: niche })}>Renomear</Button>
-                          </>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            {/* Botão Modo Leve (sem thumbnails) */}
-            <Button
-              variant={hideThumbs ? "secondary" : "outline"}
-              size="sm"
-              onClick={() => setHideThumbs(h => !h)}
-              className="flex-1 sm:flex-auto text-xs sm:text-sm"
-              title={hideThumbs ? "Mostrar thumbnails" : "Modo leve: ocultar thumbnails para reduzir uso do navegador"}
-            >
-              <EyeOff className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">{hideThumbs ? "Modo Normal" : "Modo Leve"}</span>
-              <span className="sm:hidden">{hideThumbs ? "Normal" : "Leve"}</span>
-            </Button>
-
-            {/* Botão Limpar Cache */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowClearCacheAlert(true)}
-              className="flex-1 sm:flex-auto text-xs sm:text-sm text-destructive hover:text-destructive"
-              title="Limpar cache de vídeos do LocalStorage para liberar memória do navegador"
-            >
-              <Eraser className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Limpar Cache</span>
-              <span className="sm:hidden">Cache</span>
-            </Button>
-          </div>
-
-          {/* Linha 2 mobile / inline desktop: Adicionar Canal + Atualizar + Por Nicho */}
-          <div className="flex gap-2 w-full sm:w-auto">
-            {/* Botão Adicionar Canal */}
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="flex-1 sm:flex-auto text-xs sm:text-sm">
-                  <Plus className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Adicionar Canal</span>
-                  <span className="sm:hidden">Adicionar</span>
+                <Button variant="ghost" size="sm" className="text-xs h-8 px-3 bg-red-500/15 border border-red-500/25 text-red-300 hover:bg-red-500/25 hover:text-red-200 transition-all">
+                  <Plus className="w-3.5 h-3.5 mr-1.5" />Adicionar Canal
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -553,13 +452,11 @@ const RecentVideos = () => {
               </DialogContent>
             </Dialog>
 
-            {/* Botão Por Nicho (Popover) */}
-            <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+          {/* Por Nicho */}
+          <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" disabled={isUpdating || channels.length === 0} className="flex-1 sm:flex-auto text-xs sm:text-sm">
-                  <Filter className="w-4 h-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Por Nicho</span>
-                  <ChevronDown className="w-4 h-4 ml-1" />
+                <Button variant="ghost" size="sm" disabled={isUpdating || channels.length === 0} className="text-xs h-8 px-3 bg-white/[0.04] border border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white transition-all disabled:opacity-40">
+                  <Filter className="w-3.5 h-3.5 mr-1.5" />Por Nicho<ChevronDown className="w-3 h-3 ml-1 opacity-60" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-72 p-4" align="end">
@@ -611,8 +508,7 @@ const RecentVideos = () => {
                   </div>
                 </div>
               </PopoverContent>
-            </Popover>
-          </div>
+          </Popover>
         </div>
       </div>
 
@@ -635,155 +531,182 @@ const RecentVideos = () => {
         </Card>
       )}
 
-      {/* Sistema de Filtros - sempre visível, sem toggle */}
-      <Card className="shadow-card">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Filter className="w-5 h-5" />
-              Filtros
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button
-                variant={showExactTime ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setShowExactTime(!showExactTime)}
-                className="text-xs hidden sm:flex"
-                title={showExactTime ? "Mostrando hora exata" : "Mostrando tempo relativo"}
-              >
-                <Clock className="w-4 h-4 mr-1" />
-                {showExactTime ? "Hora Exata" : "Tempo Relativo"}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs">
-                <X className="w-4 h-4 mr-1" />
-                Limpar
-              </Button>
-            </div>
+      {/* Filtros — dropdown */}
+      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] overflow-hidden">
+        {/* Toggle */}
+        <button
+          onClick={() => setFiltersOpen(o => !o)}
+          className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.04] transition-colors"
+        >
+          <div className="flex items-center gap-2 text-white/70">
+            <Filter className="w-3.5 h-3.5" />
+            <span className="text-xs font-semibold uppercase tracking-widest">Filtros</span>
+            {(filters.search || filters.category !== 'Todos' || (filters.contentType && filters.contentType !== 'Todos') || filters.channelStatus !== 'active') && (
+              <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 text-[10px] font-bold">ativos</span>
+            )}
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Busca Principal */}
-              <div className="space-y-2">
-                <Label className="text-xs">Buscar Canal ou Nicho</Label>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); clearFilters(); }}
+              className="text-[10px] text-white/40 hover:text-white/70 px-2 py-0.5 rounded hover:bg-white/5"
+            >
+              Limpar
+            </button>
+            <ChevronDown className={`w-3.5 h-3.5 text-white/40 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
+          </div>
+        </button>
+
+        {/* Conteúdo dos filtros */}
+        {filtersOpen && (
+          <div className="border-t border-white/[0.06] px-4 py-4 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-white/50">Buscar Canal ou Nicho</Label>
                 <Input
-                  placeholder="🔍 Nome, ID ou nicho..."
+                  placeholder="Nome, ID ou nicho..."
                   value={filters.search}
                   onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                  className="h-9"
+                  className="h-8 text-xs"
                 />
               </div>
-
-              {/* Categoria Primária */}
-              <div className="space-y-2">
-                <Label className="text-xs">Categoria</Label>
-                <Select
-                  value={filters.category}
-                  onValueChange={(value) => setFilters({ ...filters, category: value })}
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-white/50">Categoria</Label>
+                <Select value={filters.category} onValueChange={(value) => setFilters({ ...filters, category: value })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
+                    {categories.map((cat) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-
-            <Collapsible>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="w-full sm:w-auto h-8 px-2 gap-1 hover:bg-muted/50 justify-between sm:justify-start"
-                  onClick={() => setMaisFilterOpen(o => !o)}
-                >
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mais Filtros</span>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${maisFilterOpen ? 'rotate-180' : ''}`} />
-                </Button>
-              </CollapsibleTrigger>
-              {maisFilterOpen && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {/* Formato de Vídeo */}
-                  <div className="space-y-2">
-                    <Label className="text-xs">Formato</Label>
-                    <Select
-                      value={filters.contentType || 'Todos'}
-                      onValueChange={(value) => setFilters({ ...filters, contentType: value })}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Todos">Todos</SelectItem>
-                        <SelectItem value="longform">LongForm</SelectItem>
-                        <SelectItem value="shorts">Shorts</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Status do Canal */}
-                  <div className="space-y-2">
-                    <Label className="text-xs">Status</Label>
-                    <Select
-                      value={filters.channelStatus || 'active'}
-                      onValueChange={(value: 'all' | 'active' | 'deleted') => setFilters({ ...filters, channelStatus: value })}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos</SelectItem>
-                        <SelectItem value="active">Ativos</SelectItem>
-                        <SelectItem value="deleted">Caídos</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Período (Data) */}
-                  <div className="space-y-2">
-                    <Label className="text-xs">Período</Label>
-                    <Select
-                      value={filters.datePeriod || 'all'}
-                      onValueChange={(value: 'all' | '7days' | '30days') => setFilters({ ...filters, datePeriod: value })}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todo o tempo</SelectItem>
-                        <SelectItem value="7days">Últimos 7 dias</SelectItem>
-                        <SelectItem value="30days">Últimos 30 dias</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Ordenar por */}
-                  <div className="space-y-2">
-                    <Label className="text-xs">Ordenar por</Label>
-                    <Select
-                      value={filters.sortBy || 'name'}
-                      onValueChange={(value) => setFilters({ ...filters, sortBy: value })}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="name">Nome (A-Z)</SelectItem>
-                        <SelectItem value="totalViews">Total de Views</SelectItem>
-                        <SelectItem value="recent">Recém Adicionado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-            </Collapsible>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-white/50">Formato</Label>
+                <Select value={filters.contentType || 'Todos'} onValueChange={(value) => setFilters({ ...filters, contentType: value })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Todos">Todos</SelectItem>
+                    <SelectItem value="longform">LongForm</SelectItem>
+                    <SelectItem value="shorts">Shorts</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-white/50">Status</Label>
+                <Select value={filters.channelStatus || 'active'} onValueChange={(value: 'all' | 'active' | 'deleted') => setFilters({ ...filters, channelStatus: value })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="active">Ativos</SelectItem>
+                    <SelectItem value="deleted">Caídos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-white/50">Período</Label>
+                <Select value={filters.datePeriod || 'all'} onValueChange={(value: 'all' | '7days' | '30days') => setFilters({ ...filters, datePeriod: value })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todo o tempo</SelectItem>
+                    <SelectItem value="7days">Últimos 7 dias</SelectItem>
+                    <SelectItem value="30days">Últimos 30 dias</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-white/50">Ordenar por</Label>
+                <Select value={filters.sortBy || 'name'} onValueChange={(value) => setFilters({ ...filters, sortBy: value })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name">Nome (A-Z)</SelectItem>
+                    <SelectItem value="totalViews">Total de Views</SelectItem>
+                    <SelectItem value="recent">Recém Adicionado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
+
+      {/* Barra de ferramentas */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {/* Selecionar */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
+          className={`text-xs h-8 px-3 border transition-all ${selectionMode
+            ? "bg-white/10 border-white/20 text-white"
+            : "bg-white/[0.04] border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white"
+          }`}
+        >
+          {selectionMode
+            ? <><Square className="w-3.5 h-3.5 mr-1.5" />Cancelar</>
+            : <><CheckSquare className="w-3.5 h-3.5 mr-1.5" />Selecionar</>
+          }
+        </Button>
+
+        {/* Gerenciar Nichos */}
+        <Dialog open={isManageNichesOpen} onOpenChange={setIsManageNichesOpen}>
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="sm" className="text-xs h-8 px-3 bg-white/[0.04] border border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white transition-all">
+              <Tag className="w-3.5 h-3.5 mr-1.5" />Nichos
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Gerenciar Nichos</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+              {niches.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Nenhum nicho cadastrado ainda.</p>
+              ) : (
+                niches.map((niche) => (
+                  <div key={niche} className="flex items-center gap-2">
+                    {editingNiche?.old === niche ? (
+                      <>
+                        <Input value={editingNiche.new} onChange={(e) => setEditingNiche({ old: niche, new: e.target.value })} className="flex-1" placeholder="Novo nome do nicho" />
+                        <Button size="sm" onClick={() => handleRenameNiche(editingNiche.old, editingNiche.new)}>Salvar</Button>
+                        <Button size="sm" variant="outline" onClick={() => setEditingNiche(null)}>Cancelar</Button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex-1 px-3 py-2 rounded-md bg-muted text-sm">{niche}</div>
+                        <Button size="sm" variant="outline" onClick={() => setEditingNiche({ old: niche, new: niche })}>Renomear</Button>
+                      </>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Limpar Cache */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowClearCacheAlert(true)}
+          className="text-xs h-8 px-3 bg-white/[0.04] border border-white/[0.08] text-red-400/70 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 transition-all"
+          title="Limpar cache de vídeos do LocalStorage"
+        >
+          <Eraser className="w-3.5 h-3.5 mr-1.5" />Cache
+        </Button>
+
+        {/* Tempo Relativo / Hora Exata */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowExactTime(!showExactTime)}
+          className={`text-xs h-8 px-3 border transition-all ${showExactTime
+            ? "bg-white/10 border-white/20 text-white"
+            : "bg-white/[0.04] border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white"
+          }`}
+        >
+          <Clock className="w-3.5 h-3.5 mr-1.5" />{showExactTime ? "Hora Exata" : "Tempo Relativo"}
+        </Button>
+      </div>
 
       {/* Barra de controle de seleção múltipla */}
       {selectionMode && (
@@ -949,12 +872,11 @@ const RecentVideos = () => {
                 )}
                 {/* Header do Canal */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                  {(channelData.channel.channelThumbnail || hideThumbs) && (
+                  {channelData.channel.channelThumbnail && (
                     <ChannelThumb
                       channelId={channelData.channel.channelId}
                       channelTitle={channelData.channel.channelTitle}
                       channelThumbnail={channelData.channel.channelThumbnail}
-                      hideThumbs={hideThumbs}
                     />
                   )}
                   <div className="flex-1">
@@ -1137,7 +1059,7 @@ const RecentVideos = () => {
                   /* Grid de Vídeos - 7 colunas no desktop, menor no mobile */
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-2">
                     {channelData.videos.map((video) => (
-                      <RecentVideoCard key={video.videoId} video={video} showExactTime={showExactTime} hideThumbs={hideThumbs} />
+                      <RecentVideoCard key={video.videoId} video={video} showExactTime={showExactTime} />
                     ))}
                   </div>
                 )}

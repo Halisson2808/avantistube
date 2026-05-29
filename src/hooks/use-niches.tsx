@@ -1,12 +1,11 @@
 /**
  * use-niches.tsx
- * Deriva os nichos diretamente dos canais monitorados (arquivo local).
- * Sem Supabase, sem Docker.
+ * Deriva os nichos diretamente dos canais monitorados (via /api).
  */
 
 import { useState, useEffect, useCallback } from 'react';
 
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 export const useNiches = () => {
   const [niches, setNiches] = useState<string[]>([]);

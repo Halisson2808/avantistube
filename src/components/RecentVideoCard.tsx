@@ -9,10 +9,9 @@ interface RecentVideoCardProps {
   video: RecentVideo;
   onVideoClick?: (videoId: string) => void;
   showExactTime?: boolean;
-  hideThumbs?: boolean;
 }
 
-export const RecentVideoCard = ({ video, onVideoClick, showExactTime = false, hideThumbs = false }: RecentVideoCardProps) => {
+export const RecentVideoCard = ({ video, onVideoClick, showExactTime = false }: RecentVideoCardProps) => {
   const [thumbHover, setThumbHover] = useState(false);
 
   const handleClick = () => {
@@ -78,9 +77,7 @@ export const RecentVideoCard = ({ video, onVideoClick, showExactTime = false, hi
         onMouseEnter={() => setThumbHover(true)}
         onMouseLeave={() => setThumbHover(false)}
       >
-        {hideThumbs ? (
-          <div className="w-full aspect-video bg-muted rounded-lg" />
-        ) : video.thumbnailUrl ? (
+        {video.thumbnailUrl ? (
           <img
             src={video.thumbnailUrl}
             alt={video.title}

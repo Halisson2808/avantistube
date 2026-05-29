@@ -5,7 +5,7 @@ import { format, subDays, eachDayOfInterval, parseISO } from "date-fns";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
-const API = "http://localhost:3001/api";
+const API = "/api";
 
 interface ChannelHistory {
   channel_id?: string;

@@ -41,7 +41,7 @@ export interface UpdateProgress {
 }
 
 const CACHE_HOURS = 2; // Cache válido por 2 horas
-const API = 'http://localhost:3001/api';
+const API = '/api';
 
 interface ApiChannelRow {
   id: string;
@@ -299,7 +299,7 @@ export const useRecentVideos = () => {
   // Atualiza stats do canal via API local (grava no JSON)
   const updateChannelHistory = useCallback(async (channelId: string) => {
     try {
-      await fetch(`http://localhost:3001/api/youtube/channel?channelId=${encodeURIComponent(channelId)}`);
+      await fetch(`${API}/youtube/channel?channelId=${encodeURIComponent(channelId)}`);
     } catch (error) {
       console.error(`Erro ao atualizar histórico do canal ${channelId}:`, error);
     }

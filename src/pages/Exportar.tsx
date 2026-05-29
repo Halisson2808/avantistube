@@ -44,7 +44,7 @@ export default function Exportar() {
   const exportChannels = useCallback(async () => {
     setExporting("channels");
     try {
-      const res = await fetch("http://localhost:3001/api/channels");
+      const res = await fetch("/api/channels");
       const data = await res.json();
       downloadJSON({
         exportedAt: new Date().toISOString(),
@@ -62,7 +62,7 @@ export default function Exportar() {
   const exportHistory = useCallback(async () => {
     setExporting("history");
     try {
-      const res = await fetch("http://localhost:3001/api/history");
+      const res = await fetch("/api/history");
       const data = await res.json();
       downloadJSON({
         exportedAt: new Date().toISOString(),
@@ -90,7 +90,7 @@ export default function Exportar() {
   const exportChannelsCSV = useCallback(async () => {
     setExporting("csv");
     try {
-      const res = await fetch("http://localhost:3001/api/channels");
+      const res = await fetch("/api/channels");
       const data = await res.json();
 
       const headers = [
@@ -141,13 +141,13 @@ export default function Exportar() {
     setExporting("all");
     try {
       // 1. Canais
-      const resC = await fetch("http://localhost:3001/api/channels");
+      const resC = await fetch("/api/channels");
       const dataC = await resC.json();
       downloadJSON({ exportedAt: new Date().toISOString(), total: dataC.length, channels: dataC }, "Canais-Monitorados.json");
       await new Promise(r => setTimeout(r, 400));
 
       // 2. Histórico
-      const resH = await fetch("http://localhost:3001/api/history");
+      const resH = await fetch("/api/history");
       const dataH = await resH.json();
       downloadJSON({ exportedAt: new Date().toISOString(), history: dataH }, "Historico-Crescimento.json");
       await new Promise(r => setTimeout(r, 400));
