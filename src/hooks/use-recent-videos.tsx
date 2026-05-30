@@ -500,25 +500,20 @@ export const useRecentVideos = () => {
   // Para o filtro "deleted" (Canais Caídos), incluímos TODOS os canais monitorados,
   // mesmo aqueles sem cache, para que canais com stats zerados apareçam.
   const getVideosByChannel = useCallback((): ChannelVideosData[] => {
-    const statusFilter = filters.channelStatus;
-    let allData: ChannelVideosData[];
+    // Sempre parte de TODOS os canais monitorados (para nunca mostrar tela
+    // vazia mesmo sem vídeos em cache) e preenche os vídeos quando existem.
+    const merged = new Map<string, ChannelVideosData>();
+    channels.forEach(channel => {
+      merged.set(channel.channelId, { channel, videos: [], isLoading: false });
+    });
+    channelVideosData.forEach((data, channelId) => {
+      const latest = channels.find(ch => ch.channelId === channelId);
+      if (!latest) return;
+      merged.set(channelId, { ...data, channel: latest });
+    });
 
-    if (statusFilter === 'deleted' || statusFilter === 'all') {
-      const merged = new Map<string, ChannelVideosData>();
-      channels.forEach(channel => {
-        merged.set(channel.channelId, { channel, videos: [], isLoading: false });
-      });
-      channelVideosData.forEach((data, channelId) => {
-        const latest = channels.find(ch => ch.channelId === channelId);
-        merged.set(channelId, { ...data, channel: latest || data.channel });
-      });
-      allData = Array.from(merged.values());
-    } else {
-      allData = Array.from(channelVideosData.values());
-    }
-
-    return filterChannels(allData);
-  }, [channelVideosData, channels, filterChannels, filters.channelStatus]);
+    return filterChannels(Array.from(merged.values()));
+  }, [channelVideosData, channels, filterChannels]);
 
   const toggleChannelSelection = useCallback((channelId: string) => {
     setSelectedChannelIds(prev => {
