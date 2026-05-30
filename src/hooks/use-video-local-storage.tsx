@@ -103,7 +103,7 @@ export function useVideoLocalStorage() {
         ...prev.channels,
         [channelId]: {
           channelId,
-          videos: videos.slice(0, 10),
+          videos: videos.slice(0, 7),
           lastFetched: new Date().toISOString(),
           channelDeleted: meta?.channelDeleted,
           error: meta?.error,
