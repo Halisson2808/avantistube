@@ -578,7 +578,8 @@ export const useRecentVideos = () => {
       toast.success('Dados do canal atualizados!');
     } catch (error) {
       console.error(`Erro ao atualizar canal ${channelId}:`, error);
-      toast.error('Erro ao atualizar dados do canal');
+      const msg = error instanceof Error ? error.message : 'Erro desconhecido';
+      toast.error(`Erro ao atualizar: ${msg}`);
     }
   }, [updateChannelVideos, updateChannelHistory, loadChannels]);
 
