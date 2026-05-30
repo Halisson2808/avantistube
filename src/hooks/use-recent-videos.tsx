@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useMonitoredChannels, ChannelMonitorData } from '@/hooks/use-monitored-channels';
-import { useVideoLocalStorage, CachedVideo } from '@/hooks/use-video-local-storage';
+import { useVideoStorage, CachedVideo } from '@/hooks/use-video-storage';
 import { getLatestChannelVideos, LatestVideo, calculateTimeAgo } from '@/lib/youtube-api';
 
 export interface RecentVideo extends LatestVideo {
@@ -94,7 +94,7 @@ export const useRecentVideos = () => {
     isCacheValid,
     getAllCachedChannels,
     removeChannelFromCache,
-  } = useVideoLocalStorage();
+  } = useVideoStorage();
 
   const [selectedChannelIds, setSelectedChannelIds] = useState<Set<string>>(new Set());
   const [channelVideosData, setChannelVideosData] = useState<Map<string, ChannelVideosData>>(new Map());

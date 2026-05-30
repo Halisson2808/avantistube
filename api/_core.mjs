@@ -393,5 +393,51 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     return { status: 200, json: { title: data.title || "" } };
   }
 
+  // ── Cache de vídeos recentes (sincroniza entre aparelhos) ──────────────────
+  if (path === "/videos" && method === "GET") {
+    const db = getSupabase();
+    const { data, error } = await db
+      .from("channel_video_cache")
+      .select("channel_id, videos, channel_deleted, error, fetched_at");
+    if (error) throw new Error(error.message);
+    const grouped = {};
+    for (const row of data || []) {
+      grouped[row.channel_id] = {
+        channelId: row.channel_id,
+        videos: row.videos || [],
+        lastFetched: row.fetched_at,
+        channelDeleted: row.channel_deleted,
+        error: row.error || undefined,
+      };
+    }
+    return { status: 200, json: grouped };
+  }
+
+  if (path === "/videos" && method === "POST") {
+    const db = getSupabase();
+    const { channelId, videos = [], channelDeleted = false, error = null } = body;
+    if (!channelId) return { status: 400, json: { error: "channelId é obrigatório" } };
+    const { error: upErr } = await db.from("channel_video_cache").upsert(
+      {
+        channel_id: channelId,
+        videos: videos.slice(0, 7),
+        channel_deleted: channelDeleted,
+        error,
+        fetched_at: new Date().toISOString(),
+      },
+      { onConflict: "channel_id" }
+    );
+    if (upErr) throw new Error(upErr.message);
+    return { status: 200, json: { ok: true } };
+  }
+
+  if (path.startsWith("/videos/") && method === "DELETE") {
+    const db = getSupabase();
+    const channelId = decodeURIComponent(path.split("/")[2]);
+    const { error } = await db.from("channel_video_cache").delete().eq("channel_id", channelId);
+    if (error) throw new Error(error.message);
+    return { status: 200, json: { ok: true } };
+  }
+
   return { status: 404, json: { error: "Not found" } };
 }
