@@ -5,15 +5,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
     Type, Copy, RotateCcw, ArrowUp, ArrowDown, ArrowRightLeft,
-    FileText, AlignLeft, AlignCenter, Sparkles, List
+    FileText, AlignLeft, AlignCenter, List
 } from "lucide-react";
 import { toast } from "sonner";
-import { aiChat } from "@/lib/dark/aiClient";
 
 export default function ManipulacaoTexto() {
     const [texto, setTexto] = useState("");
     const [resultado, setResultado] = useState("");
-    const [isConverting, setIsConverting] = useState(false);
 
     const manipularTexto = (tipo: string) => {
         if (!texto.trim()) { toast.error("Digite um texto para manipular"); return; }
@@ -37,23 +35,6 @@ export default function ManipulacaoTexto() {
         toast.success("Texto manipulado com sucesso!");
     };
 
-    const converterTituloImpacto = async () => {
-        if (!texto.trim()) { toast.error("Digite um título para converter"); return; }
-        setIsConverting(true);
-        toast.info("Convertendo título para impacto...");
-        try {
-            const prompt = `Converta o seguinte título em 5 versões de ALTO IMPACTO:\nTÍTULO ORIGINAL: "${texto}"\nREGRAS: USE AS MESMAS PALAVRAS, apenas coloque algumas em MAIÚSCULO.\nFORMATO:\n1. [versão]\n2. [versão]\n3. [versão]\n4. [versão]\n5. [versão]\nRetorne APENAS as 5 versões numeradas.`;
-            const content = await aiChat([
-                { role: "system", content: "Você é especialista em copywriting." },
-                { role: "user", content: prompt }
-            ]);
-            const versoes = content.split('\n').map((l: string) => l.replace(/^\d+\.\s*/, '').trim()).filter((l: string) => l.length > 0).join('\n');
-            setResultado(versoes);
-            toast.success("Título convertido com sucesso!");
-        } catch (error: any) { toast.error(error.message || "Erro ao processar"); }
-        finally { setIsConverting(false); }
-    };
-
     const botoes = [
         { id: "maiusculo", label: "MAIÚSCULO", desc: "Todo em maiúsculo", icon: ArrowUp, color: "bg-red-600 hover:bg-red-700" },
         { id: "minusculo", label: "minúsculo", desc: "Todo em minúsculo", icon: ArrowDown, color: "bg-blue-600 hover:bg-blue-700" },
@@ -67,7 +48,6 @@ export default function ManipulacaoTexto() {
         { id: "quebrar_linhas", label: "Quebrar em linhas", desc: "Cada palavra em linha", icon: ArrowDown, color: "bg-cyan-600 hover:bg-cyan-700" },
         { id: "junta_linhas", label: "Juntar linhas", desc: "Remove quebras de linha", icon: ArrowUp, color: "bg-emerald-600 hover:bg-emerald-700" },
         { id: "remover_linhas_vazias", label: "Remover linhas vazias", desc: "Remove linhas sem texto", icon: List, color: "bg-slate-600 hover:bg-slate-700" },
-        { id: "titulo_impacto", label: "Converter para IMPACTO", desc: "5 versões com MAIÚSCULO (IA)", icon: Sparkles, color: "bg-yellow-600 hover:bg-yellow-700", isAI: true },
     ];
 
     const textareaClass = "resize-none bg-white/5 border-white/10 text-white placeholder:text-white/20";

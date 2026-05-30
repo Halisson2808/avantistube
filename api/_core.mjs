@@ -393,41 +393,5 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     return { status: 200, json: { title: data.title || "" } };
   }
 
-  // ── IA (proxy server-side — chaves ficam SÓ no servidor) ───────────────────
-  if (path === "/ai/openai" && method === "POST") {
-    const key = process.env.OPENAI_API_KEY;
-    if (!key) return { status: 500, json: { error: "OPENAI_API_KEY não configurada no servidor." } };
-    const { messages, model = "gpt-4o-mini", maxTokens, temperature = 0.7 } = body;
-    if (!Array.isArray(messages)) return { status: 400, json: { error: "messages é obrigatório" } };
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, messages, temperature, ...(maxTokens ? { max_tokens: maxTokens } : {}) }),
-    });
-    const data = await r.json();
-    if (!r.ok) return { status: r.status, json: { error: data.error?.message || "Erro na OpenAI" } };
-    return { status: 200, json: { content: data.choices?.[0]?.message?.content || "", usage: data.usage } };
-  }
-
-  if (path === "/ai/transcribe" && method === "POST") {
-    const key = process.env.OPENAI_API_KEY;
-    if (!key) return { status: 500, json: { error: "OPENAI_API_KEY não configurada no servidor." } };
-    const { audioBase64, mimeType = "audio/mp3", model = "whisper-1", language } = body;
-    if (!audioBase64) return { status: 400, json: { error: "audioBase64 é obrigatório" } };
-    const buf = Buffer.from(audioBase64, "base64");
-    const form = new FormData();
-    form.append("file", new Blob([buf], { type: mimeType }), "audio.mp3");
-    form.append("model", model);
-    if (language) form.append("language", language);
-    const r = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}` },
-      body: form,
-    });
-    const data = await r.json();
-    if (!r.ok) return { status: r.status, json: { error: data.error?.message || "Erro na transcrição" } };
-    return { status: 200, json: { text: data.text } };
-  }
-
   return { status: 404, json: { error: "Not found" } };
 }

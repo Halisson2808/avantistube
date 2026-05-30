@@ -6,9 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { FileText, Type, ArrowUp, ArrowDown, Sparkles } from "lucide-react";
+import { FileText, Type, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
-import { aiChat } from "@/lib/dark/aiClient";
 
 const STORAGE_KEY = "quadro_branco_temp";
 
@@ -20,7 +19,6 @@ export default function QuadroBranco() {
     const [sheetOpen, setSheetOpen] = useState(false);
     const [charCount, setCharCount] = useState(0);
     const [selectedCharCount, setSelectedCharCount] = useState(0);
-    const [isConverting, setIsConverting] = useState(false);
 
     useEffect(() => {
         const saved = localStorage.getItem(STORAGE_KEY);
@@ -75,36 +73,18 @@ export default function QuadroBranco() {
         toast.success("Texto manipulado!");
     };
 
-    const converterTituloImpacto = async () => {
-        const selection = getSelectedText();
-        if (!selection?.text) { toast.error("Selecione um texto para converter"); return; }
-        setIsConverting(true);
-        toast.info("Convertendo para impacto...");
-        try {
-            const content = await aiChat([
-                { role: "system", content: "Você é especialista em copywriting." },
-                { role: "user", content: `Converta em 5 versões de ALTO IMPACTO usando as mesmas palavras com algumas em MAIÚSCULO: "${selection.text}"\nFormato:\n1. [versão]\n2. [versão]\n3. [versão]\n4. [versão]\n5. [versão]` }
-            ]);
-            const versoes = content.split('\n').map((l: string) => l.replace(/^\d+\.\s*/, '').trim()).filter((l: string) => l.length > 0).join('\n');
-            replaceSelectedText(versoes);
-            toast.success("Convertido com sucesso!");
-        } catch (error: any) { toast.error(error.message || "Erro ao processar"); }
-        finally { setIsConverting(false); }
-    };
-
     const manipularBotoes = [
         { id: "maiusculo", label: "MAIÚSCULO", icon: ArrowUp, action: () => manipularTexto("maiusculo") },
         { id: "minusculo", label: "minúsculo", icon: ArrowDown, action: () => manipularTexto("minusculo") },
         { id: "primeira_letra_frase", label: "Primeira letra da frase", icon: Type, action: () => manipularTexto("primeira_letra_frase") },
         { id: "primeira_letra_palavra", label: "Primeira Letra De Cada Palavra", icon: Type, action: () => manipularTexto("primeira_letra_palavra") },
-        { id: "titulo_impacto", label: "Converter para IMPACTO", icon: Sparkles, action: converterTituloImpacto, isAI: true },
     ];
 
     const ManipulacaoContent = () => (
         <div className="space-y-2 p-4">
             <p className="text-xs text-white/40 mb-3">Selecione um texto nas anotações para manipular</p>
             {manipularBotoes.map((botao) => (
-                <Button key={botao.id} onClick={botao.action} disabled={isConverting && botao.isAI} variant="outline" className="w-full justify-start h-auto py-3 border-white/10 text-white hover:bg-white/10">
+                <Button key={botao.id} onClick={botao.action} variant="outline" className="w-full justify-start h-auto py-3 border-white/10 text-white hover:bg-white/10">
                     <botao.icon className="h-4 w-4 mr-3 flex-shrink-0" />
                     <span className="text-left text-sm">{botao.label}</span>
                 </Button>

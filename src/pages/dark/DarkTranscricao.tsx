@@ -4,10 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Edit3, Copy, Sparkles, Download, Upload, FileVideo, CheckCircle, X } from "lucide-react";
+import { Edit3, Copy, Download, Upload, FileVideo, CheckCircle, X } from "lucide-react";
 import { toast } from "sonner";
 import { useWhisperLocal } from "@/hooks/dark/useWhisperLocal";
-import { useTranscription } from "@/hooks/dark/useTranscription";
 import { exportToDocx } from "@/lib/dark/docxExporter";
 import { saveTranscricao } from "@/lib/dark/localStorage";
 
@@ -17,7 +16,6 @@ export default function DarkTranscricao() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const { transcribeAudio, isProcessing: whisperProcessing, progress } = useWhisperLocal();
-    const { processWithGPT, isProcessing: gptProcessing } = useTranscription();
 
     const handleFile = async (file: File) => {
         if (!file.type.startsWith('video/') && !file.type.startsWith('audio/')) { toast.error('Arquivo deve ser de vídeo ou áudio'); return; }
@@ -33,11 +31,6 @@ export default function DarkTranscricao() {
         } catch (error: any) { toast.error(error.message || 'Erro ao transcrever áudio'); setSelectedFile(null); }
     };
 
-    const handleCorrect = async () => {
-        const corrected = await processWithGPT(transcription, 'correct');
-        if (corrected) setTranscription(corrected);
-    };
-
     const handleExport = async () => {
         try {
             await exportToDocx({ content: transcription, filename: `transcricao-${Date.now()}.docx`, title: 'Transcrição de Vídeo' });
@@ -45,7 +38,7 @@ export default function DarkTranscricao() {
         } catch { toast.error('Erro ao exportar transcrição'); }
     };
 
-    const isProcessing = whisperProcessing || gptProcessing;
+    const isProcessing = whisperProcessing;
     const cardClass = "glass-panel border-white/10";
 
     return (
@@ -132,9 +125,8 @@ export default function DarkTranscricao() {
                     </Card>
                     <Card className={cardClass}>
                         <CardContent className="p-6">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <Button variant="outline" onClick={() => navigator.clipboard.writeText(transcription)} className="border-white/10 text-white hover:bg-white/10"><Copy className="w-4 h-4 mr-2" /> Copiar Texto</Button>
-                                <Button variant="outline" onClick={handleCorrect} disabled={gptProcessing} className="border-yellow-500/30 hover:bg-yellow-500/20 text-yellow-400"><Sparkles className="w-4 h-4 mr-2" /> Corrigir com GPT</Button>
                                 <Button onClick={handleExport} className="bg-blue-600 hover:bg-blue-500"><Download className="w-4 h-4 mr-2" /> Baixar DOCX</Button>
                             </div>
                         </CardContent>
