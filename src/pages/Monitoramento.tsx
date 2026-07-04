@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -9,15 +9,189 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Tag, Download, Pencil, Trash2, BarChart3, Users, Eye, Video, Eraser, CheckSquare, Square } from "lucide-react";
+import { RefreshCw, Loader2, Filter, X, Clock, TrendingUp, ChevronDown, Plus, Tag, Download, Pencil, Trash2, BarChart3, Users, Eye, Video, CheckSquare, Square, Search, LayoutGrid, AlignJustify } from "lucide-react";
 import { useRecentVideos } from "@/hooks/use-recent-videos";
 import { RecentVideoCard } from "@/components/RecentVideoCard";
 import { toast } from "sonner";
 import { useNiches } from "@/hooks/use-niches";
 import { formatNumber } from "@/lib/youtube-api";
 const LOCAL_API = '/api';
-const VIDEO_CACHE_KEY = 'yt_channel_videos_cache';
 import { ChannelGrowthChart } from "@/components/ChannelGrowthChart";
+
+/* Sub-componente: chip de filtro inline */
+type FilterChipProps = {
+  label: string;
+  value: string;
+  options: { label: string; value: string }[];
+  onChange: (v: string) => void;
+  defaultValue: string;
+};
+
+const FilterChip = React.memo(function FilterChip({ label, value, options, onChange, defaultValue }: FilterChipProps) {
+  const isActive = value !== defaultValue;
+  const activeLabel = options.find(o => o.value === value)?.label;
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger
+        className={`h-7 px-2.5 text-xs rounded-lg gap-1 border transition-colors w-auto shrink-0 ${
+          isActive
+            ? "bg-white/[0.08] border-white/20 text-white font-medium"
+            : "bg-transparent border-white/[0.08] text-white/50 hover:text-white/70 hover:bg-white/[0.05]"
+        }`}
+      >
+        {isActive ? activeLabel : label}
+      </SelectTrigger>
+      <SelectContent position="popper" sideOffset={4}>
+        {options.map((opt) => (
+          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+})
+
+/* Sub-componente: card compacto para modo grade */
+type CompactCardProps = {
+  channelData: {
+    channel: { channelId: string; channelTitle: string; channelThumbnail: string; niche: string | null; contentType: string; currentSubscribers: number; currentViews: number; currentVideos: number; subscribersLast7Days: number; viewsLast7Days: number; addedAt: string };
+    videos: { videoId: string; title: string; thumbnailUrl: string; publishedAt: string; viewCount: number }[];
+    lastFetched: Date | null;
+    isLoading: boolean;
+    error: string | null;
+  };
+  isUpdating: boolean;
+  selectionMode: boolean;
+  isSelected: boolean;
+  onToggleSelect: () => void;
+  onUpdate: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onChart: () => void;
+};
+
+const CompactChannelCard = ({ channelData, isUpdating, selectionMode, isSelected, onToggleSelect, onUpdate, onEdit, onDelete, onChart }: CompactCardProps) => {
+  const { channel, videos, lastFetched } = channelData;
+
+  const sorted = [...videos].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+  const top3 = sorted.slice(0, 3);
+
+  const isExploding = (channel.subscribersLast7Days || 0) > 1000 || (channel.viewsLast7Days || 0) > 50000;
+
+  const postingFreq = (() => {
+    if (sorted.length < 2) return null;
+    const ms = new Date(sorted[0].publishedAt).getTime() - new Date(sorted[sorted.length - 1].publishedAt).getTime();
+    const days = ms / (1000 * 60 * 60 * 24 * (sorted.length - 1));
+    return days < 1 ? `${Math.round(days * 24)}h/vid` : `${days.toFixed(1)}d/vid`;
+  })();
+
+  const updatedText = (() => {
+    if (!lastFetched) return null;
+    const h = Math.floor((Date.now() - lastFetched.getTime()) / 3600000);
+    const d = Math.floor(h / 24);
+    if (d > 0) return `${d} dia${d > 1 ? 's' : ''}`;
+    if (h > 0) return `${h}h`;
+    return 'agora';
+  })();
+
+  const addedText = (() => {
+    if (!channel.addedAt) return null;
+    const d = Math.floor((Date.now() - new Date(channel.addedAt).getTime()) / 86400000);
+    if (d === 0) return 'hoje';
+    if (d === 1) return '1 dia';
+    return `${d} dias`;
+  })();
+
+  const totalVideoViews = videos.reduce((sum, v) => sum + (v.viewCount || 0), 0);
+
+  return (
+    <div className={`rounded-xl border bg-white/[0.03] hover:bg-white/[0.05] transition-all overflow-hidden flex flex-col ${isSelected ? 'border-primary ring-2 ring-primary/30' : 'border-white/[0.08]'}`}>
+      <div className="p-3 flex flex-col gap-2.5 flex-1">
+        {/* Header */}
+        <div className="flex items-start gap-2">
+          {selectionMode && (
+            <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="mt-0.5 shrink-0" />
+          )}
+          {channel.channelThumbnail ? (
+            <a href={`https://youtube.com/channel/${channel.channelId}`} target="_blank" rel="noopener noreferrer" className="shrink-0">
+              <img src={channel.channelThumbnail} alt={channel.channelTitle} className="w-8 h-8 rounded-full" loading="lazy" referrerPolicy="no-referrer" />
+            </a>
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-white/[0.08] shrink-0 flex items-center justify-center">
+              <Video className="w-3.5 h-3.5 text-white/30" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <a href={`https://youtube.com/channel/${channel.channelId}`} target="_blank" rel="noopener noreferrer">
+              <p className="text-xs font-semibold truncate leading-tight hover:text-primary transition-colors">{channel.channelTitle}</p>
+            </a>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {channel.niche && <p className="text-[10px] text-white/40 truncate leading-none">{channel.niche}</p>}
+              {channel.contentType === 'shorts' && <span className="text-[8px] px-1 py-0.5 rounded bg-purple-500/10 text-purple-400 leading-none shrink-0">Shorts</span>}
+            </div>
+          </div>
+          <div className="flex items-center shrink-0">
+            {isExploding && <span className="text-[9px] mr-1">🔥</span>}
+            {!selectionMode && (
+              <div className="flex gap-0.5">
+                <Button variant="ghost" size="sm" onClick={onUpdate} disabled={isUpdating} className="h-5 w-5 p-0 hover:bg-white/[0.08]"><RefreshCw className="w-2.5 h-2.5" /></Button>
+                <Button variant="ghost" size="sm" onClick={onEdit} className="h-5 w-5 p-0 hover:bg-white/[0.08]"><Pencil className="w-2.5 h-2.5" /></Button>
+                <Button variant="ghost" size="sm" onClick={onChart} className="h-5 w-5 p-0 hover:bg-white/[0.08]"><BarChart3 className="w-2.5 h-2.5" /></Button>
+                <Button variant="ghost" size="sm" onClick={onDelete} className="h-5 w-5 p-0 text-destructive/60 hover:text-destructive hover:bg-destructive/10"><Trash2 className="w-2.5 h-2.5" /></Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 3 thumbnails */}
+        <div className="grid grid-cols-3 gap-1">
+          {top3.map(v => (
+            <a key={v.videoId} href={`https://youtube.com/watch?v=${v.videoId}`} target="_blank" rel="noopener noreferrer" className="relative block aspect-video rounded overflow-hidden bg-white/[0.05]">
+              {v.thumbnailUrl && <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />}
+              <span className="absolute bottom-0.5 right-0.5 bg-black/80 text-[8px] px-1 py-0.5 rounded font-medium leading-none">{formatNumber(v.viewCount)}</span>
+            </a>
+          ))}
+          {Array.from({ length: Math.max(0, 3 - top3.length) }).map((_, i) => (
+            <div key={i} className="aspect-video rounded bg-white/[0.03] border border-white/[0.05]" />
+          ))}
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-4 gap-1">
+          {[
+            { value: formatNumber(channel.currentSubscribers), label: 'Inscritos', color: '' },
+            { value: formatNumber(channel.currentViews),        label: 'Views',     color: '' },
+            { value: formatNumber(totalVideoViews),             label: 'Views Vids',color: 'text-sky-400' },
+            { value: String(channel.currentVideos),             label: 'Vídeos',    color: 'text-white/70' },
+          ].map(({ value, label, color }) => (
+            <div key={label} className="flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-lg bg-white/[0.04] border border-white/[0.06] text-center">
+              <p className={`text-[11px] font-bold leading-none ${color}`}>{value}</p>
+              <p className="text-[8px] text-white/30 uppercase tracking-wide leading-none">{label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-white/[0.06] pt-2 space-y-1 mt-auto">
+          <div className="flex items-center justify-between text-[10px] text-white/35">
+            <span>{postingFreq ? `${postingFreq} por vídeo` : '—'}</span>
+          </div>
+          <div className="flex items-center gap-2 text-[10px]">
+            {addedText && (
+              <span className="text-white/30">
+                <span className="text-white/20">Add.</span> {addedText}
+              </span>
+            )}
+            {updatedText && (
+              <span className="text-white/20">
+                · <span>Att.</span> {updatedText}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 /* Sub-componente: thumbnail do canal com botão de download no hover */
 const ChannelThumb = ({ channelId, channelTitle, channelThumbnail }: {
@@ -132,10 +306,8 @@ const RecentVideos = () => {
   const [showChartDialog, setShowChartDialog] = useState<{ channelId: string; channelTitle: string } | null>(null);
   const [editedCustomNiche, setEditedCustomNiche] = useState("");
   const [showExactTime, setShowExactTime] = useState(false);
-  const [maisFilterOpen, setMaisFilterOpen] = useState(true); // PC: aberto por padrão
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
 
-  const [showClearCacheAlert, setShowClearCacheAlert] = useState(false);
   const nicheListRef = useRef<HTMLDivElement | null>(null);
   const nicheItemRefs = useRef<Map<string, HTMLLabelElement | null>>(new Map());
 
@@ -147,11 +319,6 @@ const RecentVideos = () => {
   const [bulkNiche, setBulkNiche] = useState("");
   const [bulkCustomNiche, setBulkCustomNiche] = useState("");
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
-
-  // No mobile, fechar "Mais Filtros" por padrão
-  useEffect(() => {
-    if (window.innerWidth < 768) setMaisFilterOpen(false);
-  }, []);
 
   // Carregar do cache na inicialização
   useEffect(() => {
@@ -376,7 +543,7 @@ const RecentVideos = () => {
     }
   };
 
-  const videosByChannel = getVideosByChannel();
+  const videosByChannel = useMemo(() => getVideosByChannel(), [getVideosByChannel]);
 
   return (
     <div className="space-y-6">
@@ -531,101 +698,82 @@ const RecentVideos = () => {
         </Card>
       )}
 
-      {/* Filtros — dropdown */}
-      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] overflow-hidden">
-        {/* Toggle */}
-        <button
-          onClick={() => setFiltersOpen(o => !o)}
-          className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.04] transition-colors"
-        >
-          <div className="flex items-center gap-2 text-white/70">
-            <Filter className="w-3.5 h-3.5" />
-            <span className="text-xs font-semibold uppercase tracking-widest">Filtros</span>
-            {(filters.search || filters.category !== 'Todos' || (filters.contentType && filters.contentType !== 'Todos') || filters.channelStatus !== 'active') && (
-              <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 text-[10px] font-bold">ativos</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={(e) => { e.stopPropagation(); clearFilters(); }}
-              className="text-[10px] text-white/40 hover:text-white/70 px-2 py-0.5 rounded hover:bg-white/5"
-            >
-              Limpar
-            </button>
-            <ChevronDown className={`w-3.5 h-3.5 text-white/40 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
-          </div>
-        </button>
+      {/* Barra de Filtros inline */}
+      <div className="flex items-center gap-2 px-3 h-11 rounded-xl border border-white/[0.08] bg-white/[0.03]">
+        <Search className="w-4 h-4 text-white/30 shrink-0" />
+        <Input
+          placeholder="Buscar por nome, nicho, título de vídeo..."
+          value={filters.search}
+          onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+          className="flex-1 border-0 bg-transparent h-full p-0 text-sm focus-visible:ring-0 focus-visible:outline-none placeholder:text-white/30 min-w-0"
+        />
+        {filters.search && (
+          <button onClick={() => setFilters({ ...filters, search: '' })} className="text-white/30 hover:text-white/60 shrink-0">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
 
-        {/* Conteúdo dos filtros */}
-        {filtersOpen && (
-          <div className="border-t border-white/[0.06] px-4 py-4 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-white/50">Buscar Canal ou Nicho</Label>
-                <Input
-                  placeholder="Nome, ID ou nicho..."
-                  value={filters.search}
-                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                  className="h-8 text-xs"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-white/50">Categoria</Label>
-                <Select value={filters.category} onValueChange={(value) => setFilters({ ...filters, category: value })}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-white/50">Formato</Label>
-                <Select value={filters.contentType || 'Todos'} onValueChange={(value) => setFilters({ ...filters, contentType: value })}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Todos">Todos</SelectItem>
-                    <SelectItem value="longform">LongForm</SelectItem>
-                    <SelectItem value="shorts">Shorts</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-white/50">Status</Label>
-                <Select value={filters.channelStatus || 'active'} onValueChange={(value: 'all' | 'active' | 'deleted') => setFilters({ ...filters, channelStatus: value })}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="active">Ativos</SelectItem>
-                    <SelectItem value="deleted">Caídos</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-white/50">Período</Label>
-                <Select value={filters.datePeriod || 'all'} onValueChange={(value: 'all' | '7days' | '30days') => setFilters({ ...filters, datePeriod: value })}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todo o tempo</SelectItem>
-                    <SelectItem value="7days">Últimos 7 dias</SelectItem>
-                    <SelectItem value="30days">Últimos 30 dias</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-white/50">Ordenar por</Label>
-                <Select value={filters.sortBy || 'name'} onValueChange={(value) => setFilters({ ...filters, sortBy: value })}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="name">Nome (A-Z)</SelectItem>
-                    <SelectItem value="totalViews">Total de Views</SelectItem>
-                    <SelectItem value="recent">Recém Adicionado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
+        <div className="w-px h-5 bg-white/[0.08] mx-0.5 shrink-0" />
+
+        <FilterChip
+          label="Nicho"
+          value={filters.category}
+          defaultValue="Todos"
+          onChange={(v) => setFilters({ ...filters, category: v })}
+          options={categories.map(c => ({ label: c === 'Todos' ? 'Todos os nichos' : c, value: c }))}
+        />
+        <FilterChip
+          label="Formato"
+          value={filters.contentType || 'Todos'}
+          defaultValue="Todos"
+          onChange={(v) => setFilters({ ...filters, contentType: v })}
+          options={[
+            { label: 'Todos os formatos', value: 'Todos' },
+            { label: 'LongForm', value: 'longform' },
+            { label: 'Shorts', value: 'shorts' },
+          ]}
+        />
+        <FilterChip
+          label="Status"
+          value={filters.channelStatus || 'active'}
+          defaultValue="active"
+          onChange={(v) => setFilters({ ...filters, channelStatus: v as 'all' | 'active' | 'deleted' })}
+          options={[
+            { label: 'Ativos', value: 'active' },
+            { label: 'Caídos', value: 'deleted' },
+            { label: 'Todos', value: 'all' },
+          ]}
+        />
+        <FilterChip
+          label="Período"
+          value={filters.datePeriod || 'all'}
+          defaultValue="all"
+          onChange={(v) => setFilters({ ...filters, datePeriod: v as 'all' | '7days' | '30days' })}
+          options={[
+            { label: 'Todo o tempo', value: 'all' },
+            { label: 'Últimos 7 dias', value: '7days' },
+            { label: 'Últimos 30 dias', value: '30days' },
+          ]}
+        />
+        <FilterChip
+          label="Ordenar"
+          value={filters.sortBy || 'recent'}
+          defaultValue="recent"
+          onChange={(v) => setFilters({ ...filters, sortBy: v })}
+          options={[
+            { label: 'Recente', value: 'recent' },
+            { label: 'Nome (A-Z)', value: 'name' },
+            { label: 'Mais Views', value: 'totalViews' },
+          ]}
+        />
+
+        {(filters.search || filters.category !== 'Todos' || (filters.contentType && filters.contentType !== 'Todos') || (filters.channelStatus && filters.channelStatus !== 'active') || (filters.datePeriod && filters.datePeriod !== 'all') || (filters.sortBy && filters.sortBy !== 'recent')) && (
+          <button
+            onClick={clearFilters}
+            className="shrink-0 text-[11px] text-white/40 hover:text-white/70 px-2 py-1 rounded hover:bg-white/[0.05] transition-colors"
+          >
+            Limpar
+          </button>
         )}
       </div>
 
@@ -683,17 +831,6 @@ const RecentVideos = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Limpar Cache */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowClearCacheAlert(true)}
-          className="text-xs h-8 px-3 bg-white/[0.04] border border-white/[0.08] text-red-400/70 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 transition-all"
-          title="Limpar cache de vídeos do LocalStorage"
-        >
-          <Eraser className="w-3.5 h-3.5 mr-1.5" />Cache
-        </Button>
-
         {/* Tempo Relativo / Hora Exata */}
         <Button
           variant="ghost"
@@ -706,6 +843,24 @@ const RecentVideos = () => {
         >
           <Clock className="w-3.5 h-3.5 mr-1.5" />{showExactTime ? "Hora Exata" : "Tempo Relativo"}
         </Button>
+
+        {/* Toggle de layout */}
+        <div className="flex items-center border border-white/[0.08] rounded-lg overflow-hidden ml-auto">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`h-8 px-2.5 flex items-center transition-colors ${viewMode === 'list' ? 'bg-white/[0.1] text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.05]'}`}
+            title="Modo lista"
+          >
+            <AlignJustify className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`h-8 px-2.5 flex items-center border-l border-white/[0.08] transition-colors ${viewMode === 'grid' ? 'bg-white/[0.1] text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.05]'}`}
+            title="Modo grade compacto"
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Barra de controle de seleção múltipla */}
@@ -759,7 +914,7 @@ const RecentVideos = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-6">
+        <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3' : 'space-y-6'}>
           {videosByChannel.map((channelData) => {
             // Calcular tempo desde última atualização
             const getUpdateTimeText = () => {
@@ -810,6 +965,24 @@ const RecentVideos = () => {
             const statusFilter = filters.channelStatus || 'active';
             if (statusFilter === 'active' && isDeletedChannel) return null;
             if (statusFilter === 'deleted' && !isDeletedChannel) return null;
+
+            // Modo grade compacto
+            if (viewMode === 'grid') {
+              return (
+                <CompactChannelCard
+                  key={channelData.channel.channelId}
+                  channelData={channelData as any}
+                  isUpdating={isUpdating}
+                  selectionMode={selectionMode}
+                  isSelected={selectedChannelIds.has(channelData.channel.channelId)}
+                  onToggleSelect={() => toggleChannelSelect(channelData.channel.channelId)}
+                  onUpdate={async () => { await updateChannelVideos(channelData.channel.channelId, true); await updateChannelStats(channelData.channel.channelId); }}
+                  onEdit={() => setShowEditDialog({ channelId: channelData.channel.channelId, niche: channelData.channel.niche || '', contentType: channelData.channel.contentType as 'longform' | 'shorts' || 'longform' })}
+                  onDelete={() => setShowDeleteAlert(channelData.channel.channelId)}
+                  onChart={() => setShowChartDialog({ channelId: channelData.channel.channelId, channelTitle: channelData.channel.channelTitle })}
+                />
+              );
+            }
 
             // Renderização especial para canais caídos
             if (isDeletedChannel) {
@@ -1266,36 +1439,6 @@ const RecentVideos = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Alert Limpar Cache */}
-      <AlertDialog open={showClearCacheAlert} onOpenChange={setShowClearCacheAlert}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Limpar Cache de Vídeos</AlertDialogTitle>
-            <AlertDialogDescription>
-              Isso vai remover todos os vídeos em cache do LocalStorage, liberando memória do navegador.
-              Os dados dos canais não serão afetados. Você precisará atualizar os canais novamente para ver os vídeos.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                try {
-                  localStorage.removeItem(VIDEO_CACHE_KEY);
-                  toast.success("Cache limpo! Recarregando...");
-                  setTimeout(() => window.location.reload(), 800);
-                } catch {
-                  toast.error("Erro ao limpar cache");
-                }
-              }}
-            >
-              <Eraser className="w-4 h-4 mr-2" />
-              Limpar Cache
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };

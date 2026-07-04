@@ -427,13 +427,14 @@ export const useRecentVideos = () => {
   ): ChannelVideosData[] => {
     let filtered = [...data];
 
-    // 1. Busca por texto (nome, ID ou nicho)
+    // 1. Busca por texto (nome, ID, nicho ou título de vídeos recentes)
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter(data =>
         data.channel.channelTitle.toLowerCase().includes(searchLower) ||
         data.channel.channelId.toLowerCase().includes(searchLower) ||
-        (data.channel.niche && data.channel.niche.toLowerCase().includes(searchLower))
+        (data.channel.niche && data.channel.niche.toLowerCase().includes(searchLower)) ||
+        data.videos.some(v => v.title.toLowerCase().includes(searchLower))
       );
     }
 
