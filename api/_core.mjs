@@ -356,10 +356,55 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
 
   if (path === "/youtube/search" && method === "GET") {
     const q = searchParams.get("q");
-    const maxResults = searchParams.get("max") || "10";
     if (!q) return { status: 400, json: { error: "Missing q" } };
-    const data = await ytFetch(`/search?part=snippet&type=channel&q=${encodeURIComponent(q)}&maxResults=${maxResults}`);
-    return { status: 200, json: data };
+    const maxResults = searchParams.get("max") || "10";
+    const order = searchParams.get("order") || "relevance";
+    const videoDefinition = searchParams.get("videoDefinition");
+    const publishedAfter = searchParams.get("publishedAfter");
+    const publishedBefore = searchParams.get("publishedBefore");
+    const relevanceLanguage = searchParams.get("relevanceLanguage");
+    const regionCode = searchParams.get("regionCode");
+
+    let searchPath = `/search?part=snippet&type=video&q=${encodeURIComponent(q)}&maxResults=${maxResults}&order=${order}`;
+    if (videoDefinition) searchPath += `&videoDefinition=${videoDefinition}`;
+    if (publishedAfter) searchPath += `&publishedAfter=${encodeURIComponent(publishedAfter)}`;
+    if (publishedBefore) searchPath += `&publishedBefore=${encodeURIComponent(publishedBefore)}`;
+    if (relevanceLanguage) searchPath += `&relevanceLanguage=${relevanceLanguage}`;
+    if (regionCode) searchPath += `&regionCode=${regionCode}`;
+
+    const searchData = await ytFetch(searchPath);
+    const videoIds = (searchData.items || []).map((i) => i.id?.videoId).filter(Boolean);
+    if (videoIds.length === 0) return { status: 200, json: [] };
+
+    const videosData = await ytFetch(`/videos?part=snippet,statistics,contentDetails&id=${videoIds.join(",")}`);
+    const videoItems = videosData.items || [];
+
+    const channelIds = [...new Set(videoItems.map((v) => v.snippet.channelId))];
+    const channelsData = await ytFetch(`/channels?part=snippet,statistics&id=${channelIds.join(",")}`);
+    const channelById = new Map((channelsData.items || []).map((c) => [c.id, c]));
+
+    const results = videoIds
+      .map((id) => videoItems.find((v) => v.id === id))
+      .filter(Boolean)
+      .map((v) => {
+        const channel = channelById.get(v.snippet.channelId);
+        return {
+          id: v.id,
+          title: v.snippet.title,
+          description: v.snippet.description,
+          thumbnail: v.snippet.thumbnails?.high?.url || v.snippet.thumbnails?.medium?.url || v.snippet.thumbnails?.default?.url,
+          channelTitle: v.snippet.channelTitle,
+          channelId: v.snippet.channelId,
+          channelCreatedAt: channel?.snippet?.publishedAt,
+          publishedAt: v.snippet.publishedAt,
+          viewCount: v.statistics?.viewCount || "0",
+          likeCount: v.statistics?.likeCount || "0",
+          duration: v.contentDetails?.duration || "PT0S",
+          subscriberCount: channel?.statistics?.subscriberCount || "0",
+        };
+      });
+
+    return { status: 200, json: results };
   }
 
   // ── Proxy de thumbnail (evita CORS/referrer block) ─────────────────────────────

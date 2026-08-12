@@ -15,10 +15,6 @@ import NotFound from "./pages/NotFound";
 import Search from "./pages/Search";
 import Monitoramento from "./pages/Monitoramento";
 import Exportar from "./pages/Exportar";
-import QuadroBranco from "./pages/dark/QuadroBranco";
-import DarkTranscricao from "./pages/dark/DarkTranscricao";
-import GeradorSRT from "./pages/dark/GeradorSRT";
-import ManipulacaoTexto from "./pages/dark/ManipulacaoTexto";
 import BaixarThumbYoutube from "./pages/dark/BaixarThumbYoutube";
 import CompactarThumb from "./pages/dark/CompactarThumb";
 
@@ -52,16 +48,10 @@ function ProtectedApp() {
       {/* Entra direto no Studio */}
       <Route path="/" element={wrap(<StudioDashboard />)} />
 
-      {/* Tube */}
+      {/* Ferramentas */}
       <Route path="/studio/tube/buscar" element={wrap(<Search />)} />
       <Route path="/studio/tube/monitoramento" element={wrap(<Monitoramento />)} />
       <Route path="/studio/tube/exportar" element={wrap(<Exportar />)} />
-
-      {/* Dark */}
-      <Route path="/studio/dark/quadro-branco" element={wrap(<QuadroBranco />)} />
-      <Route path="/studio/dark/transcricao" element={wrap(<DarkTranscricao />)} />
-      <Route path="/studio/dark/gerador-srt" element={wrap(<GeradorSRT />)} />
-      <Route path="/studio/dark/manipulacao-texto" element={wrap(<ManipulacaoTexto />)} />
       <Route path="/studio/dark/thumbnails" element={wrap(<StudioThumbnails />)} />
       <Route path="/studio/dark/baixar-thumb" element={wrap(<BaixarThumbYoutube />)} />
       <Route path="/studio/dark/compactar-thumb" element={wrap(<CompactarThumb />)} />

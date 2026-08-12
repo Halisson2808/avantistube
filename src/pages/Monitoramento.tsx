@@ -125,7 +125,7 @@ const CompactChannelCard = ({ channelData, isUpdating, selectionMode, isSelected
               <p className="text-xs font-semibold truncate leading-tight hover:text-primary transition-colors">{channel.channelTitle}</p>
             </a>
             <div className="flex items-center gap-1.5 mt-0.5">
-              {channel.niche && <p className="text-[10px] text-white/40 truncate leading-none">{channel.niche}</p>}
+              {channel.niche && channel.contentType !== 'shorts' && <p className="text-[10px] text-white/40 truncate leading-none">{channel.niche}</p>}
               {channel.contentType === 'shorts' && <span className="text-[8px] px-1 py-0.5 rounded bg-purple-500/10 text-purple-400 leading-none shrink-0">Shorts</span>}
             </div>
           </div>
@@ -441,7 +441,9 @@ const RecentVideos = () => {
 
     setIsAddingChannel(true);
     try {
-      const finalNiche = selectedNiche === "__new__" ? customNiche : selectedNiche;
+      const finalNiche = contentType === "shorts"
+        ? "Shorts"
+        : (selectedNiche === "__new__" ? customNiche : selectedNiche);
 
       const res = await fetch(`${LOCAL_API}/channels`, {
         method: 'POST',
@@ -597,21 +599,23 @@ const RecentVideos = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Nicho (opcional)</Label>
-                    <Select value={selectedNiche} onValueChange={setSelectedNiche}>
-                      <SelectTrigger><SelectValue placeholder="Selecione ou crie um nicho" /></SelectTrigger>
-                      <SelectContent>
-                        {niches.map((niche) => (
-                          <SelectItem key={niche} value={niche}>{niche}</SelectItem>
-                        ))}
-                        <SelectItem value="__new__">➕ Novo Nicho</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {selectedNiche === "__new__" && (
-                      <Input value={customNiche} onChange={(e) => setCustomNiche(e.target.value)} placeholder="Digite o nome do novo nicho" />
-                    )}
-                  </div>
+                  {contentType !== "shorts" && (
+                    <div className="space-y-2">
+                      <Label>Nicho (opcional)</Label>
+                      <Select value={selectedNiche} onValueChange={setSelectedNiche}>
+                        <SelectTrigger><SelectValue placeholder="Selecione ou crie um nicho" /></SelectTrigger>
+                        <SelectContent>
+                          {niches.map((niche) => (
+                            <SelectItem key={niche} value={niche}>{niche}</SelectItem>
+                          ))}
+                          <SelectItem value="__new__">➕ Novo Nicho</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {selectedNiche === "__new__" && (
+                        <Input value={customNiche} onChange={(e) => setCustomNiche(e.target.value)} placeholder="Digite o nome do novo nicho" />
+                      )}
+                    </div>
+                  )}
                   <Button onClick={handleAddChannel} disabled={isAddingChannel} className="w-full gradient-primary">
                     {isAddingChannel ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Adicionando...</>) : "Adicionar Canal"}
                   </Button>
@@ -1009,7 +1013,7 @@ const RecentVideos = () => {
                     <div>
                       <h2 className="text-sm font-bold truncate line-through decoration-muted-foreground">{channelData.channel.channelTitle}</h2>
                       <p className="text-xs text-destructive">⚠️ Canal Indisponível ou Excluído (404)</p>
-                      {channelData.channel.niche && (
+                      {channelData.channel.niche && channelData.channel.contentType !== 'shorts' && (
                         <p className="text-xs text-muted-foreground">{channelData.channel.niche}</p>
                       )}
                     </div>
@@ -1114,7 +1118,7 @@ const RecentVideos = () => {
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1">
-                      {channelData.channel.niche && (
+                      {channelData.channel.niche && channelData.channel.contentType !== 'shorts' && (
                         <span className="px-2 py-0.5 bg-muted rounded">{channelData.channel.niche}</span>
                       )}
                       {channelData.channel.contentType && (
@@ -1249,32 +1253,34 @@ const RecentVideos = () => {
             <DialogTitle>Editar Canal</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Nicho</Label>
-              <Select
-                value={showEditDialog?.niche || ''}
-                onValueChange={(value) => setShowEditDialog(prev => prev ? { ...prev, niche: value } : null)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um nicho" />
-                </SelectTrigger>
-                <SelectContent>
-                  {niches.map((niche) => (
-                    <SelectItem key={niche} value={niche}>
-                      {niche}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="__new__">➕ Novo Nicho</SelectItem>
-                </SelectContent>
-              </Select>
-              {showEditDialog?.niche === "__new__" && (
-                <Input
-                  value={editedCustomNiche}
-                  onChange={(e) => setEditedCustomNiche(e.target.value)}
-                  placeholder="Digite o nome do novo nicho"
-                />
-              )}
-            </div>
+            {showEditDialog?.contentType !== 'shorts' && (
+              <div className="space-y-2">
+                <Label>Nicho</Label>
+                <Select
+                  value={showEditDialog?.niche || ''}
+                  onValueChange={(value) => setShowEditDialog(prev => prev ? { ...prev, niche: value } : null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um nicho" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {niches.map((niche) => (
+                      <SelectItem key={niche} value={niche}>
+                        {niche}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__new__">➕ Novo Nicho</SelectItem>
+                  </SelectContent>
+                </Select>
+                {showEditDialog?.niche === "__new__" && (
+                  <Input
+                    value={editedCustomNiche}
+                    onChange={(e) => setEditedCustomNiche(e.target.value)}
+                    placeholder="Digite o nome do novo nicho"
+                  />
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Tipo de Conteúdo</Label>
               <Select
@@ -1299,9 +1305,13 @@ const RecentVideos = () => {
               <Button
                 onClick={async () => {
                   if (showEditDialog) {
-                    const finalNiche = showEditDialog.niche === "__new__" ? editedCustomNiche : showEditDialog.niche;
-                    if (finalNiche && finalNiche.trim()) {
-                      await updateNiche(showEditDialog.channelId, finalNiche);
+                    if (showEditDialog.contentType === 'shorts') {
+                      await updateNiche(showEditDialog.channelId, "Shorts");
+                    } else {
+                      const finalNiche = showEditDialog.niche === "__new__" ? editedCustomNiche : showEditDialog.niche;
+                      if (finalNiche && finalNiche.trim()) {
+                        await updateNiche(showEditDialog.channelId, finalNiche);
+                      }
                     }
                     await updateContentType(showEditDialog.channelId, showEditDialog.contentType);
                     setShowEditDialog(null);

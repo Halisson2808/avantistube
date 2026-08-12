@@ -23,12 +23,21 @@ interface YouTubeSearchParams {
   videoDefinition?: string;
   publishedAfter?: string;
   publishedBefore?: string;
+  relevanceLanguage?: string;
+  regionCode?: string;
 }
 
 export const searchYouTube = async (params: YouTubeSearchParams) => {
-  const q = encodeURIComponent(params.q);
-  const max = params.maxResults || 10;
-  return localFetch(`/youtube/search?q=${q}&max=${max}`);
+  const query = new URLSearchParams();
+  query.set('q', params.q);
+  query.set('max', String(params.maxResults || 10));
+  if (params.order) query.set('order', params.order);
+  if (params.videoDefinition) query.set('videoDefinition', params.videoDefinition);
+  if (params.publishedAfter) query.set('publishedAfter', params.publishedAfter);
+  if (params.publishedBefore) query.set('publishedBefore', params.publishedBefore);
+  if (params.relevanceLanguage) query.set('relevanceLanguage', params.relevanceLanguage);
+  if (params.regionCode) query.set('regionCode', params.regionCode);
+  return localFetch(`/youtube/search?${query.toString()}`);
 };
 
 export const getChannelDetails = async (channelId: string) => {

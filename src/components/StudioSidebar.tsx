@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import {
-    FileText, Home,
-    AlignLeft, ClipboardEdit, X, Download,
+    Home,
+    X, Download,
     Search, TrendingUp, ChevronDown, ChevronRight,
     ExternalLink, LogOut,
 } from "lucide-react";
@@ -11,17 +11,10 @@ import { useMonitoredChannels } from "@/hooks/use-monitored-channels";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 
-const tubeItems = [
+const navItems = [
     { title: "Buscar Vídeos", url: "/studio/tube/buscar", icon: Search },
     { title: "Monitoramento", url: "/studio/tube/monitoramento", icon: TrendingUp },
     { title: "Exportar Dados", url: "/studio/tube/exportar", icon: Download },
-];
-
-const darkItems = [
-    { title: "Quadro Branco", url: "/studio/dark/quadro-branco", icon: ClipboardEdit },
-    { title: "Transcrever Vídeos", url: "/studio/dark/transcricao", icon: FileText },
-    { title: "Gerador de SRT", url: "/studio/dark/gerador-srt", icon: FileText },
-    { title: "Manipulação de Texto", url: "/studio/dark/manipulacao-texto", icon: AlignLeft },
     { title: "Thumbnails", url: "/studio/dark/thumbnails", icon: Download },
 ];
 
@@ -60,8 +53,6 @@ function SectionLabel({
 }
 
 export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
-    const [tubeOpen, setTubeOpen] = useState(true);
-    const [darkOpen, setDarkOpen] = useState(true);
     const [channelsOpen, setChannelsOpen] = useState(true);
     const { channels } = useMonitoredChannels();
     const { signOut } = useAuth();
@@ -129,57 +120,20 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
                         <span>Início</span>
                     </NavLink>
 
-                    {/* TUBE — container só no label */}
-                    <div>
-                        <SectionLabel
-                            label="Tube"
-                            dot="bg-red-500"
-                            expanded={tubeOpen}
-                            onToggle={() => setTubeOpen(v => !v)}
-                        />
-                        {tubeOpen && (
-                            <nav className="space-y-0.5">
-                                {tubeItems.map((item) => (
-                                    <NavLink
-                                        key={item.url}
-                                        to={item.url}
-                                        end={item.url === "/studio/tube"}
-                                        onClick={onClose}
-                                        className={linkClass}
-                                    >
-                                        <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
-                                        <span>{item.title}</span>
-                                    </NavLink>
-                                ))}
-                            </nav>
-                        )}
-                    </div>
-
-                    {/* DARK — container só no label */}
-                    <div>
-                        <SectionLabel
-                            label="Dark"
-                            dot="bg-white/50"
-                            expanded={darkOpen}
-                            onToggle={() => setDarkOpen(v => !v)}
-                        />
-                        {darkOpen && (
-                            <nav className="space-y-0.5">
-                                {darkItems.map((item) => (
-                                    <NavLink
-                                        key={item.url}
-                                        to={item.url}
-                                        end={item.url === "/studio/dark"}
-                                        onClick={onClose}
-                                        className={linkClass}
-                                    >
-                                        <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
-                                        <span>{item.title}</span>
-                                    </NavLink>
-                                ))}
-                            </nav>
-                        )}
-                    </div>
+                    {/* Ferramentas — lista única, sem divisão */}
+                    <nav className="space-y-0.5">
+                        {navItems.map((item) => (
+                            <NavLink
+                                key={item.url}
+                                to={item.url}
+                                onClick={onClose}
+                                className={linkClass}
+                            >
+                                <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                                <span>{item.title}</span>
+                            </NavLink>
+                        ))}
+                    </nav>
 
                     {/* CANAIS */}
                     {channels.length > 0 && (
@@ -215,7 +169,7 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
                                                 <p className="text-xs text-white truncate leading-none">
                                                     {channel.channelTitle}
                                                 </p>
-                                                {channel.niche && (
+                                                {channel.niche && channel.contentType !== 'shorts' && (
                                                     <p className="text-[9px] text-white/40 truncate mt-0.5">{channel.niche}</p>
                                                 )}
                                             </div>
