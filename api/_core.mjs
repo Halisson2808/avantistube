@@ -296,6 +296,53 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     return { status: 200, json: { ok: true } };
   }
 
+  // ── Links de perfil (TikTok/Instagram) ───────────────────────────────────────
+  if (path === "/social-links" && method === "GET") {
+    const db = getSupabase();
+    const { data, error } = await db
+      .from("social_links")
+      .select("*")
+      .order("favorite", { ascending: false })
+      .order("added_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return { status: 200, json: data || [] };
+  }
+
+  if (path === "/social-links" && method === "POST") {
+    const url = (body.url || "").trim();
+    if (!url) return { status: 400, json: { error: "Missing url" } };
+
+    const platform = /tiktok\.com/i.test(url) ? "tiktok" : /instagram\.com/i.test(url) ? "instagram" : "other";
+    const db = getSupabase();
+    const row = {
+      url,
+      label: body.label?.trim() || null,
+      platform,
+    };
+    const { data, error } = await db.from("social_links").insert(row).select().single();
+    if (error) throw new Error(error.message);
+    return { status: 201, json: data };
+  }
+
+  if (path.startsWith("/social-links/") && method === "PUT") {
+    const db = getSupabase();
+    const id = decodeURIComponent(path.split("/")[2]);
+    const updates = {};
+    if (body.favorite !== undefined) updates.favorite = !!body.favorite;
+    if (body.label !== undefined) updates.label = body.label;
+    const { data, error } = await db.from("social_links").update(updates).eq("id", id).select().single();
+    if (error) return { status: 404, json: { error: error.message } };
+    return { status: 200, json: data };
+  }
+
+  if (path.startsWith("/social-links/") && method === "DELETE") {
+    const db = getSupabase();
+    const id = decodeURIComponent(path.split("/")[2]);
+    const { error } = await db.from("social_links").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return { status: 200, json: { ok: true } };
+  }
+
   // ── Histórico ───────────────────────────────────────────────────────────────
   if (path === "/history" && method === "GET") {
     // histórico completo, no formato { channelId: [pontos...] } (usado em Exportar)
