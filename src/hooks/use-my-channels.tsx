@@ -179,7 +179,15 @@ export const useMyChannels = () => {
       }
 
       const result = videoResults[0];
-      const videos: MyChannelVideo[] = (result?.videos || []).map(v => ({ ...v, channelId }));
+      let videos: MyChannelVideo[] = (result?.videos || []).map(v => ({ ...v, channelId }));
+
+      // Canal "caiu" agora (encerrado ou sem vídeos): mantém as últimas thumbs
+      // que já tínhamos em cache em vez de apagar — é o retrato de como o
+      // canal estava antes de cair.
+      if (result?.channelDeleted && videos.length === 0) {
+        const previous = cacheRef.current[channelId];
+        videos = (previous?.videos || []).map(v => ({ ...v, channelId }));
+      }
 
       cacheRef.current = {
         ...cacheRef.current,

@@ -28,28 +28,41 @@ const ChannelCard = ({
   const top3 = sorted.slice(0, 3);
 
   if (isDeleted) {
+    // Mostra as últimas thumbs conhecidas (guardadas no Supabase antes do
+    // canal cair) em vez de esconder tudo — é o "retrato" de como estava.
     return (
       <div className="rounded-xl border border-destructive/30 bg-destructive/5 overflow-hidden">
-        <div className="p-3 flex items-center gap-2">
-          {channel.channelThumbnail ? (
-            <img src={channel.channelThumbnail} alt={channel.channelTitle} className="w-8 h-8 rounded-full grayscale opacity-60 shrink-0" loading="lazy" referrerPolicy="no-referrer" />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-white/[0.08] shrink-0 flex items-center justify-center">
-              <Video className="w-3.5 h-3.5 text-white/30" />
+        <div className="p-3 flex flex-col gap-2.5">
+          <div className="flex items-center gap-2">
+            {channel.channelThumbnail ? (
+              <img src={channel.channelThumbnail} alt={channel.channelTitle} className="w-8 h-8 rounded-full grayscale opacity-60 shrink-0" loading="lazy" referrerPolicy="no-referrer" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-white/[0.08] shrink-0 flex items-center justify-center">
+                <Video className="w-3.5 h-3.5 text-white/30" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold truncate leading-tight line-through text-white/50">{channel.channelTitle}</p>
+              <p className="text-[9px] text-destructive mt-0.5">⚠️ Canal caído / sem vídeos</p>
+            </div>
+            <div className="flex gap-0.5 shrink-0">
+              <Button variant="ghost" size="sm" onClick={onUpdate} disabled={isUpdating} className="h-5 w-5 p-0 hover:bg-white/[0.08]" title="Tentar de novo">
+                {isUpdating ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onDelete} className="h-5 w-5 p-0 text-destructive/60 hover:text-destructive hover:bg-destructive/10" title="Remover">
+                <Trash2 className="w-2.5 h-2.5" />
+              </Button>
+            </div>
+          </div>
+          {top3.length > 0 && (
+            <div className="grid grid-cols-3 gap-1 opacity-50 grayscale">
+              {top3.map(v => (
+                <div key={v.videoId} className="relative block aspect-video rounded overflow-hidden bg-white/[0.05]">
+                  {v.thumbnailUrl && <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />}
+                </div>
+              ))}
             </div>
           )}
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold truncate leading-tight line-through text-white/50">{channel.channelTitle}</p>
-            <p className="text-[9px] text-destructive mt-0.5">⚠️ Canal caído / sem vídeos</p>
-          </div>
-          <div className="flex gap-0.5 shrink-0">
-            <Button variant="ghost" size="sm" onClick={onUpdate} disabled={isUpdating} className="h-5 w-5 p-0 hover:bg-white/[0.08]" title="Tentar de novo">
-              {isUpdating ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={onDelete} className="h-5 w-5 p-0 text-destructive/60 hover:text-destructive hover:bg-destructive/10" title="Remover">
-              <Trash2 className="w-2.5 h-2.5" />
-            </Button>
-          </div>
         </div>
       </div>
     );

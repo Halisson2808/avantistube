@@ -242,7 +242,7 @@ export const useRecentVideos = () => {
       if (result.success && result.videos) {
         // Calcular vídeos com dados completos
         const averageViews = channel.currentViews / Math.max(channel.currentVideos, 1);
-        const videos: RecentVideo[] = result.videos.map((video, index) => {
+        let videos: RecentVideo[] = result.videos.map((video, index) => {
           const timeAgo = calculateTimeAgo(video.publishedAt);
           const daysSincePublished = Math.max(
             1,
@@ -264,20 +264,37 @@ export const useRecentVideos = () => {
           };
         });
 
-        // Salvar no localStorage (apenas thumbs/títulos)
-        const cachedVideos: CachedVideo[] = videos.map(v => ({
-          videoId: v.videoId,
-          title: v.title,
-          thumbnailUrl: v.thumbnailUrl,
-          publishedAt: v.publishedAt,
-          viewCount: v.viewCount,
-          likeCount: v.likeCount,
-          commentCount: v.commentCount,
-          isViral: v.isViral,
-          isDeleted: v.isDeleted,
-          position: v.position,
-          duration: v.duration,
-        }));
+        // Canal "caiu" agora (encerrado ou sem vídeos): mantém as últimas
+        // thumbs que já tínhamos em cache em vez de apagar — é o retrato de
+        // como o canal estava antes de cair, e é isso que queremos mostrar.
+        let cachedVideos: CachedVideo[];
+        if (result.channelDeleted && videos.length === 0) {
+          const previousCache = getCachedVideos(channelId);
+          cachedVideos = previousCache?.videos || [];
+          videos = cachedVideos.map((v, index) => ({
+            ...v,
+            channelId,
+            channelName: channel.channelTitle,
+            channelThumbnail: channel.channelThumbnail,
+            timeAgo: calculateTimeAgo(v.publishedAt),
+            position: v.position || index + 1,
+            channelDeleted: true,
+          }));
+        } else {
+          cachedVideos = videos.map(v => ({
+            videoId: v.videoId,
+            title: v.title,
+            thumbnailUrl: v.thumbnailUrl,
+            publishedAt: v.publishedAt,
+            viewCount: v.viewCount,
+            likeCount: v.likeCount,
+            commentCount: v.commentCount,
+            isViral: v.isViral,
+            isDeleted: v.isDeleted,
+            position: v.position,
+            duration: v.duration,
+          }));
+        }
         saveChannelVideos(channelId, cachedVideos, { channelDeleted: result.channelDeleted });
 
         // Atualizar estado

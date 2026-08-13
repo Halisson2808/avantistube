@@ -75,27 +75,42 @@ const CompactChannelCard = ({ channelData, isUpdating, isDeleted, selectionMode,
   const { channel, videos, lastFetched } = channelData;
 
   if (isDeleted) {
+    // Mostra as últimas thumbs conhecidas (guardadas no Supabase antes do
+    // canal cair) em vez de esconder tudo — é o "retrato" de como estava.
+    const sortedDown = [...videos].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+    const top3Down = sortedDown.slice(0, 3);
     return (
       <div className={`rounded-xl border overflow-hidden ${isSelected ? 'border-primary ring-2 ring-primary/30' : 'border-destructive/30'} bg-destructive/5`}>
-        <div className="p-3 flex items-center gap-2">
-          {selectionMode && (
-            <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="shrink-0" />
-          )}
-          {channel.channelThumbnail ? (
-            <img src={channel.channelThumbnail} alt={channel.channelTitle} className="w-8 h-8 rounded-full grayscale opacity-60 shrink-0" loading="lazy" referrerPolicy="no-referrer" />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-white/[0.08] shrink-0 flex items-center justify-center">
-              <Video className="w-3.5 h-3.5 text-white/30" />
+        <div className="p-3 flex flex-col gap-2.5">
+          <div className="flex items-center gap-2">
+            {selectionMode && (
+              <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="shrink-0" />
+            )}
+            {channel.channelThumbnail ? (
+              <img src={channel.channelThumbnail} alt={channel.channelTitle} className="w-8 h-8 rounded-full grayscale opacity-60 shrink-0" loading="lazy" referrerPolicy="no-referrer" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-white/[0.08] shrink-0 flex items-center justify-center">
+                <Video className="w-3.5 h-3.5 text-white/30" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold truncate leading-tight line-through text-white/50">{channel.channelTitle}</p>
+              <p className="text-[9px] text-destructive mt-0.5">⚠️ Canal caído / sem vídeos</p>
             </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold truncate leading-tight line-through text-white/50">{channel.channelTitle}</p>
-            <p className="text-[9px] text-destructive mt-0.5">⚠️ Canal caído / sem vídeos</p>
+            {!selectionMode && (
+              <div className="flex gap-0.5 shrink-0">
+                <Button variant="ghost" size="sm" onClick={onUpdate} disabled={isUpdating} className="h-5 w-5 p-0 hover:bg-white/[0.08]" title="Tentar de novo"><RefreshCw className="w-2.5 h-2.5" /></Button>
+                <Button variant="ghost" size="sm" onClick={onDelete} className="h-5 w-5 p-0 text-destructive/60 hover:text-destructive hover:bg-destructive/10" title="Remover"><Trash2 className="w-2.5 h-2.5" /></Button>
+              </div>
+            )}
           </div>
-          {!selectionMode && (
-            <div className="flex gap-0.5 shrink-0">
-              <Button variant="ghost" size="sm" onClick={onUpdate} disabled={isUpdating} className="h-5 w-5 p-0 hover:bg-white/[0.08]" title="Tentar de novo"><RefreshCw className="w-2.5 h-2.5" /></Button>
-              <Button variant="ghost" size="sm" onClick={onDelete} className="h-5 w-5 p-0 text-destructive/60 hover:text-destructive hover:bg-destructive/10" title="Remover"><Trash2 className="w-2.5 h-2.5" /></Button>
+          {top3Down.length > 0 && (
+            <div className="grid grid-cols-3 gap-1 opacity-50 grayscale">
+              {top3Down.map(v => (
+                <div key={v.videoId} className="relative block aspect-video rounded overflow-hidden bg-white/[0.05]">
+                  {v.thumbnailUrl && <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -1104,43 +1119,55 @@ const RecentVideos = () => {
               );
             }
 
-            // Renderização especial para canais caídos
+            // Renderização especial para canais caídos — mostra as últimas
+            // thumbs conhecidas (guardadas no Supabase antes do canal cair)
+            // em vez de esconder tudo.
             if (isDeletedChannel) {
+              const sortedDown = [...channelData.videos].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
               return (
                 <div
                   key={channelData.channel.channelId}
-                  className={`flex items-center gap-2 p-4 bg-muted/20 border rounded-lg opacity-90 ${selectionMode && selectedChannelIds.has(channelData.channel.channelId) ? 'border-primary ring-2 ring-primary/30' : 'border-destructive/30'}`}
+                  className={`flex flex-col gap-3 p-4 bg-muted/20 border rounded-lg opacity-90 ${selectionMode && selectedChannelIds.has(channelData.channel.channelId) ? 'border-primary ring-2 ring-primary/30' : 'border-destructive/30'}`}
                 >
-                  {selectionMode && (
-                    <Checkbox
-                      checked={selectedChannelIds.has(channelData.channel.channelId)}
-                      onCheckedChange={() => toggleChannelSelect(channelData.channel.channelId)}
-                      className="flex-shrink-0"
-                    />
-                  )}
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    {channelData.channel.channelThumbnail ? (
-                      <img src={channelData.channel.channelThumbnail} alt={channelData.channel.channelTitle} className="w-10 h-10 rounded-full grayscale" loading="lazy" referrerPolicy="no-referrer" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                        <Video className="w-4 h-4 text-muted-foreground" />
-                      </div>
+                  <div className="flex items-center gap-2">
+                    {selectionMode && (
+                      <Checkbox
+                        checked={selectedChannelIds.has(channelData.channel.channelId)}
+                        onCheckedChange={() => toggleChannelSelect(channelData.channel.channelId)}
+                        className="flex-shrink-0"
+                      />
                     )}
-                    <div>
-                      <h2 className="text-sm font-bold truncate line-through decoration-muted-foreground">{channelData.channel.channelTitle}</h2>
-                      <p className="text-xs text-destructive">⚠️ Canal Indisponível ou Excluído (404)</p>
-                      {channelData.channel.niche && channelData.channel.contentType !== 'shorts' && (
-                        <p className="text-xs text-muted-foreground">{channelData.channel.niche}</p>
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {channelData.channel.channelThumbnail ? (
+                        <img src={channelData.channel.channelThumbnail} alt={channelData.channel.channelTitle} className="w-10 h-10 rounded-full grayscale" loading="lazy" referrerPolicy="no-referrer" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                          <Video className="w-4 h-4 text-muted-foreground" />
+                        </div>
                       )}
+                      <div>
+                        <h2 className="text-sm font-bold truncate line-through decoration-muted-foreground">{channelData.channel.channelTitle}</h2>
+                        <p className="text-xs text-destructive">⚠️ Canal Indisponível ou Excluído (sem vídeos)</p>
+                        {channelData.channel.niche && channelData.channel.contentType !== 'shorts' && (
+                          <p className="text-xs text-muted-foreground">{channelData.channel.niche}</p>
+                        )}
+                      </div>
                     </div>
+                    {!selectionMode && (
+                      <Button
+                        variant="ghost" size="sm" onClick={() => setShowDeleteAlert(channelData.channel.channelId)}
+                        className="text-destructive hover:text-destructive flex-shrink-0" title="Remover da lista"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
-                  {!selectionMode && (
-                    <Button
-                      variant="ghost" size="sm" onClick={() => setShowDeleteAlert(channelData.channel.channelId)}
-                      className="text-destructive hover:text-destructive flex-shrink-0" title="Remover da lista"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                  {sortedDown.length > 0 && (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-2 opacity-60 grayscale">
+                      {sortedDown.map((video) => (
+                        <RecentVideoCard key={video.videoId} video={video} showExactTime={showExactTime} />
+                      ))}
+                    </div>
                   )}
                 </div>
               );
