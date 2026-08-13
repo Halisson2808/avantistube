@@ -6,10 +6,146 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { RefreshCw, Loader2, Plus, Trash2, Video, Search, X, Users, Eye } from "lucide-react";
+import { RefreshCw, Loader2, Plus, Trash2, Video, Search, X, Users, Eye, AlignJustify, LayoutGrid, Clock } from "lucide-react";
 import { toast } from "sonner";
-import { formatNumber } from "@/lib/youtube-api";
-import { useMyChannels, MyChannelVideosData } from "@/hooks/use-my-channels";
+import { formatNumber, formatDuration } from "@/lib/youtube-api";
+import { useMyChannels, MyChannelVideosData, MyChannelVideo } from "@/hooks/use-my-channels";
+
+const SimpleVideoThumb = ({ video, muted = false }: { video: MyChannelVideo; muted?: boolean }) => (
+  <a
+    href={`https://youtube.com/watch?v=${video.videoId}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    className={`group relative block aspect-video rounded-lg overflow-hidden bg-white/[0.05] ${muted ? 'grayscale opacity-60' : ''}`}
+  >
+    {video.thumbnailUrl ? (
+      <img src={video.thumbnailUrl} alt={video.title} className="w-full h-full object-cover transition-opacity group-hover:opacity-80" loading="lazy" referrerPolicy="no-referrer" />
+    ) : (
+      <div className="w-full h-full flex items-center justify-center text-white/30 text-xs">Sem Imagem</div>
+    )}
+    {video.duration && (
+      <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] px-1 py-0.5 rounded font-medium leading-none">
+        {formatDuration(video.duration)}
+      </span>
+    )}
+    <p className="mt-1 text-xs line-clamp-2 leading-snug">{video.title}</p>
+    <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
+      <Eye className="w-2.5 h-2.5" />
+      <span>{formatNumber(video.viewCount)} views</span>
+    </div>
+  </a>
+);
+
+const ChannelListItem = ({
+  data,
+  isUpdating,
+  onUpdate,
+  onDelete,
+}: {
+  data: MyChannelVideosData;
+  isUpdating: boolean;
+  onUpdate: () => void;
+  onDelete: () => void;
+}) => {
+  const { channel, videos } = data;
+  const isDeleted = !!data.channelDeleted;
+  const sorted = [...videos].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+
+  const addedText = (() => {
+    if (!channel.addedAt) return null;
+    const d = Math.floor((Date.now() - new Date(channel.addedAt).getTime()) / 86400000);
+    if (d === 0) return 'Adicionado hoje';
+    if (d === 1) return 'Adicionado há 1 dia';
+    return `Adicionado há ${d} dias`;
+  })();
+
+  if (isDeleted) {
+    const downLabel = data.channelExists === false
+      ? '⚠️ Canal caído / encerrado'
+      : '🔒 Vídeos privados/removidos — canal ativo';
+    return (
+      <div className="space-y-3 p-4 bg-destructive/5 border border-destructive/30 rounded-lg opacity-90">
+        <div className="flex items-center gap-3">
+          {channel.channelThumbnail ? (
+            <img src={channel.channelThumbnail} alt={channel.channelTitle} className="w-10 h-10 rounded-full grayscale" loading="lazy" referrerPolicy="no-referrer" />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+              <Video className="w-4 h-4 text-muted-foreground" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-bold truncate line-through decoration-muted-foreground">{channel.channelTitle}</h2>
+            <p className="text-xs text-destructive">{downLabel}</p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onUpdate} disabled={isUpdating} className="h-7 px-2" title="Tentar de novo">
+            {isUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onDelete} className="h-7 px-2 text-destructive hover:text-destructive" title="Remover">
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        </div>
+        {sorted.length > 0 && (
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-2">
+            {sorted.map(v => <SimpleVideoThumb key={v.videoId} video={v} muted />)}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        {channel.channelThumbnail ? (
+          <a href={`https://youtube.com/channel/${channel.channelId}`} target="_blank" rel="noopener noreferrer">
+            <img src={channel.channelThumbnail} alt={channel.channelTitle} className="w-10 h-10 rounded-full" loading="lazy" referrerPolicy="no-referrer" />
+          </a>
+        ) : (
+          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+            <Video className="w-4 h-4 text-muted-foreground" />
+          </div>
+        )}
+        <div className="flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <a href={`https://youtube.com/channel/${channel.channelId}`} target="_blank" rel="noopener noreferrer">
+              <h2 className="text-xl font-bold hover:text-primary transition-colors">{channel.channelTitle}</h2>
+            </a>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="sm" onClick={onUpdate} disabled={isUpdating} className="h-7 px-2" title="Atualizar">
+                {isUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onDelete} className="h-7 px-2 text-destructive hover:text-destructive" title="Remover">
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1">
+            <span className="flex items-center gap-1"><Users className="w-3 h-3" />{new Intl.NumberFormat('pt-BR').format(channel.currentSubscribers)} inscritos</span>
+            <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{formatNumber(channel.currentViews)} views</span>
+            <span className="flex items-center gap-1"><Video className="w-3 h-3" />{new Intl.NumberFormat('pt-BR').format(channel.currentVideos)} vídeos</span>
+            {addedText && (
+              <span className="flex items-center gap-1 px-2 py-0.5 bg-accent/20 rounded text-accent-foreground">
+                <Clock className="w-3 h-3" />{addedText}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {sorted.length === 0 ? (
+        <Card>
+          <CardContent className="py-4">
+            <p className="text-sm text-muted-foreground">Este canal não possui vídeos recentes.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-2">
+          {sorted.map(v => <SimpleVideoThumb key={v.videoId} video={v} />)}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ChannelCard = ({
   data,
@@ -139,6 +275,7 @@ const MeusCanais = () => {
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   const resetAddForm = () => {
     setChannelUrl("");
@@ -306,19 +443,38 @@ const MeusCanais = () => {
       </div>
 
       {channels.length > 0 && (
-        <div className="flex items-center gap-2 px-3 h-11 rounded-xl border border-white/[0.08] bg-white/[0.03]">
-          <Search className="w-4 h-4 text-white/30 shrink-0" />
-          <Input
-            placeholder="Buscar por nome do canal..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 border-0 bg-transparent h-full p-0 text-sm focus-visible:ring-0 focus-visible:outline-none placeholder:text-white/30 min-w-0"
-          />
-          {search && (
-            <button onClick={() => setSearch('')} className="text-white/30 hover:text-white/60 shrink-0">
-              <X className="w-3.5 h-3.5" />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-3 h-11 rounded-xl border border-white/[0.08] bg-white/[0.03] flex-1">
+            <Search className="w-4 h-4 text-white/30 shrink-0" />
+            <Input
+              placeholder="Buscar por nome do canal..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 border-0 bg-transparent h-full p-0 text-sm focus-visible:ring-0 focus-visible:outline-none placeholder:text-white/30 min-w-0"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="text-white/30 hover:text-white/60 shrink-0">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center border border-white/[0.08] rounded-lg overflow-hidden shrink-0">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`h-11 px-2.5 flex items-center transition-colors ${viewMode === 'list' ? 'bg-white/[0.1] text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.05]'}`}
+              title="Modo lista"
+            >
+              <AlignJustify className="w-3.5 h-3.5" />
             </button>
-          )}
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`h-11 px-2.5 flex items-center border-l border-white/[0.08] transition-colors ${viewMode === 'grid' ? 'bg-white/[0.1] text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.05]'}`}
+              title="Modo grade compacto"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -335,10 +491,22 @@ const MeusCanais = () => {
             </p>
           </CardContent>
         </Card>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
           {list.map((data) => (
             <ChannelCard
+              key={data.channel.channelId}
+              data={data}
+              isUpdating={updatingIds.has(data.channel.channelId)}
+              onUpdate={() => runUpdate(data.channel.channelId)}
+              onDelete={() => setDeleteId(data.channel.channelId)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {list.map((data) => (
+            <ChannelListItem
               key={data.channel.channelId}
               data={data}
               isUpdating={updatingIds.has(data.channel.channelId)}
