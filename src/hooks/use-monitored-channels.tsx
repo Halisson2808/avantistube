@@ -28,6 +28,8 @@ export interface ChannelMonitorData {
   niche?: string;
   notes?: string;
   contentType?: 'longform' | 'shorts';
+  /** Canal próprio (aba "Meus Canais"), sem nicho/tags — mesma tabela do Monitoramento. */
+  isOwnChannel?: boolean;
 }
 
 interface ApiChannelRaw {
@@ -48,6 +50,7 @@ interface ApiChannelRaw {
   subscribers_last_7_days?: number;
   views_last_7_days?: number;
   is_exploding?: boolean;
+  is_own_channel?: boolean;
 }
 
 // Mapeia o formato do servidor para o formato do componente
@@ -70,6 +73,7 @@ function mapChannel(raw: ApiChannelRaw): ChannelMonitorData {
     subscribersLast7Days: raw.subscribers_last_7_days ?? 0,
     viewsLast7Days: raw.views_last_7_days ?? 0,
     isExploding: raw.is_exploding ?? false,
+    isOwnChannel: raw.is_own_channel ?? false,
   };
 }
 

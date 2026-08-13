@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useMonitoredChannels, ChannelMonitorData } from '@/hooks/use-monitored-channels';
 import { useVideoStorage, CachedVideo } from '@/hooks/use-video-storage';
@@ -78,9 +78,15 @@ const mapRawChannelToMonitorData = (raw: ApiChannelRow): ChannelMonitorData => (
   contentType: (raw.content_type as 'longform' | 'shorts') || 'longform',
 });
 
-export const useRecentVideos = () => {
+/**
+ * scope: 'monitoring' (padrão, usado no Monitoramento) mostra só os canais
+ * de monitoramento normais; 'own' (usado em Meus Canais) mostra só os
+ * canais marcados como próprios (is_own_channel). Mesma tabela/pipeline —
+ * a diferença é só qual fatia de `channels` cada tela enxerga.
+ */
+export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
   const {
-    channels,
+    channels: allChannels,
     loadChannels,
     updateNotes,
     updateNiche,
@@ -89,6 +95,11 @@ export const useRecentVideos = () => {
     updateChannelStats,
     isLoading: isLoadingChannels
   } = useMonitoredChannels();
+
+  const channels = useMemo(
+    () => allChannels.filter(ch => !!ch.isOwnChannel === (scope === 'own')),
+    [allChannels, scope]
+  );
 
   const {
     isLoaded: isLocalStorageLoaded,

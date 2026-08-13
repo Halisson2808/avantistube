@@ -280,6 +280,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
       niche: body.niche || null,
       notes: body.notes || null,
       content_type: body.contentType || "longform",
+      is_own_channel: !!body.isOwnChannel,
       added_at: nowIso,
       last_updated: nowIso,
     };
@@ -304,46 +305,6 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const id = decodeURIComponent(path.split("/")[2]);
     // o histórico some por ON DELETE CASCADE
     const { error } = await db.from("channels").delete().eq(idColumn(id), id);
-    if (error) throw new Error(error.message);
-    return { status: 200, json: { ok: true } };
-  }
-
-  // ── Meus Canais (sem nicho/tags — só salva e pronto) ────────────────────────
-  if (path === "/my-channels" && method === "GET") {
-    const db = getSupabase();
-    const { data, error } = await db.from("my_channels").select("*").order("added_at", { ascending: true });
-    if (error) throw new Error(error.message);
-    return { status: 200, json: data || [] };
-  }
-
-  if (path === "/my-channels" && method === "POST") {
-    const db = getSupabase();
-    const channelId = await resolveChannelId(body.channelInput || body.channelId);
-
-    const { data: dup } = await db.from("my_channels").select("id").eq("channel_id", channelId).limit(1);
-    if (dup && dup.length) return { status: 409, json: { error: "already saved" } };
-
-    const info = await getChannelInfo(channelId);
-    const nowIso = new Date().toISOString();
-    const row = {
-      channel_id: channelId,
-      channel_name: info.title,
-      channel_thumbnail: info.thumbnail,
-      subscriber_count: info.subscriberCount,
-      view_count: info.viewCount,
-      video_count: info.videoCount,
-      added_at: nowIso,
-      last_updated: nowIso,
-    };
-    const { data: inserted, error } = await db.from("my_channels").insert(row).select().single();
-    if (error) throw new Error(error.message);
-    return { status: 201, json: { channel: inserted } };
-  }
-
-  if (path.startsWith("/my-channels/") && method === "DELETE") {
-    const db = getSupabase();
-    const id = decodeURIComponent(path.split("/")[2]);
-    const { error } = await db.from("my_channels").delete().eq(idColumn(id), id);
     if (error) throw new Error(error.message);
     return { status: 200, json: { ok: true } };
   }
@@ -442,25 +403,6 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
       .eq("channel_id", channelId);
 
     await recordHistory(channelId, info.subscriberCount, info.viewCount, info.videoCount);
-    return { status: 200, json: info };
-  }
-
-  if (path === "/youtube/my-channel" && method === "GET") {
-    const channelId = searchParams.get("channelId");
-    if (!channelId) return { status: 400, json: { error: "Missing channelId" } };
-
-    const info = await getChannelInfo(channelId);
-    const db = getSupabase();
-    await db
-      .from("my_channels")
-      .update({
-        subscriber_count: info.subscriberCount,
-        view_count: info.viewCount,
-        video_count: info.videoCount,
-        last_updated: new Date().toISOString(),
-      })
-      .eq("channel_id", channelId);
-
     return { status: 200, json: info };
   }
 
@@ -600,54 +542,6 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const db = getSupabase();
     const channelId = decodeURIComponent(path.split("/")[2]);
     const { error } = await db.from("channel_video_cache").delete().eq("channel_id", channelId);
-    if (error) throw new Error(error.message);
-    return { status: 200, json: { ok: true } };
-  }
-
-  // ── Cache de vídeos — Meus Canais ────────────────────────────────────────────
-  if (path === "/my-videos" && method === "GET") {
-    const db = getSupabase();
-    const { data, error } = await db
-      .from("my_channel_video_cache")
-      .select("channel_id, videos, channel_deleted, channel_exists, error, fetched_at");
-    if (error) throw new Error(error.message);
-    const grouped = {};
-    for (const row of data || []) {
-      grouped[row.channel_id] = {
-        channelId: row.channel_id,
-        videos: row.videos || [],
-        lastFetched: row.fetched_at,
-        channelDeleted: row.channel_deleted,
-        channelExists: row.channel_exists,
-        error: row.error || undefined,
-      };
-    }
-    return { status: 200, json: grouped };
-  }
-
-  if (path === "/my-videos" && method === "POST") {
-    const db = getSupabase();
-    const { channelId, videos = [], channelDeleted = false, channelExists = true, error = null } = body;
-    if (!channelId) return { status: 400, json: { error: "channelId é obrigatório" } };
-    const { error: upErr } = await db.from("my_channel_video_cache").upsert(
-      {
-        channel_id: channelId,
-        videos: videos.slice(0, 7),
-        channel_deleted: channelDeleted,
-        channel_exists: channelExists,
-        error,
-        fetched_at: new Date().toISOString(),
-      },
-      { onConflict: "channel_id" }
-    );
-    if (upErr) throw new Error(upErr.message);
-    return { status: 200, json: { ok: true } };
-  }
-
-  if (path.startsWith("/my-videos/") && method === "DELETE") {
-    const db = getSupabase();
-    const channelId = decodeURIComponent(path.split("/")[2]);
-    const { error } = await db.from("my_channel_video_cache").delete().eq("channel_id", channelId);
     if (error) throw new Error(error.message);
     return { status: 200, json: { ok: true } };
   }
