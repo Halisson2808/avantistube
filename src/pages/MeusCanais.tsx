@@ -50,6 +50,7 @@ const ChannelListItem = ({
   const { channel, videos } = data;
   const isDeleted = !!data.channelDeleted;
   const sorted = [...videos].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+  const totalVideoViews = videos.reduce((sum, v) => sum + (v.viewCount || 0), 0);
 
   const addedText = (() => {
     if (!channel.addedAt) return null;
@@ -57,6 +58,18 @@ const ChannelListItem = ({
     if (d === 0) return 'Adicionado hoje';
     if (d === 1) return 'Adicionado há 1 dia';
     return `Adicionado há ${d} dias`;
+  })();
+
+  const updateTimeText = (() => {
+    if (!data.lastFetched) return null;
+    const diffMs = Date.now() - data.lastFetched.getTime();
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffDays > 0) return `há ${diffDays} dia${diffDays > 1 ? 's' : ''}`;
+    if (diffHours > 0) return `há ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
+    if (diffMinutes > 0) return `há ${diffMinutes} minuto${diffMinutes > 1 ? 's' : ''}`;
+    return 'agora';
   })();
 
   if (isDeleted) {
@@ -123,12 +136,47 @@ const ChannelListItem = ({
             <span className="flex items-center gap-1"><Users className="w-3 h-3" />{new Intl.NumberFormat('pt-BR').format(channel.currentSubscribers)} inscritos</span>
             <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{formatNumber(channel.currentViews)} views</span>
             <span className="flex items-center gap-1"><Video className="w-3 h-3" />{new Intl.NumberFormat('pt-BR').format(channel.currentVideos)} vídeos</span>
+            {updateTimeText && (
+              <span className="flex items-center gap-1"><Clock className="w-3 h-3" />Atualizado {updateTimeText}</span>
+            )}
             {addedText && (
               <span className="flex items-center gap-1 px-2 py-0.5 bg-accent/20 rounded text-accent-foreground">
                 <Clock className="w-3 h-3" />{addedText}
               </span>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Quadros de Estatísticas */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="p-3 rounded-lg bg-card border border-border">
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <Users className="w-3 h-3" />
+            <span>Inscritos</span>
+          </div>
+          <p className="text-lg font-bold">{formatNumber(channel.currentSubscribers)}</p>
+        </div>
+        <div className="p-3 rounded-lg bg-card border border-border">
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <Eye className="w-3 h-3" />
+            <span>Views do Canal</span>
+          </div>
+          <p className="text-lg font-bold">{formatNumber(channel.currentViews)}</p>
+        </div>
+        <div className="p-3 rounded-lg bg-card border border-border">
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <Video className="w-3 h-3" />
+            <span>Total de Vídeos</span>
+          </div>
+          <p className="text-lg font-bold">{formatNumber(channel.currentVideos)}</p>
+        </div>
+        <div className="p-3 rounded-lg bg-card border border-border">
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <Eye className="w-3 h-3" />
+            <span>Views (últimos {sorted.length})</span>
+          </div>
+          <p className="text-lg font-bold">{formatNumber(totalVideoViews)}</p>
         </div>
       </div>
 
