@@ -3,7 +3,7 @@ import {
     Home,
     X, Download,
     Search, TrendingUp, ChevronDown, ChevronRight,
-    ExternalLink, LogOut, Link2,
+    ExternalLink, LogOut, Link2, Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const navItems = [
     { title: "Buscar Vídeos", url: "/studio/tube/buscar", icon: Search },
     { title: "Monitoramento", url: "/studio/tube/monitoramento", icon: TrendingUp },
+    { title: "Meus Canais", url: "/studio/tube/meus-canais", icon: Video },
     { title: "Exportar Dados", url: "/studio/tube/exportar", icon: Download },
     { title: "Perfis Salvos", url: "/studio/tube/perfis", icon: Link2 },
     { title: "Thumbnails", url: "/studio/dark/thumbnails", icon: Download },

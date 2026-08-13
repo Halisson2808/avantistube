@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -60,6 +61,7 @@ type CompactCardProps = {
     error: string | null;
   };
   isUpdating: boolean;
+  isDeleted: boolean;
   selectionMode: boolean;
   isSelected: boolean;
   onToggleSelect: () => void;
@@ -69,8 +71,37 @@ type CompactCardProps = {
   onChart: () => void;
 };
 
-const CompactChannelCard = ({ channelData, isUpdating, selectionMode, isSelected, onToggleSelect, onUpdate, onEdit, onDelete, onChart }: CompactCardProps) => {
+const CompactChannelCard = ({ channelData, isUpdating, isDeleted, selectionMode, isSelected, onToggleSelect, onUpdate, onEdit, onDelete, onChart }: CompactCardProps) => {
   const { channel, videos, lastFetched } = channelData;
+
+  if (isDeleted) {
+    return (
+      <div className={`rounded-xl border overflow-hidden ${isSelected ? 'border-primary ring-2 ring-primary/30' : 'border-destructive/30'} bg-destructive/5`}>
+        <div className="p-3 flex items-center gap-2">
+          {selectionMode && (
+            <Checkbox checked={isSelected} onCheckedChange={onToggleSelect} className="shrink-0" />
+          )}
+          {channel.channelThumbnail ? (
+            <img src={channel.channelThumbnail} alt={channel.channelTitle} className="w-8 h-8 rounded-full grayscale opacity-60 shrink-0" loading="lazy" referrerPolicy="no-referrer" />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-white/[0.08] shrink-0 flex items-center justify-center">
+              <Video className="w-3.5 h-3.5 text-white/30" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold truncate leading-tight line-through text-white/50">{channel.channelTitle}</p>
+            <p className="text-[9px] text-destructive mt-0.5">⚠️ Canal caído / sem vídeos</p>
+          </div>
+          {!selectionMode && (
+            <div className="flex gap-0.5 shrink-0">
+              <Button variant="ghost" size="sm" onClick={onUpdate} disabled={isUpdating} className="h-5 w-5 p-0 hover:bg-white/[0.08]" title="Tentar de novo"><RefreshCw className="w-2.5 h-2.5" /></Button>
+              <Button variant="ghost" size="sm" onClick={onDelete} className="h-5 w-5 p-0 text-destructive/60 hover:text-destructive hover:bg-destructive/10" title="Remover"><Trash2 className="w-2.5 h-2.5" /></Button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const sorted = [...videos].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
   const top3 = sorted.slice(0, 3);
@@ -288,7 +319,9 @@ const RecentVideos = () => {
 
   // Dialog de adicionar canal
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isBulkMode, setIsBulkMode] = useState(false);
   const [channelUrl, setChannelUrl] = useState("");
+  const [bulkUrls, setBulkUrls] = useState("");
   const [selectedNiche, setSelectedNiche] = useState("");
   const [customNiche, setCustomNiche] = useState("");
   const [newNotes, setNewNotes] = useState("");
@@ -433,49 +466,55 @@ const RecentVideos = () => {
     0
   );
 
+  // POST de um único canal. Não busca vídeos/stats aqui — isso fica pra depois,
+  // em segundo plano, pra não travar o botão de adicionar esperando a captura
+  // dos dados do canal anterior.
+  const addOneChannel = async (
+    url: string,
+    niche: string,
+    ct: "longform" | "shorts",
+    notes: string,
+  ): Promise<{ status: "added" | "duplicate"; channelId?: string }> => {
+    const res = await fetch(`${LOCAL_API}/channels`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channelInput: url, niche, notes, contentType: ct }),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 409 || data.error?.includes('already being monitored')) {
+      return { status: 'duplicate' };
+    }
+    if (!res.ok) throw new Error(data.error || `Erro ao adicionar "${url}"`);
+    return { status: 'added', channelId: data.channel?.channel_id };
+  };
+
   const handleAddChannel = async () => {
+    if (isBulkMode) {
+      await handleBulkAddChannels();
+      return;
+    }
     if (!channelUrl.trim()) {
       toast.error("Digite a URL do canal");
       return;
     }
 
     setIsAddingChannel(true);
+    const finalNiche = contentType === "shorts"
+      ? "Shorts"
+      : (selectedNiche === "__new__" ? customNiche : selectedNiche);
+
     try {
-      const finalNiche = contentType === "shorts"
-        ? "Shorts"
-        : (selectedNiche === "__new__" ? customNiche : selectedNiche);
-
-      const res = await fetch(`${LOCAL_API}/channels`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          channelInput: channelUrl,
-          niche: finalNiche,
-          notes: newNotes,
-          contentType: contentType,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (res.status === 409 || data.error?.includes('already being monitored')) {
+      const result = await addOneChannel(channelUrl.trim(), finalNiche, contentType, newNotes);
+      if (result.status === 'duplicate') {
         toast.info('Este canal já está sendo monitorado');
-        setIsAddDialogOpen(false);
-        resetAddForm();
-        await loadNiches();
-        return;
+      } else {
+        toast.success('Canal adicionado! Buscando dados em segundo plano...');
+        if (result.channelId) updateSingleChannel(result.channelId).catch(() => {});
       }
-
-      if (!res.ok) throw new Error(data.error || 'Erro ao adicionar canal');
-
-      toast.success('Canal adicionado! Atualizando dados...');
       setIsAddDialogOpen(false);
       resetAddForm();
-
-      if (data.channel?.channel_id) {
-        await updateSingleChannel(data.channel.channel_id);
-      }
-      await loadNiches();
+      loadNiches();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao adicionar canal';
       toast.error(errorMessage);
@@ -485,8 +524,57 @@ const RecentVideos = () => {
     }
   };
 
+  // Adiciona vários canais de uma vez (1 por linha), todos com o mesmo
+  // nicho/formato. Os cadastros saem em paralelo e não esperam a busca de
+  // vídeos/stats de cada um — isso roda depois, em segundo plano.
+  const handleBulkAddChannels = async () => {
+    const lines = Array.from(new Set(bulkUrls.split('\n').map(l => l.trim()).filter(Boolean)));
+    if (lines.length === 0) {
+      toast.error("Cole ao menos um link de canal (1 por linha)");
+      return;
+    }
+
+    setIsAddingChannel(true);
+    const finalNiche = contentType === "shorts"
+      ? "Shorts"
+      : (selectedNiche === "__new__" ? customNiche : selectedNiche);
+
+    const settled = await Promise.allSettled(
+      lines.map(url => addOneChannel(url, finalNiche, contentType, newNotes))
+    );
+
+    let added = 0, duplicated = 0, failed = 0;
+    const newChannelIds: string[] = [];
+    settled.forEach((r) => {
+      if (r.status === 'fulfilled') {
+        if (r.value.status === 'duplicate') duplicated++;
+        else {
+          added++;
+          if (r.value.channelId) newChannelIds.push(r.value.channelId);
+        }
+      } else {
+        failed++;
+      }
+    });
+
+    const parts = [`${added} canal(is) adicionado(s)`];
+    if (duplicated) parts.push(`${duplicated} já existia(m)`);
+    if (failed) parts.push(`${failed} falharam`);
+    toast[failed > 0 && added === 0 ? 'error' : 'success'](parts.join(' • '));
+
+    setIsAddDialogOpen(false);
+    resetAddForm();
+    setIsAddingChannel(false);
+    loadNiches();
+
+    // Busca vídeos/stats de cada canal novo em segundo plano, sem travar a UI.
+    newChannelIds.forEach(id => { updateSingleChannel(id).catch(() => {}); });
+  };
+
   const resetAddForm = () => {
     setChannelUrl("");
+    setBulkUrls("");
+    setIsBulkMode(false);
     setSelectedNiche("");
     setCustomNiche("");
     setNewNotes("");
@@ -578,17 +666,43 @@ const RecentVideos = () => {
                   <DialogTitle>Adicionar Canal ao Monitoramento</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>URL ou ID do Canal</Label>
-                    <Input
-                      value={channelUrl}
-                      onChange={(e) => setChannelUrl(e.target.value)}
-                      placeholder="UCxxxx, youtube.com/channel/UCxxxx ou youtube.com/@username"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Formatos aceitos: ID do canal, URL completa ou username (@)
-                    </p>
+                  <div className="flex items-center justify-between">
+                    <Label className="mb-0">{isBulkMode ? "Vários Canais (1 por linha)" : "URL ou ID do Canal"}</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setIsBulkMode(v => !v)}
+                    >
+                      {isBulkMode ? "Adicionar 1 canal" : "Adicionar vários"}
+                    </Button>
                   </div>
+                  {isBulkMode ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={bulkUrls}
+                        onChange={(e) => setBulkUrls(e.target.value)}
+                        placeholder={"youtube.com/@canal1\nyoutube.com/@canal2\nUCxxxxxxxxxxxxxxxxxxxxxx"}
+                        rows={6}
+                        className="font-mono text-xs"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Um canal por linha. O nicho/formato abaixo é aplicado a todos.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Input
+                        value={channelUrl}
+                        onChange={(e) => setChannelUrl(e.target.value)}
+                        placeholder="UCxxxx, youtube.com/channel/UCxxxx ou youtube.com/@username"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Formatos aceitos: ID do canal, URL completa ou username (@)
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label>Tipo de Conteúdo *</Label>
                     <Select value={contentType} onValueChange={(value: "longform" | "shorts") => setContentType(value)}>
@@ -617,7 +731,9 @@ const RecentVideos = () => {
                     </div>
                   )}
                   <Button onClick={handleAddChannel} disabled={isAddingChannel} className="w-full gradient-primary">
-                    {isAddingChannel ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Adicionando...</>) : "Adicionar Canal"}
+                    {isAddingChannel
+                      ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Adicionando...</>)
+                      : (isBulkMode ? "Adicionar Canais" : "Adicionar Canal")}
                   </Button>
                 </div>
               </DialogContent>
@@ -958,9 +1074,8 @@ const RecentVideos = () => {
               await updateChannelStats(channelData.channel.channelId);
             };
 
-            const isDeletedChannel = channelData.videos.some(v => v.channelDeleted) ||
-              channelData.error?.toLowerCase().includes('not found') ||
-              (channelData.videos.length === 0 && channelData.channel.currentVideos === 0 && channelData.channel.currentViews === 0);
+            const isDeletedChannel = !!channelData.channelDeleted ||
+              channelData.error?.toLowerCase().includes('not found');
 
             // Lógica de filtro de status:
             // - 'active': mostra apenas canais normais (pula os caídos)
@@ -977,6 +1092,7 @@ const RecentVideos = () => {
                   key={channelData.channel.channelId}
                   channelData={channelData as any}
                   isUpdating={isUpdating}
+                  isDeleted={isDeletedChannel}
                   selectionMode={selectionMode}
                   isSelected={selectedChannelIds.has(channelData.channel.channelId)}
                   onToggleSelect={() => toggleChannelSelect(channelData.channel.channelId)}

@@ -22,6 +22,7 @@ export interface ChannelVideosData {
   isLoading: boolean;
   lastFetched?: Date;
   error?: string;
+  channelDeleted?: boolean;
 }
 
 export interface FilterOptions {
@@ -195,6 +196,7 @@ export const useRecentVideos = () => {
           isLoading: false,
           lastFetched: new Date(cached.lastFetched),
           error: cached.error,
+          channelDeleted: cached.channelDeleted,
         });
       });
 
@@ -286,6 +288,7 @@ export const useRecentVideos = () => {
             videos,
             isLoading: false,
             lastFetched: new Date(),
+            channelDeleted: result.channelDeleted,
           });
           return newMap;
         });
@@ -455,12 +458,10 @@ export const useRecentVideos = () => {
     // 4. Status do canal (ativo/caído)
     if (filters.channelStatus && filters.channelStatus !== 'all') {
       filtered = filtered.filter(data => {
-        // Verifica se o canal foi deletado (através dos vídeos ou erro)
-        const hasChannelDeletedFlag = data.videos.some(v => v.channelDeleted);
+        // Canal "caído": ou o próprio fetch já sinalizou (canal encerrado OU sem
+        // nenhum vídeo), ou a última tentativa deu erro de not found.
         const hasNotFoundError = data.error?.toLowerCase().includes('not found');
-        const hasNoVideosAndZeroStats = data.videos.length === 0 && data.channel.currentVideos === 0 && data.channel.currentViews === 0;
-
-        const isChannelDeleted = hasChannelDeletedFlag || hasNotFoundError || hasNoVideosAndZeroStats;
+        const isChannelDeleted = !!data.channelDeleted || hasNotFoundError;
 
         if (filters.channelStatus === 'active') {
           return !isChannelDeleted;

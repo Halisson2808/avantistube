@@ -110,17 +110,24 @@ async function getChannelInfo(channelId) {
   };
 }
 
+/**
+ * Busca os últimos vídeos de um canal.
+ * "channelDown" = true tanto quando o canal foi encerrado/excluído (não resolve
+ * mais no /channels) quanto quando o canal existe mas está sem nenhum vídeo
+ * (todos apagados) — nos dois casos, do ponto de vista de quem monitora, o
+ * canal "caiu" e não há nada novo pra ver.
+ */
 async function getLatestVideos(channelId, maxResults = 7) {
   const chData = await ytFetch(`/channels?part=contentDetails&id=${channelId}`);
   const uploadsId = chData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
-  if (!uploadsId) return [];
+  if (!uploadsId) return { videos: [], channelDown: true };
 
   const plData = await ytFetch(`/playlistItems?part=snippet&playlistId=${uploadsId}&maxResults=${maxResults}`);
   const videoIds = plData.items?.map((i) => i.snippet.resourceId.videoId).join(",");
-  if (!videoIds) return [];
+  if (!videoIds) return { videos: [], channelDown: true };
 
   const vidData = await ytFetch(`/videos?part=snippet,statistics,contentDetails&id=${videoIds}`);
-  return (vidData.items || []).map((v) => ({
+  const videos = (vidData.items || []).map((v) => ({
     videoId: v.id,
     title: v.snippet.title,
     thumbnailUrl: v.snippet.thumbnails?.medium?.url || v.snippet.thumbnails?.default?.url,
@@ -130,6 +137,7 @@ async function getLatestVideos(channelId, maxResults = 7) {
     commentCount: parseInt(v.statistics?.commentCount || "0"),
     duration: v.contentDetails?.duration,
   }));
+  return { videos, channelDown: videos.length === 0 };
 }
 
 // ─── Storage (Supabase) ─────────────────────────────────────────────────────────
@@ -296,6 +304,46 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     return { status: 200, json: { ok: true } };
   }
 
+  // ── Meus Canais (sem nicho/tags — só salva e pronto) ────────────────────────
+  if (path === "/my-channels" && method === "GET") {
+    const db = getSupabase();
+    const { data, error } = await db.from("my_channels").select("*").order("added_at", { ascending: true });
+    if (error) throw new Error(error.message);
+    return { status: 200, json: data || [] };
+  }
+
+  if (path === "/my-channels" && method === "POST") {
+    const db = getSupabase();
+    const channelId = await resolveChannelId(body.channelInput || body.channelId);
+
+    const { data: dup } = await db.from("my_channels").select("id").eq("channel_id", channelId).limit(1);
+    if (dup && dup.length) return { status: 409, json: { error: "already saved" } };
+
+    const info = await getChannelInfo(channelId);
+    const nowIso = new Date().toISOString();
+    const row = {
+      channel_id: channelId,
+      channel_name: info.title,
+      channel_thumbnail: info.thumbnail,
+      subscriber_count: info.subscriberCount,
+      view_count: info.viewCount,
+      video_count: info.videoCount,
+      added_at: nowIso,
+      last_updated: nowIso,
+    };
+    const { data: inserted, error } = await db.from("my_channels").insert(row).select().single();
+    if (error) throw new Error(error.message);
+    return { status: 201, json: { channel: inserted } };
+  }
+
+  if (path.startsWith("/my-channels/") && method === "DELETE") {
+    const db = getSupabase();
+    const id = decodeURIComponent(path.split("/")[2]);
+    const { error } = await db.from("my_channels").delete().eq(idColumn(id), id);
+    if (error) throw new Error(error.message);
+    return { status: 200, json: { ok: true } };
+  }
+
   // ── Links de perfil (TikTok/Instagram) ───────────────────────────────────────
   if (path === "/social-links" && method === "GET") {
     const db = getSupabase();
@@ -393,12 +441,31 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     return { status: 200, json: info };
   }
 
+  if (path === "/youtube/my-channel" && method === "GET") {
+    const channelId = searchParams.get("channelId");
+    if (!channelId) return { status: 400, json: { error: "Missing channelId" } };
+
+    const info = await getChannelInfo(channelId);
+    const db = getSupabase();
+    await db
+      .from("my_channels")
+      .update({
+        subscriber_count: info.subscriberCount,
+        view_count: info.viewCount,
+        video_count: info.videoCount,
+        last_updated: new Date().toISOString(),
+      })
+      .eq("channel_id", channelId);
+
+    return { status: 200, json: info };
+  }
+
   if (path === "/youtube/videos" && method === "GET") {
     const channelId = searchParams.get("channelId");
     const max = parseInt(searchParams.get("max") || "7");
     if (!channelId) return { status: 400, json: { error: "Missing channelId" } };
-    const videos = await getLatestVideos(channelId, max);
-    return { status: 200, json: { channelId, videos, success: true } };
+    const { videos, channelDown } = await getLatestVideos(channelId, max);
+    return { status: 200, json: { channelId, videos, success: true, channelDown } };
   }
 
   if (path === "/youtube/search" && method === "GET") {
@@ -527,6 +594,52 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const db = getSupabase();
     const channelId = decodeURIComponent(path.split("/")[2]);
     const { error } = await db.from("channel_video_cache").delete().eq("channel_id", channelId);
+    if (error) throw new Error(error.message);
+    return { status: 200, json: { ok: true } };
+  }
+
+  // ── Cache de vídeos — Meus Canais ────────────────────────────────────────────
+  if (path === "/my-videos" && method === "GET") {
+    const db = getSupabase();
+    const { data, error } = await db
+      .from("my_channel_video_cache")
+      .select("channel_id, videos, channel_deleted, error, fetched_at");
+    if (error) throw new Error(error.message);
+    const grouped = {};
+    for (const row of data || []) {
+      grouped[row.channel_id] = {
+        channelId: row.channel_id,
+        videos: row.videos || [],
+        lastFetched: row.fetched_at,
+        channelDeleted: row.channel_deleted,
+        error: row.error || undefined,
+      };
+    }
+    return { status: 200, json: grouped };
+  }
+
+  if (path === "/my-videos" && method === "POST") {
+    const db = getSupabase();
+    const { channelId, videos = [], channelDeleted = false, error = null } = body;
+    if (!channelId) return { status: 400, json: { error: "channelId é obrigatório" } };
+    const { error: upErr } = await db.from("my_channel_video_cache").upsert(
+      {
+        channel_id: channelId,
+        videos: videos.slice(0, 7),
+        channel_deleted: channelDeleted,
+        error,
+        fetched_at: new Date().toISOString(),
+      },
+      { onConflict: "channel_id" }
+    );
+    if (upErr) throw new Error(upErr.message);
+    return { status: 200, json: { ok: true } };
+  }
+
+  if (path.startsWith("/my-videos/") && method === "DELETE") {
+    const db = getSupabase();
+    const channelId = decodeURIComponent(path.split("/")[2]);
+    const { error } = await db.from("my_channel_video_cache").delete().eq("channel_id", channelId);
     if (error) throw new Error(error.message);
     return { status: 200, json: { ok: true } };
   }

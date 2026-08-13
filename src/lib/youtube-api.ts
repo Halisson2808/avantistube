@@ -100,6 +100,7 @@ export const getLatestChannelVideos = async (
           videos: data.videos || [],
           success: true,
           fetchedAt: new Date().toISOString(),
+          channelDeleted: !!data.channelDown,
         } as ChannelLatestVideosResult;
       } catch (err: any) {
         const msg = (err?.message || '').toLowerCase();

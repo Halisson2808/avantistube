@@ -14,6 +14,7 @@ import NotFound from "./pages/NotFound";
 // Funções (reaproveitadas dentro do Studio)
 import Search from "./pages/Search";
 import Monitoramento from "./pages/Monitoramento";
+import MeusCanais from "./pages/MeusCanais";
 import Exportar from "./pages/Exportar";
 import PerfisSociais from "./pages/PerfisSociais";
 import BaixarThumbYoutube from "./pages/dark/BaixarThumbYoutube";
@@ -52,6 +53,7 @@ function ProtectedApp() {
       {/* Ferramentas */}
       <Route path="/studio/tube/buscar" element={wrap(<Search />)} />
       <Route path="/studio/tube/monitoramento" element={wrap(<Monitoramento />)} />
+      <Route path="/studio/tube/meus-canais" element={wrap(<MeusCanais />)} />
       <Route path="/studio/tube/exportar" element={wrap(<Exportar />)} />
       <Route path="/studio/tube/perfis" element={wrap(<PerfisSociais />)} />
       <Route path="/studio/dark/thumbnails" element={wrap(<StudioThumbnails />)} />
