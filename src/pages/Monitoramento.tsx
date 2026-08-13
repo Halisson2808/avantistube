@@ -518,6 +518,15 @@ const RecentVideos = () => {
       return;
     }
 
+    // Se o campo tem mais de um link/handle (colado com espaço, vírgula ou
+    // quebra de linha), trata como lista — senão o regex de resolução só
+    // pegava o primeiro e os outros somem sem aviso nenhum.
+    const tokens = Array.from(new Set(channelUrl.split(/[\s,]+/).map(t => t.trim()).filter(Boolean)));
+    if (tokens.length > 1) {
+      await handleBulkAddChannels(tokens);
+      return;
+    }
+
     setIsAddingChannel(true);
     const finalNiche = contentType === "shorts"
       ? "Shorts"
@@ -543,11 +552,12 @@ const RecentVideos = () => {
     }
   };
 
-  // Adiciona vários canais de uma vez (1 por linha), todos com o mesmo
-  // nicho/formato. Os cadastros saem em paralelo e não esperam a busca de
-  // vídeos/stats de cada um — isso roda depois, em segundo plano.
-  const handleBulkAddChannels = async () => {
-    const lines = Array.from(new Set(bulkUrls.split('\n').map(l => l.trim()).filter(Boolean)));
+  // Adiciona vários canais de uma vez, todos com o mesmo nicho/formato. Os
+  // cadastros saem em paralelo e não esperam a busca de vídeos/stats de cada
+  // um — isso roda depois, em segundo plano. Aceita uma lista pronta (vinda
+  // do campo único com múltiplos links) ou usa o textarea de modo em massa.
+  const handleBulkAddChannels = async (urlsOverride?: string[]) => {
+    const lines = urlsOverride ?? Array.from(new Set(bulkUrls.split(/[\s,]+/).map(l => l.trim()).filter(Boolean)));
     if (lines.length === 0) {
       toast.error("Cole ao menos um link de canal (1 por linha)");
       return;

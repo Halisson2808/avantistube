@@ -159,32 +159,36 @@ const MeusCanais = () => {
     }
   };
 
+  const addManyChannels = async (urls: string[]) => {
+    const lines = Array.from(new Set(urls.map(l => l.trim()).filter(Boolean)));
+    if (lines.length === 0) {
+      toast.error("Cole ao menos um link de canal");
+      return;
+    }
+    setIsAdding(true);
+    const settled = await Promise.allSettled(lines.map(url => addOneChannel(url)));
+    let added = 0, duplicated = 0, failed = 0;
+    const newIds: string[] = [];
+    settled.forEach(r => {
+      if (r.status === 'fulfilled') {
+        if (r.value.status === 'duplicate') duplicated++;
+        else { added++; if (r.value.channelId) newIds.push(r.value.channelId); }
+      } else failed++;
+    });
+    const parts = [`${added} canal(is) adicionado(s)`];
+    if (duplicated) parts.push(`${duplicated} já salvo(s)`);
+    if (failed) parts.push(`${failed} falharam`);
+    toast[failed > 0 && added === 0 ? 'error' : 'success'](parts.join(' • '));
+    setIsAddOpen(false);
+    resetAddForm();
+    setIsAdding(false);
+    await loadChannels();
+    newIds.forEach(id => runUpdate(id));
+  };
+
   const handleAdd = async () => {
     if (isBulkMode) {
-      const lines = Array.from(new Set(bulkUrls.split('\n').map(l => l.trim()).filter(Boolean)));
-      if (lines.length === 0) {
-        toast.error("Cole ao menos um link de canal (1 por linha)");
-        return;
-      }
-      setIsAdding(true);
-      const settled = await Promise.allSettled(lines.map(url => addOneChannel(url)));
-      let added = 0, duplicated = 0, failed = 0;
-      const newIds: string[] = [];
-      settled.forEach(r => {
-        if (r.status === 'fulfilled') {
-          if (r.value.status === 'duplicate') duplicated++;
-          else { added++; if (r.value.channelId) newIds.push(r.value.channelId); }
-        } else failed++;
-      });
-      const parts = [`${added} canal(is) adicionado(s)`];
-      if (duplicated) parts.push(`${duplicated} já salvo(s)`);
-      if (failed) parts.push(`${failed} falharam`);
-      toast[failed > 0 && added === 0 ? 'error' : 'success'](parts.join(' • '));
-      setIsAddOpen(false);
-      resetAddForm();
-      setIsAdding(false);
-      await loadChannels();
-      newIds.forEach(id => runUpdate(id));
+      await addManyChannels(bulkUrls.split(/[\s,]+/));
       return;
     }
 
@@ -192,6 +196,16 @@ const MeusCanais = () => {
       toast.error("Digite a URL do canal");
       return;
     }
+
+    // Se o campo tem mais de um link/handle (colado com espaço, vírgula ou
+    // quebra de linha), trata como lista — senão o regex de resolução só
+    // pegava o primeiro e os outros somem sem aviso nenhum.
+    const tokens = Array.from(new Set(channelUrl.split(/[\s,]+/).map(t => t.trim()).filter(Boolean)));
+    if (tokens.length > 1) {
+      await addManyChannels(tokens);
+      return;
+    }
+
     setIsAdding(true);
     try {
       const result = await addOneChannel(channelUrl.trim());
