@@ -28,6 +28,7 @@ export interface CachedVideo {
 
 export interface CachedChannelMeta {
   channelDeleted?: boolean;
+  channelExists?: boolean;
   error?: string;
 }
 
@@ -36,6 +37,7 @@ export interface CachedChannelData {
   videos: CachedVideo[];
   lastFetched: string;
   channelDeleted?: boolean;
+  channelExists?: boolean;
   error?: string;
 }
 
@@ -79,6 +81,7 @@ export function useVideoStorage() {
         videos: trimmed,
         lastFetched: new Date().toISOString(),
         channelDeleted: meta?.channelDeleted,
+        channelExists: meta?.channelExists,
         error: meta?.error,
       },
     };
@@ -91,6 +94,7 @@ export function useVideoStorage() {
         channelId,
         videos: trimmed,
         channelDeleted: meta?.channelDeleted ?? false,
+        channelExists: meta?.channelExists ?? true,
         error: meta?.error ?? null,
       }),
     }).catch(err => console.error('Erro ao salvar vídeos:', err));

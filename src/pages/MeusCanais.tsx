@@ -30,6 +30,9 @@ const ChannelCard = ({
   if (isDeleted) {
     // Mostra as últimas thumbs conhecidas (guardadas no Supabase antes do
     // canal cair) em vez de esconder tudo — é o "retrato" de como estava.
+    const downLabel = data.channelExists === false
+      ? '⚠️ Canal caído / encerrado'
+      : '🔒 Vídeos privados/removidos — canal ativo';
     return (
       <div className="rounded-xl border border-destructive/30 bg-destructive/5 overflow-hidden">
         <div className="p-3 flex flex-col gap-2.5">
@@ -43,7 +46,7 @@ const ChannelCard = ({
             )}
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold truncate leading-tight line-through text-white/50">{channel.channelTitle}</p>
-              <p className="text-[9px] text-destructive mt-0.5">⚠️ Canal caído / sem vídeos</p>
+              <p className="text-[9px] text-destructive mt-0.5">{downLabel}</p>
             </div>
             <div className="flex gap-0.5 shrink-0">
               <Button variant="ghost" size="sm" onClick={onUpdate} disabled={isUpdating} className="h-5 w-5 p-0 hover:bg-white/[0.08]" title="Tentar de novo">

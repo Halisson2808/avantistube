@@ -83,6 +83,8 @@ export interface ChannelLatestVideosResult {
   fetchedAt?: string;
   error?: string;
   channelDeleted?: boolean;
+  /** false = canal realmente sumiu; true = canal ativo, só sem vídeos públicos (privados/removidos). */
+  channelExists?: boolean;
 }
 
 export const getLatestChannelVideos = async (
@@ -101,6 +103,7 @@ export const getLatestChannelVideos = async (
           success: true,
           fetchedAt: new Date().toISOString(),
           channelDeleted: !!data.channelDown,
+          channelExists: data.channelExists !== false,
         } as ChannelLatestVideosResult;
       } catch (err: any) {
         const msg = (err?.message || '').toLowerCase();
@@ -111,6 +114,7 @@ export const getLatestChannelVideos = async (
           success: false,
           error: err?.message,
           channelDeleted,
+          channelExists: !channelDeleted,
         } as ChannelLatestVideosResult;
       }
     })

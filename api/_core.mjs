@@ -81,7 +81,9 @@ async function resolveChannelId(input) {
   const urlChannel = input.match(/youtube\.com\/channel\/(UC[\w-]{22})/);
   if (urlChannel) return urlChannel[1];
 
-  const handle = input.match(/@([\w-]+)/)?.[1] || input.match(/youtube\.com\/@([\w-]+)/)?.[1];
+  // Handles do YouTube podem conter ponto (ex.: @roamingearth.) — sem o "." na
+  // classe de caracteres, o regex cortava o handle e resolvia outro canal.
+  const handle = input.match(/@([\w.-]+)/)?.[1] || input.match(/youtube\.com\/@([\w.-]+)/)?.[1];
   if (handle) {
     const data = await ytFetch(`/channels?part=id&forHandle=@${handle}`);
     if (data.items?.[0]) return data.items[0].id;
@@ -114,17 +116,19 @@ async function getChannelInfo(channelId) {
  * Busca os últimos vídeos de um canal.
  * "channelDown" = true tanto quando o canal foi encerrado/excluído (não resolve
  * mais no /channels) quanto quando o canal existe mas está sem nenhum vídeo
- * (todos apagados) — nos dois casos, do ponto de vista de quem monitora, o
- * canal "caiu" e não há nada novo pra ver.
+ * público (apagados ou deixados como privados) — nos dois casos não há nada
+ * novo pra ver. "channelExists" distingue os dois: false = canal realmente
+ * sumiu; true = canal continua no ar, só sem vídeos públicos no momento.
  */
 async function getLatestVideos(channelId, maxResults = 7) {
   const chData = await ytFetch(`/channels?part=contentDetails&id=${channelId}`);
+  const channelExists = !!chData.items?.[0];
   const uploadsId = chData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
-  if (!uploadsId) return { videos: [], channelDown: true };
+  if (!uploadsId) return { videos: [], channelDown: true, channelExists };
 
   const plData = await ytFetch(`/playlistItems?part=snippet&playlistId=${uploadsId}&maxResults=${maxResults}`);
   const videoIds = plData.items?.map((i) => i.snippet.resourceId.videoId).join(",");
-  if (!videoIds) return { videos: [], channelDown: true };
+  if (!videoIds) return { videos: [], channelDown: true, channelExists: true };
 
   const vidData = await ytFetch(`/videos?part=snippet,statistics,contentDetails&id=${videoIds}`);
   const videos = (vidData.items || []).map((v) => ({
@@ -137,7 +141,7 @@ async function getLatestVideos(channelId, maxResults = 7) {
     commentCount: parseInt(v.statistics?.commentCount || "0"),
     duration: v.contentDetails?.duration,
   }));
-  return { videos, channelDown: videos.length === 0 };
+  return { videos, channelDown: videos.length === 0, channelExists: true };
 }
 
 // ─── Storage (Supabase) ─────────────────────────────────────────────────────────
@@ -464,8 +468,8 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const channelId = searchParams.get("channelId");
     const max = parseInt(searchParams.get("max") || "7");
     if (!channelId) return { status: 400, json: { error: "Missing channelId" } };
-    const { videos, channelDown } = await getLatestVideos(channelId, max);
-    return { status: 200, json: { channelId, videos, success: true, channelDown } };
+    const { videos, channelDown, channelExists } = await getLatestVideos(channelId, max);
+    return { status: 200, json: { channelId, videos, success: true, channelDown, channelExists } };
   }
 
   if (path === "/youtube/search" && method === "GET") {
@@ -557,7 +561,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const db = getSupabase();
     const { data, error } = await db
       .from("channel_video_cache")
-      .select("channel_id, videos, channel_deleted, error, fetched_at");
+      .select("channel_id, videos, channel_deleted, channel_exists, error, fetched_at");
     if (error) throw new Error(error.message);
     const grouped = {};
     for (const row of data || []) {
@@ -566,6 +570,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
         videos: row.videos || [],
         lastFetched: row.fetched_at,
         channelDeleted: row.channel_deleted,
+        channelExists: row.channel_exists,
         error: row.error || undefined,
       };
     }
@@ -574,13 +579,14 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
 
   if (path === "/videos" && method === "POST") {
     const db = getSupabase();
-    const { channelId, videos = [], channelDeleted = false, error = null } = body;
+    const { channelId, videos = [], channelDeleted = false, channelExists = true, error = null } = body;
     if (!channelId) return { status: 400, json: { error: "channelId é obrigatório" } };
     const { error: upErr } = await db.from("channel_video_cache").upsert(
       {
         channel_id: channelId,
         videos: videos.slice(0, 7),
         channel_deleted: channelDeleted,
+        channel_exists: channelExists,
         error,
         fetched_at: new Date().toISOString(),
       },
@@ -603,7 +609,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const db = getSupabase();
     const { data, error } = await db
       .from("my_channel_video_cache")
-      .select("channel_id, videos, channel_deleted, error, fetched_at");
+      .select("channel_id, videos, channel_deleted, channel_exists, error, fetched_at");
     if (error) throw new Error(error.message);
     const grouped = {};
     for (const row of data || []) {
@@ -612,6 +618,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
         videos: row.videos || [],
         lastFetched: row.fetched_at,
         channelDeleted: row.channel_deleted,
+        channelExists: row.channel_exists,
         error: row.error || undefined,
       };
     }
@@ -620,13 +627,14 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
 
   if (path === "/my-videos" && method === "POST") {
     const db = getSupabase();
-    const { channelId, videos = [], channelDeleted = false, error = null } = body;
+    const { channelId, videos = [], channelDeleted = false, channelExists = true, error = null } = body;
     if (!channelId) return { status: 400, json: { error: "channelId é obrigatório" } };
     const { error: upErr } = await db.from("my_channel_video_cache").upsert(
       {
         channel_id: channelId,
         videos: videos.slice(0, 7),
         channel_deleted: channelDeleted,
+        channel_exists: channelExists,
         error,
         fetched_at: new Date().toISOString(),
       },

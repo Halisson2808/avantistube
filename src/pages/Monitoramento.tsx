@@ -62,6 +62,7 @@ type CompactCardProps = {
   };
   isUpdating: boolean;
   isDeleted: boolean;
+  channelExists?: boolean;
   selectionMode: boolean;
   isSelected: boolean;
   onToggleSelect: () => void;
@@ -71,7 +72,7 @@ type CompactCardProps = {
   onChart: () => void;
 };
 
-const CompactChannelCard = ({ channelData, isUpdating, isDeleted, selectionMode, isSelected, onToggleSelect, onUpdate, onEdit, onDelete, onChart }: CompactCardProps) => {
+const CompactChannelCard = ({ channelData, isUpdating, isDeleted, channelExists, selectionMode, isSelected, onToggleSelect, onUpdate, onEdit, onDelete, onChart }: CompactCardProps) => {
   const { channel, videos, lastFetched } = channelData;
 
   if (isDeleted) {
@@ -79,6 +80,9 @@ const CompactChannelCard = ({ channelData, isUpdating, isDeleted, selectionMode,
     // canal cair) em vez de esconder tudo — é o "retrato" de como estava.
     const sortedDown = [...videos].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
     const top3Down = sortedDown.slice(0, 3);
+    const downLabel = channelExists === false
+      ? '⚠️ Canal encerrado ou excluído'
+      : '🔒 Vídeos privados/removidos — canal ativo';
     return (
       <div className={`rounded-xl border overflow-hidden ${isSelected ? 'border-primary ring-2 ring-primary/30' : 'border-destructive/30'} bg-destructive/5`}>
         <div className="p-3 flex flex-col gap-2.5">
@@ -95,7 +99,7 @@ const CompactChannelCard = ({ channelData, isUpdating, isDeleted, selectionMode,
             )}
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold truncate leading-tight line-through text-white/50">{channel.channelTitle}</p>
-              <p className="text-[9px] text-destructive mt-0.5">⚠️ Canal caído / sem vídeos</p>
+              <p className="text-[9px] text-destructive mt-0.5">{downLabel}</p>
             </div>
             {!selectionMode && (
               <div className="flex gap-0.5 shrink-0">
@@ -1108,6 +1112,7 @@ const RecentVideos = () => {
                   channelData={channelData as any}
                   isUpdating={isUpdating}
                   isDeleted={isDeletedChannel}
+                  channelExists={channelData.channelExists}
                   selectionMode={selectionMode}
                   isSelected={selectedChannelIds.has(channelData.channel.channelId)}
                   onToggleSelect={() => toggleChannelSelect(channelData.channel.channelId)}
@@ -1124,6 +1129,9 @@ const RecentVideos = () => {
             // em vez de esconder tudo.
             if (isDeletedChannel) {
               const sortedDown = [...channelData.videos].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+              const downLabel = channelData.channelExists === false
+                ? '⚠️ Canal Indisponível ou Excluído'
+                : '🔒 Vídeos privados/removidos — canal ainda ativo';
               return (
                 <div
                   key={channelData.channel.channelId}
@@ -1147,7 +1155,7 @@ const RecentVideos = () => {
                       )}
                       <div>
                         <h2 className="text-sm font-bold truncate line-through decoration-muted-foreground">{channelData.channel.channelTitle}</h2>
-                        <p className="text-xs text-destructive">⚠️ Canal Indisponível ou Excluído (sem vídeos)</p>
+                        <p className="text-xs text-destructive">{downLabel}</p>
                         {channelData.channel.niche && channelData.channel.contentType !== 'shorts' && (
                           <p className="text-xs text-muted-foreground">{channelData.channel.niche}</p>
                         )}

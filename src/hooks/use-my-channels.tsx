@@ -60,6 +60,8 @@ export interface MyChannelVideosData {
   lastFetched?: Date;
   error?: string;
   channelDeleted?: boolean;
+  /** false = canal realmente sumiu; true = canal ativo, só sem vídeos públicos (privados/removidos). */
+  channelExists?: boolean;
 }
 
 interface CachedEntry {
@@ -67,6 +69,7 @@ interface CachedEntry {
   videos: MyChannelVideo[];
   lastFetched: string;
   channelDeleted?: boolean;
+  channelExists?: boolean;
   error?: string;
 }
 
@@ -127,6 +130,7 @@ export const useMyChannels = () => {
           lastFetched: cached ? new Date(cached.lastFetched) : undefined,
           error: cached?.error,
           channelDeleted: cached?.channelDeleted,
+          channelExists: cached?.channelExists,
         });
       });
       return next;
@@ -196,6 +200,7 @@ export const useMyChannels = () => {
           videos,
           lastFetched: new Date().toISOString(),
           channelDeleted: result?.channelDeleted,
+          channelExists: result?.channelExists,
           error: result?.success === false ? result.error : undefined,
         },
       };
@@ -206,6 +211,7 @@ export const useMyChannels = () => {
           channelId,
           videos,
           channelDeleted: !!result?.channelDeleted,
+          channelExists: result?.channelExists ?? true,
           error: result?.success === false ? result.error : null,
         }),
       }).catch(() => {});
@@ -226,6 +232,7 @@ export const useMyChannels = () => {
             isLoading: false,
             lastFetched: new Date(),
             channelDeleted: result?.channelDeleted,
+            channelExists: result?.channelExists,
             error: result?.success === false ? result.error : undefined,
           });
         }

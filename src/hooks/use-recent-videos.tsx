@@ -23,6 +23,8 @@ export interface ChannelVideosData {
   lastFetched?: Date;
   error?: string;
   channelDeleted?: boolean;
+  /** false = canal realmente sumiu; true = canal ativo, só sem vídeos públicos (privados/removidos). */
+  channelExists?: boolean;
 }
 
 export interface FilterOptions {
@@ -197,6 +199,7 @@ export const useRecentVideos = () => {
           lastFetched: new Date(cached.lastFetched),
           error: cached.error,
           channelDeleted: cached.channelDeleted,
+          channelExists: cached.channelExists,
         });
       });
 
@@ -295,7 +298,7 @@ export const useRecentVideos = () => {
             duration: v.duration,
           }));
         }
-        saveChannelVideos(channelId, cachedVideos, { channelDeleted: result.channelDeleted });
+        saveChannelVideos(channelId, cachedVideos, { channelDeleted: result.channelDeleted, channelExists: result.channelExists });
 
         // Atualizar estado
         setChannelVideosData(prev => {
@@ -306,6 +309,7 @@ export const useRecentVideos = () => {
             isLoading: false,
             lastFetched: new Date(),
             channelDeleted: result.channelDeleted,
+            channelExists: result.channelExists,
           });
           return newMap;
         });
