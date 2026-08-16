@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import {
-    TrendingUp, FileText, Download,
-    AlignLeft, ClipboardEdit, Search, Zap, Users, Eye,
-    Video, ExternalLink, Image,
+    TrendingUp, Download,
+    Search, Zap, Users, Eye,
+    Video, ExternalLink, Image, ShieldCheck,
 } from "lucide-react";
 import { useMonitoredChannels } from "@/hooks/use-monitored-channels";
 
@@ -14,14 +14,12 @@ function fmt(n: number): string {
 }
 
 const quickTools = [
-    { title: "Monitoramento", url: "/studio/tube/monitoramento", icon: TrendingUp },
-    { title: "Buscar Vídeos", url: "/studio/tube/buscar", icon: Search },
-    { title: "Exportar Dados", url: "/studio/tube/exportar", icon: Download },
-    { title: "Transcrever", url: "/studio/dark/transcricao", icon: FileText },
-    { title: "Gerador SRT", url: "/studio/dark/gerador-srt", icon: FileText },
-    { title: "Quadro Branco", url: "/studio/dark/quadro-branco", icon: ClipboardEdit },
-    { title: "Manipular Texto", url: "/studio/dark/manipulacao-texto", icon: AlignLeft },
-    { title: "Thumbnails", url: "/studio/dark/thumbnails", icon: Image },
+    { title: "Buscar Vídeos", url: "/buscar", icon: Search },
+    { title: "Monitoramento", url: "/monitoramento", icon: TrendingUp },
+    { title: "Meus Canais", url: "/meus-canais", icon: Video },
+    { title: "Cofre 2FA", url: "/cofre", icon: ShieldCheck },
+    { title: "Exportar Dados", url: "/exportar", icon: Download },
+    { title: "Thumbnails", url: "/thumbnails", icon: Image },
 ];
 
 export default function StudioDashboard() {
@@ -33,9 +31,7 @@ export default function StudioDashboard() {
     const totalVideos = channels.reduce((s, c) => s + c.currentVideos, 0);
 
     const exploding = channels.filter(c => c.isExploding);
-    const recent = [...channels]
-        .sort((a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime())
-        .slice(0, 6);
+    const recent = channels.slice(0, 6);
     const topBySubs = [...channels]
         .sort((a, b) => b.currentSubscribers - a.currentSubscribers)
         .slice(0, 6);
@@ -52,7 +48,7 @@ export default function StudioDashboard() {
                     <h1 className="text-2xl font-bold text-white tracking-tight">
                         Avantis <span className="bg-gradient-to-r from-red-400 to-red-300 bg-clip-text text-transparent">Studio</span>
                     </h1>
-                    <p className="text-white/40 text-xs mt-0.5">Plataforma unificada · Tube + Dark</p>
+                    <p className="text-white/40 text-xs mt-0.5">Plataforma unificada de canais</p>
                 </div>
             </div>
 
@@ -81,7 +77,7 @@ export default function StudioDashboard() {
 
             {/* Adicionados recentemente */}
             {recent.length > 0 && (
-                <Section title="Adicionados Recentemente" icon={TrendingUp} onMore={() => navigate("/studio/tube/monitoramento")}>
+                <Section title="Adicionados Recentemente" icon={TrendingUp} onMore={() => navigate("/monitoramento")}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                         {recent.map(c => <ChannelCard key={c.channelId} channel={c} />)}
                     </div>
@@ -90,7 +86,7 @@ export default function StudioDashboard() {
 
             {/* Top canais */}
             {topBySubs.length > 0 && (
-                <Section title="Top Canais por Inscritos" icon={Users} onMore={() => navigate("/studio/tube/monitoramento")}>
+                <Section title="Top Canais por Inscritos" icon={Users} onMore={() => navigate("/monitoramento")}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                         {topBySubs.map((c, i) => <ChannelCard key={c.channelId} channel={c} rank={i + 1} />)}
                     </div>
@@ -99,7 +95,7 @@ export default function StudioDashboard() {
 
             {/* Acesso rápido */}
             <Section title="Acesso Rápido" icon={Zap}>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                     {quickTools.map(tool => (
                         <button
                             key={tool.url}

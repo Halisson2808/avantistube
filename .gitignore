@@ -30,3 +30,4 @@ dist-ssr
 
 # Dados locais (canais e histórico - não commitar dados pessoais)
 data/
+supabase/.temp/

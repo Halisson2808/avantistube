@@ -11,7 +11,7 @@ import { installApiAuthFetch } from "@/lib/apiAuth";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
-// Funções (reaproveitadas dentro do Studio)
+// Funções e Páginas do Sistema
 import Search from "./pages/Search";
 import Monitoramento from "./pages/Monitoramento";
 import MeusCanais from "./pages/MeusCanais";
@@ -19,8 +19,9 @@ import Exportar from "./pages/Exportar";
 import PerfisSociais from "./pages/PerfisSociais";
 import BaixarThumbYoutube from "./pages/dark/BaixarThumbYoutube";
 import CompactarThumb from "./pages/dark/CompactarThumb";
+import Cofre2FA from "./pages/Cofre2FA";
 
-// Avantis Studio (único sistema)
+// Avantis Studio Layout e Dashboard
 import { StudioLayout } from "@/components/StudioLayout";
 import StudioDashboard from "./pages/studio/StudioDashboard";
 import StudioThumbnails from "./pages/studio/StudioThumbnails";
@@ -47,21 +48,29 @@ function ProtectedApp() {
 
   return (
     <Routes>
-      {/* Entra direto no Studio */}
+      {/* Rotas Diretas na Raiz */}
       <Route path="/" element={wrap(<StudioDashboard />)} />
+      <Route path="/buscar" element={wrap(<Search />)} />
+      <Route path="/monitoramento" element={wrap(<Monitoramento />)} />
+      <Route path="/meus-canais" element={wrap(<MeusCanais />)} />
+      <Route path="/exportar" element={wrap(<Exportar />)} />
+      <Route path="/perfis" element={wrap(<PerfisSociais />)} />
+      <Route path="/thumbnails" element={wrap(<StudioThumbnails />)} />
+      <Route path="/baixar-thumb" element={wrap(<BaixarThumbYoutube />)} />
+      <Route path="/compactar-thumb" element={wrap(<CompactarThumb />)} />
+      <Route path="/cofre" element={wrap(<Cofre2FA />)} />
 
-      {/* Ferramentas */}
-      <Route path="/studio/tube/buscar" element={wrap(<Search />)} />
-      <Route path="/studio/tube/monitoramento" element={wrap(<Monitoramento />)} />
-      <Route path="/studio/tube/meus-canais" element={wrap(<MeusCanais />)} />
-      <Route path="/studio/tube/exportar" element={wrap(<Exportar />)} />
-      <Route path="/studio/tube/perfis" element={wrap(<PerfisSociais />)} />
-      <Route path="/studio/dark/thumbnails" element={wrap(<StudioThumbnails />)} />
-      <Route path="/studio/dark/baixar-thumb" element={wrap(<BaixarThumbYoutube />)} />
-      <Route path="/studio/dark/compactar-thumb" element={wrap(<CompactarThumb />)} />
-
-      {/* Redireciona caminhos antigos para a raiz */}
+      {/* Redirecionamentos de Rotas Legadas para as Novas Rotas Diretas */}
+      <Route path="/studio/tube/buscar" element={<Navigate to="/buscar" replace />} />
+      <Route path="/studio/tube/monitoramento" element={<Navigate to="/monitoramento" replace />} />
+      <Route path="/studio/tube/meus-canais" element={<Navigate to="/meus-canais" replace />} />
+      <Route path="/studio/tube/exportar" element={<Navigate to="/exportar" replace />} />
+      <Route path="/studio/tube/perfis" element={<Navigate to="/perfis" replace />} />
+      <Route path="/studio/dark/thumbnails" element={<Navigate to="/thumbnails" replace />} />
+      <Route path="/studio/dark/baixar-thumb" element={<Navigate to="/baixar-thumb" replace />} />
+      <Route path="/studio/dark/compactar-thumb" element={<Navigate to="/compactar-thumb" replace />} />
       <Route path="/studio" element={<Navigate to="/" replace />} />
+      <Route path="/studio/*" element={<Navigate to="/" replace />} />
       <Route path="/avantistube/*" element={<Navigate to="/" replace />} />
       <Route path="/avantisdark/*" element={<Navigate to="/" replace />} />
 

@@ -223,22 +223,39 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
   // ── Canais ────────────────────────────────────────────────────────────────────
   if (path === "/channels" && method === "GET") {
     const db = getSupabase();
-    const { data: channels, error } = await db.from("channels").select("*").order("added_at", { ascending: true });
+    // Ordena do mais novo para o mais antigo (added_at DESC)
+    const { data: channels, error } = await db.from("channels").select("*").order("added_at", { ascending: false });
     if (error) throw new Error(error.message);
 
-    const histRows = await fetchAllHistory(db);
+    const now = Date.now();
+    const eightDaysMs = 8 * 24 * 60 * 60 * 1000;
+    const cutoffDate = new Date(now - eightDaysMs).toISOString();
+
+    // Busca apenas o histórico recente dos últimos 8 dias em vez de ler a tabela inteira
+    let histRows = [];
+    try {
+      const { data: recentHist } = await db
+        .from("channel_history")
+        .select("channel_id, recorded_at, subscriber_count, view_count, video_count")
+        .gte("recorded_at", cutoffDate)
+        .order("recorded_at", { ascending: true })
+        .limit(3000);
+      histRows = recentHist || [];
+    } catch {
+      histRows = [];
+    }
+
     const histByChannel = new Map();
     for (const r of histRows) {
       if (!histByChannel.has(r.channel_id)) histByChannel.set(r.channel_id, []);
       histByChannel.get(r.channel_id).push(r);
     }
 
-    const now = Date.now();
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
     const cutoff = now - sevenDaysMs;
 
     const enriched = (channels || []).map((ch) => {
-      const records = histByChannel.get(ch.channel_id) || []; // já vem ordenado asc
+      const records = histByChannel.get(ch.channel_id) || [];
       let baseline = null;
       for (let i = records.length - 1; i >= 0; i--) {
         if (new Date(records[i].recorded_at).getTime() <= cutoff) {

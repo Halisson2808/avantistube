@@ -1,12 +1,13 @@
 /**
  * use-monitored-channels.tsx
- * Busca canais monitorados via /api (Supabase como storage).
+ * Busca canais monitorados via /api com cache instantâneo SWR (Stale-While-Revalidate).
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 
 const API = '/api';
+const CHANNELS_CACHE_KEY = 'avantistube_cached_channels_v2';
 
 export interface ChannelMonitorData {
   id: string;
@@ -77,23 +78,45 @@ function mapChannel(raw: ApiChannelRaw): ChannelMonitorData {
   };
 }
 
+// Ordena por addedAt decrescente (mais novos adicionados primeiro)
+function sortNewestFirst(list: ChannelMonitorData[]): ChannelMonitorData[] {
+  return [...list].sort(
+    (a, b) => new Date(b.addedAt || 0).getTime() - new Date(a.addedAt || 0).getTime()
+  );
+}
+
+// Carrega cache síncrono do localStorage para render instantâneo (0ms)
+function getInitialCachedChannels(): ChannelMonitorData[] {
+  try {
+    const cached = localStorage.getItem(CHANNELS_CACHE_KEY);
+    if (cached) {
+      const parsed: ChannelMonitorData[] = JSON.parse(cached);
+      return sortNewestFirst(parsed);
+    }
+  } catch {}
+  return [];
+}
+
 export const useMonitoredChannels = () => {
-  const [channels, setChannels] = useState<ChannelMonitorData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [channels, setChannels] = useState<ChannelMonitorData[]>(getInitialCachedChannels);
+  const [isLoading, setIsLoading] = useState<boolean>(() => channels.length === 0);
   const [serverOnline, setServerOnline] = useState(true);
 
   const loadChannels = useCallback(async () => {
-    setIsLoading(true);
     try {
       const res = await fetch(`${API}/channels`);
       if (!res.ok) throw new Error(`Erro ${res.status}`);
       const data: ApiChannelRaw[] = await res.json();
-      setChannels(data.map(mapChannel));
+      const mapped = sortNewestFirst(data.map(mapChannel));
+      
+      setChannels(mapped);
       setServerOnline(true);
+      try {
+        localStorage.setItem(CHANNELS_CACHE_KEY, JSON.stringify(mapped));
+      } catch {}
     } catch (error) {
       console.error('Erro ao carregar canais:', error);
       setServerOnline(false);
-      toast.error('Servidor local offline. Execute npm run dev para iniciá-lo.');
     } finally {
       setIsLoading(false);
     }
@@ -103,11 +126,16 @@ export const useMonitoredChannels = () => {
     loadChannels();
   }, [loadChannels]);
 
-  const addChannel = async (channel: ChannelMonitorData) => {
+  const addChannel = async (_channel?: ChannelMonitorData) => {
     await loadChannels();
   };
 
   const updateChannel = async (channelId: string, updates: Partial<ChannelMonitorData>) => {
+    // Atualização otimista imediata na UI
+    setChannels((prev) =>
+      prev.map((ch) => (ch.channelId === channelId ? { ...ch, ...updates } : ch))
+    );
+
     try {
       const raw: Record<string, string | number | undefined> = {};
       if (updates.channelTitle !== undefined) raw.channel_name = updates.channelTitle;
@@ -117,6 +145,7 @@ export const useMonitoredChannels = () => {
       if (updates.currentVideos !== undefined) raw.video_count = updates.currentVideos;
       if (updates.niche !== undefined) raw.niche = updates.niche;
       if (updates.contentType !== undefined) raw.content_type = updates.contentType;
+      if (updates.notes !== undefined) raw.notes = updates.notes;
 
       const res = await fetch(`${API}/channels/${channelId}`, {
         method: 'PUT',
@@ -132,6 +161,9 @@ export const useMonitoredChannels = () => {
   };
 
   const removeChannel = async (channelId: string) => {
+    // Remoção otimista imediata na UI
+    setChannels((prev) => prev.filter((ch) => ch.channelId !== channelId));
+
     try {
       const res = await fetch(`${API}/channels/${channelId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(`Erro ${res.status}`);
@@ -156,6 +188,10 @@ export const useMonitoredChannels = () => {
     toast.success('Tipo de conteúdo atualizado!');
   };
 
+  const updateNotes = async (channelId: string, notes: string) => {
+    await updateChannel(channelId, { notes });
+  };
+
   const updateChannelStats = async (channelId: string) => {
     toast.info('Atualizando estatísticas...');
     try {
@@ -178,6 +214,7 @@ export const useMonitoredChannels = () => {
     updateChannel,
     removeChannel,
     updateNiche,
+    updateNotes,
     updateChannelStats,
     updateContentType,
   };

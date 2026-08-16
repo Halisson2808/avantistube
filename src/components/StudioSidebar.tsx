@@ -3,7 +3,7 @@ import {
     Home,
     X, Download,
     Search, TrendingUp, ChevronDown, ChevronRight,
-    ExternalLink, LogOut, Link2, Video,
+    ExternalLink, LogOut, Link2, Video, ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -12,12 +12,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
-    { title: "Buscar Vídeos", url: "/studio/tube/buscar", icon: Search },
-    { title: "Monitoramento", url: "/studio/tube/monitoramento", icon: TrendingUp },
-    { title: "Meus Canais", url: "/studio/tube/meus-canais", icon: Video },
-    { title: "Exportar Dados", url: "/studio/tube/exportar", icon: Download },
-    { title: "Perfis Salvos", url: "/studio/tube/perfis", icon: Link2 },
-    { title: "Thumbnails", url: "/studio/dark/thumbnails", icon: Download },
+    { title: "Buscar Vídeos", url: "/buscar", icon: Search },
+    { title: "Monitoramento", url: "/monitoramento", icon: TrendingUp },
+    { title: "Meus Canais", url: "/meus-canais", icon: Video },
+    { title: "Cofre 2FA", url: "/cofre", icon: ShieldCheck },
+    { title: "Exportar Dados", url: "/exportar", icon: Download },
+    { title: "Perfis Salvos", url: "/perfis", icon: Link2 },
+    { title: "Thumbnails", url: "/thumbnails", icon: Download },
 ];
 
 interface StudioSidebarProps {
@@ -58,10 +59,6 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
     const [channelsOpen, setChannelsOpen] = useState(true);
     const { channels } = useMonitoredChannels();
     const { signOut } = useAuth();
-
-    const sortedChannels = [...channels].sort(
-        (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
-    );
 
     const linkClass = ({ isActive }: { isActive: boolean }) =>
         `flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-all duration-200 group text-xs ${isActive
@@ -122,7 +119,7 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
                         <span>Início</span>
                     </NavLink>
 
-                    {/* Ferramentas — lista única, sem divisão */}
+                    {/* Ferramentas — rotas diretas */}
                     <nav className="space-y-0.5">
                         {navItems.map((item) => (
                             <NavLink
@@ -137,7 +134,7 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
                         ))}
                     </nav>
 
-                    {/* CANAIS */}
+                    {/* CANAIS (Mais novos adicionados primeiro) */}
                     {channels.length > 0 && (
                         <div>
                             <SectionLabel
@@ -148,7 +145,7 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
                             />
                             {channelsOpen && (
                                 <div className="max-h-52 overflow-y-auto space-y-0.5 scrollbar-hidden">
-                                    {sortedChannels.slice(0, 15).map((channel) => (
+                                    {channels.slice(0, 15).map((channel) => (
                                         <a
                                             key={channel.channelId}
                                             href={`https://youtube.com/channel/${channel.channelId}`}
