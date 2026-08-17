@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,8 +8,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import {
   ShieldCheck,
-  Lock,
-  Unlock,
   KeyRound,
   Eye,
   EyeOff,
@@ -23,10 +21,6 @@ import {
   RefreshCw,
   Download,
   Upload,
-  Cloud,
-  CloudUpload,
-  CloudDownload,
-  Key,
   Clock,
   ChevronDown,
   ChevronUp,
@@ -34,42 +28,26 @@ import {
   CheckCircle2,
   CircleDot,
   RotateCcw,
+  Video,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   VaultAccount,
   BackupCodeItem,
-  EncryptedPayload,
-  encryptVault,
-  decryptVault,
   generateTotp,
   cleanSecret,
   parseBackupCodes,
   TotpResult,
 } from '@/lib/vaultCrypto';
-import {
-  downloadVaultFile,
-  readVaultFile,
-  uploadToGoogleDrive,
-  downloadFromGoogleDrive,
-} from '@/lib/googleDriveVault';
 
-const LOCAL_STORAGE_VAULT_KEY = 'avantistube_vault_enc';
+const LOCAL_STORAGE_BACKUP_KEY = 'avantistube_accounts_cache';
 
 export default function Cofre2FA() {
-  // Estado de bloqueio
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [hasExistingVault, setHasExistingVault] = useState(false);
-  const [masterPasswordInput, setMasterPasswordInput] = useState('');
-  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
-  const [currentMasterPassword, setCurrentMasterPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Dados em memória descriptografados
   const [accounts, setAccounts] = useState<VaultAccount[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // TOTP Live ticker
+  // TOTP Live ticker (atualiza a cada 1s)
   const [tick, setTick] = useState(0);
 
   // Visibilidade de senhas individuais e códigos de backup expandidos por ID
@@ -81,8 +59,6 @@ export default function Cofre2FA() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<VaultAccount | null>(null);
   const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
-  const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
-  const [isChangePassModalOpen, setIsChangePassModalOpen] = useState(false);
 
   // Formulário de Conta
   const [formChannelName, setFormChannelName] = useState('');
@@ -94,57 +70,41 @@ export default function Cofre2FA() {
   const [formBackupCodesList, setFormBackupCodesList] = useState<BackupCodeItem[]>([]);
   const [formNotes, setFormNotes] = useState('');
 
-  // Google Drive
-  const [googleAccessToken, setGoogleAccessToken] = useState('');
-  const [isSyncingDrive, setIsSyncingDrive] = useState(false);
-
   // Arquivo de importação
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [dbPayload, setDbPayload] = useState<EncryptedPayload | null>(null);
-
-  // Checar se já existe cofre no Supabase ou no localStorage
-  const checkVaultExistence = async () => {
+  // ─── Carregar Contas do Banco de Dados (Supabase) ──────────────────────────
+  const loadAccounts = async () => {
     try {
-      const res = await fetch('/api/vault');
+      setIsLoading(true);
+      const res = await fetch('/api/accounts');
       if (res.ok) {
         const data = await res.json();
-        if (data.vault && data.vault.ciphertext) {
-          const payload: EncryptedPayload = {
-            version: data.vault.version || 1,
-            ciphertext: data.vault.ciphertext,
-            salt: data.vault.salt,
-            iv: data.vault.iv,
-            updatedAt: data.vault.updated_at || new Date().toISOString(),
-          };
-          setDbPayload(payload);
-          setHasExistingVault(true);
-          localStorage.setItem(LOCAL_STORAGE_VAULT_KEY, JSON.stringify(payload));
+        if (Array.isArray(data)) {
+          setAccounts(data);
+          try {
+            localStorage.setItem(LOCAL_STORAGE_BACKUP_KEY, JSON.stringify(data));
+          } catch {}
           return;
         }
       }
-    } catch (e) {
-      console.error('Erro ao consultar /api/vault:', e);
+    } catch (err) {
+      console.error('Erro ao carregar contas:', err);
+    } finally {
+      setIsLoading(false);
     }
 
-    // Fallback para localStorage
-    const raw = localStorage.getItem(LOCAL_STORAGE_VAULT_KEY);
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed.ciphertext && parsed.salt && parsed.iv) {
-          setHasExistingVault(true);
-          setDbPayload(parsed);
-          return;
-        }
-      } catch {}
-    }
-
-    setHasExistingVault(false);
+    // Fallback local se offline
+    try {
+      const cached = localStorage.getItem(LOCAL_STORAGE_BACKUP_KEY);
+      if (cached) {
+        setAccounts(JSON.parse(cached));
+      }
+    } catch {}
   };
 
   useEffect(() => {
-    checkVaultExistence();
+    loadAccounts();
   }, []);
 
   // Intervalo do relógio para atualizar os códigos TOTP a cada segundo
@@ -155,112 +115,26 @@ export default function Cofre2FA() {
     return () => clearInterval(timer);
   }, []);
 
-  // ─── Desbloqueio e Inicialização ─────────────────────────────────────────────
-
-  const handleUnlockOrSetup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!masterPasswordInput) {
-      toast.error('Digite a senha mestre');
-      return;
-    }
-
-    setIsLoading(true);
+  // ─── Salvar no Banco de Dados (Supabase) ───────────────────────────────────
+  const saveAccountsToDatabase = async (updatedAccounts: VaultAccount[]) => {
+    setAccounts(updatedAccounts);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_BACKUP_KEY, JSON.stringify(updatedAccounts));
+    } catch {}
 
     try {
-      if (!hasExistingVault) {
-        // Primeiro acesso: criar cofre novo
-        if (masterPasswordInput.length < 6) {
-          toast.error('A senha mestre deve ter no mínimo 6 caracteres');
-          setIsLoading(false);
-          return;
-        }
-        if (masterPasswordInput !== confirmPasswordInput) {
-          toast.error('As senhas não coincidem');
-          setIsLoading(false);
-          return;
-        }
-
-        const initialAccounts: VaultAccount[] = [];
-        const payload = await encryptVault(initialAccounts, masterPasswordInput);
-        
-        // Salva no banco de dados e no localStorage
-        localStorage.setItem(LOCAL_STORAGE_VAULT_KEY, JSON.stringify(payload));
-        try {
-          await fetch('/api/vault', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-        } catch {}
-
-        setAccounts(initialAccounts);
-        setCurrentMasterPassword(masterPasswordInput);
-        setIsUnlocked(true);
-        setHasExistingVault(true);
-        setDbPayload(payload);
-        toast.success('Cofre protegido criado e sincronizado no banco de dados!');
-      } else {
-        // Desbloquear cofre existente do Supabase / localStorage
-        const payload = dbPayload || (localStorage.getItem(LOCAL_STORAGE_VAULT_KEY) ? JSON.parse(localStorage.getItem(LOCAL_STORAGE_VAULT_KEY)!) : null);
-        if (!payload) throw new Error('Cofre não encontrado');
-
-        const decrypted = await decryptVault(payload, masterPasswordInput);
-        setAccounts(decrypted);
-        setCurrentMasterPassword(masterPasswordInput);
-        setIsUnlocked(true);
-
-        // Se estava apenas no localStorage e não no banco, envia para o banco agora
-        try {
-          await fetch('/api/vault', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-        } catch {}
-
-        toast.success('Cofre desbloqueado com sucesso!');
-      }
-      setMasterPasswordInput('');
-      setConfirmPasswordInput('');
-    } catch (err: any) {
-      toast.error(err.message || 'Senha mestre incorreta');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleLockVault = () => {
-    setAccounts([]);
-    setCurrentMasterPassword('');
-    setIsUnlocked(false);
-    setVisiblePasswords({});
-    setExpandedBackupCodes({});
-    toast.info('Cofre bloqueado.');
-  };
-
-  // Salva no banco de dados (Supabase) e no localStorage
-  const saveEncryptedAccounts = async (updatedAccounts: VaultAccount[]) => {
-    try {
-      const payload = await encryptVault(updatedAccounts, currentMasterPassword);
-      
-      // Salva no localStorage (cache imediato)
-      localStorage.setItem(LOCAL_STORAGE_VAULT_KEY, JSON.stringify(payload));
-      setDbPayload(payload);
-      setAccounts(updatedAccounts);
-
-      // Salva no banco de dados (Supabase)
-      const res = await fetch('/api/vault', {
+      const res = await fetch('/api/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(updatedAccounts),
       });
 
       if (!res.ok) {
-        console.warn('Aviso: falha temporária ao sincronizar com banco');
+        toast.error('Erro ao salvar no banco de dados');
       }
     } catch (err) {
-      console.error(err);
-      toast.error('Erro ao criptografar e salvar dados');
+      console.error('Erro ao salvar no banco:', err);
+      toast.error('Falha de conexão com o banco de dados');
     }
   };
 
@@ -292,7 +166,6 @@ export default function Cofre2FA() {
     setIsAddModalOpen(true);
   };
 
-  // Processa os códigos de backup colados no formulário
   const handleParseBackupCodesInput = (rawText: string) => {
     setFormBackupCodesRaw(rawText);
     const parsed = parseBackupCodes(rawText);
@@ -307,15 +180,13 @@ export default function Cofre2FA() {
     }
 
     const now = new Date().toISOString();
-
-    // Se o usuário digitou no textarea mas não disparou parse, parseia agora
     const finalBackupCodes =
       formBackupCodesList.length > 0
         ? formBackupCodesList
         : parseBackupCodes(formBackupCodesRaw);
 
     if (editingAccount) {
-      // Editar
+      // Editar conta existente
       const updated = accounts.map((acc) =>
         acc.id === editingAccount.id
           ? {
@@ -331,10 +202,10 @@ export default function Cofre2FA() {
             }
           : acc
       );
-      await saveEncryptedAccounts(updated);
-      toast.success('Conta e códigos atualizados!');
+      await saveAccountsToDatabase(updated);
+      toast.success('Conta atualizada no banco de dados!');
     } else {
-      // Adicionar
+      // Adicionar nova conta
       const newAcc: VaultAccount = {
         id: crypto.randomUUID ? crypto.randomUUID() : `acc_${Date.now()}`,
         channelName: formChannelName.trim(),
@@ -347,8 +218,8 @@ export default function Cofre2FA() {
         createdAt: now,
         updatedAt: now,
       };
-      await saveEncryptedAccounts([newAcc, ...accounts]);
-      toast.success('Canal, 2FA e Códigos de Backup salvos!');
+      await saveAccountsToDatabase([newAcc, ...accounts]);
+      toast.success('Canal, 2FA e Códigos de Backup salvos no banco!');
     }
 
     setIsAddModalOpen(false);
@@ -357,12 +228,12 @@ export default function Cofre2FA() {
   const handleDeleteAccount = async () => {
     if (!deletingAccountId) return;
     const updated = accounts.filter((a) => a.id !== deletingAccountId);
-    await saveEncryptedAccounts(updated);
+    await saveAccountsToDatabase(updated);
     setDeletingAccountId(null);
-    toast.success('Conta removida do cofre');
+    toast.success('Conta removida do banco de dados');
   };
 
-  // ─── Alternar Status de Código de Backup (Usado / Não Usado) ─────────────────
+  // ─── Status de Código de Backup (Usado / Não Usado) ──────────────────────────
 
   const toggleBackupCodeUsed = async (accountId: string, codeIndex: number) => {
     const updated = accounts.map((acc) => {
@@ -373,7 +244,7 @@ export default function Cofre2FA() {
       }
       return { ...acc, backupCodes: codes, updatedAt: new Date().toISOString() };
     });
-    await saveEncryptedAccounts(updated);
+    await saveAccountsToDatabase(updated);
   };
 
   const resetAllBackupCodes = async (accountId: string) => {
@@ -382,7 +253,7 @@ export default function Cofre2FA() {
       const codes = acc.backupCodes.map((c) => ({ ...c, used: false }));
       return { ...acc, backupCodes: codes, updatedAt: new Date().toISOString() };
     });
-    await saveEncryptedAccounts(updated);
+    await saveAccountsToDatabase(updated);
     toast.success('Códigos de backup redefinidos como disponíveis!');
   };
 
@@ -404,16 +275,24 @@ export default function Cofre2FA() {
     setExpandedBackupCodes((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // ─── Backup e Restauração de Arquivo ────────────────────────────────────────
+  // ─── Backup e Restauração em Arquivo JSON ───────────────────────────────────
 
   const handleExportBackup = () => {
-    const raw = localStorage.getItem(LOCAL_STORAGE_VAULT_KEY);
-    if (!raw) {
-      toast.error('Nenhum dado para exportar');
+    if (accounts.length === 0) {
+      toast.error('Nenhuma conta para exportar');
       return;
     }
-    downloadVaultFile(raw);
-    toast.success('Arquivo de backup criptografado baixado com sucesso!');
+    const blob = new Blob([JSON.stringify(accounts, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const date = new Date().toISOString().split('T')[0];
+    a.href = url;
+    a.download = `avantistube_contas_${date}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Backup exportado com sucesso!');
   };
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -421,156 +300,26 @@ export default function Cofre2FA() {
     if (!file) return;
 
     try {
-      const text = await readVaultFile(file);
-      const payload: EncryptedPayload = JSON.parse(text);
-      if (!payload.ciphertext || !payload.salt || !payload.iv) {
-        throw new Error('Arquivo de backup inválido');
-      }
-
-      if (isUnlocked && currentMasterPassword) {
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
         try {
-          const importedAccounts = await decryptVault(payload, currentMasterPassword);
-          localStorage.setItem(LOCAL_STORAGE_VAULT_KEY, text);
-          setDbPayload(payload);
-          setAccounts(importedAccounts);
-          try {
-            await fetch('/api/vault', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: text,
-            });
-          } catch {}
-          toast.success(`Backup restaurado e salvo no banco de dados! ${importedAccounts.length} contas.`);
-        } catch {
-          localStorage.setItem(LOCAL_STORAGE_VAULT_KEY, text);
-          setDbPayload(payload);
-          handleLockVault();
-          toast.info('Backup importado! Digite a senha mestre deste backup para desbloquear.');
+          const text = ev.target?.result as string;
+          const parsed = JSON.parse(text);
+          if (Array.isArray(parsed)) {
+            await saveAccountsToDatabase(parsed);
+            toast.success(`Backup importado! ${parsed.length} contas carregadas e salvas no banco.`);
+          } else {
+            throw new Error('Formato de arquivo inválido');
+          }
+        } catch (err: any) {
+          toast.error(err.message || 'Falha ao ler arquivo');
         }
-      } else {
-        localStorage.setItem(LOCAL_STORAGE_VAULT_KEY, text);
-        setDbPayload(payload);
-        setHasExistingVault(true);
-        toast.success('Backup importado! Digite a senha mestre para desbloquear.');
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Falha ao importar backup');
+      };
+      reader.readAsText(file);
+    } catch {
+      toast.error('Erro ao abrir arquivo');
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  // ─── Backup e Restauração com Google Drive ──────────────────────────────────
-
-  const handleSaveToDrive = async () => {
-    if (!googleAccessToken) {
-      toast.error('Informe o Token de Acesso do Google');
-      return;
-    }
-
-    const raw = localStorage.getItem(LOCAL_STORAGE_VAULT_KEY);
-    if (!raw) {
-      toast.error('Nenhum cofre para sincronizar');
-      return;
-    }
-
-    setIsSyncingDrive(true);
-    try {
-      await uploadToGoogleDrive(googleAccessToken, raw);
-      toast.success('Backup salvo no seu Google Drive com sucesso!');
-      setIsDriveModalOpen(false);
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao sincronizar com Google Drive');
-    } finally {
-      setIsSyncingDrive(false);
-    }
-  };
-
-  const handleLoadFromDrive = async () => {
-    if (!googleAccessToken) {
-      toast.error('Informe o Token de Acesso do Google');
-      return;
-    }
-
-    setIsSyncingDrive(true);
-    try {
-      const result = await downloadFromGoogleDrive(googleAccessToken);
-      if (!result) {
-        toast.info('Nenhum backup encontrado no Google Drive.');
-        return;
-      }
-
-      const payload: EncryptedPayload = JSON.parse(result.encryptedJson);
-      localStorage.setItem(LOCAL_STORAGE_VAULT_KEY, result.encryptedJson);
-      setDbPayload(payload);
-      setHasExistingVault(true);
-
-      // Sincroniza com banco
-      try {
-        await fetch('/api/vault', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: result.encryptedJson,
-        });
-      } catch {}
-
-      if (isUnlocked && currentMasterPassword) {
-        try {
-          const imported = await decryptVault(payload, currentMasterPassword);
-          setAccounts(imported);
-          toast.success(`Cofre sincronizado do Google Drive! (${imported.length} contas)`);
-        } catch {
-          handleLockVault();
-          toast.info('Backup baixado do Drive! Digite a senha mestre para abrir.');
-        }
-      } else {
-        toast.success('Backup baixado do Drive! Digite a senha mestre para desbloquear.');
-      }
-      setIsDriveModalOpen(false);
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao baixar do Google Drive');
-    } finally {
-      setIsSyncingDrive(false);
-    }
-  };
-
-  // ─── Trocar Senha Mestra ───────────────────────────────────────────────────
-
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
-
-  const handleChangeMasterPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPassword.length < 6) {
-      toast.error('A nova senha deve ter no mínimo 6 caracteres');
-      return;
-    }
-    if (newPassword !== confirmNewPassword) {
-      toast.error('As novas senhas não coincidem');
-      return;
-    }
-
-    try {
-      const payload = await encryptVault(accounts, newPassword);
-      localStorage.setItem(LOCAL_STORAGE_VAULT_KEY, JSON.stringify(payload));
-      setDbPayload(payload);
-
-      // Atualiza no banco de dados
-      try {
-        await fetch('/api/vault', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-      } catch {}
-
-      setCurrentMasterPassword(newPassword);
-      setNewPassword('');
-      setConfirmNewPassword('');
-      setIsChangePassModalOpen(false);
-      toast.success('Senha Mestra alterada e cofre sincronizado no banco de dados!');
-    } catch {
-      toast.error('Erro ao recriptografar com a nova senha');
     }
   };
 
@@ -593,117 +342,26 @@ export default function Cofre2FA() {
     return generateTotp(formSecret2fa);
   }, [formSecret2fa, tick]);
 
-  // ─── TELA DE BLOQUEIO / SENHA MESTRA ────────────────────────────────────────
-
-  if (!isUnlocked) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[75vh] px-4">
-        <Card className="w-full max-w-md bg-white/[0.04] border-white/10 backdrop-blur-xl shadow-2xl">
-          <CardHeader className="text-center pb-3">
-            <div className="mx-auto w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-3 text-red-400 shadow-lg shadow-red-500/10">
-              <ShieldCheck className="w-7 h-7" />
-            </div>
-            <CardTitle className="text-xl font-bold text-white tracking-tight">
-              {hasExistingVault ? 'Cofre 2FA Bloqueado' : 'Configurar Senha Mestra'}
-            </CardTitle>
-            <CardDescription className="text-xs text-white/60">
-              {hasExistingVault
-                ? 'Digite sua Senha Mestra para descriptografar os códigos 2FA, logins e códigos de backup.'
-                : 'Crie uma Senha Mestra segura. Ela será usada para criptografar suas chaves (AES-256).'}
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent>
-            <form onSubmit={handleUnlockOrSetup} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-white/80">Senha Mestra</Label>
-                <div className="relative">
-                  <Input
-                    type="password"
-                    placeholder="••••••••••••"
-                    value={masterPasswordInput}
-                    onChange={(e) => setMasterPasswordInput(e.target.value)}
-                    className="bg-white/5 border-white/10 text-white pr-10 focus:border-red-500/50"
-                    autoFocus
-                  />
-                  <KeyRound className="w-4 h-4 text-white/30 absolute right-3 top-1/2 -translate-y-1/2" />
-                </div>
-              </div>
-
-              {!hasExistingVault && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-white/80">Confirme a Senha Mestra</Label>
-                  <Input
-                    type="password"
-                    placeholder="••••••••••••"
-                    value={confirmPasswordInput}
-                    onChange={(e) => setConfirmPasswordInput(e.target.value)}
-                    className="bg-white/5 border-white/10 text-white focus:border-red-500/50"
-                  />
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-red-600 hover:bg-red-500 text-white font-medium shadow-lg shadow-red-600/30 transition-all"
-              >
-                {isLoading ? (
-                  <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <Unlock className="w-4 h-4 mr-2" />
-                )}
-                {hasExistingVault ? 'Desbloquear Cofre' : 'Criar Cofre Criptografado'}
-              </Button>
-            </form>
-
-            <div className="mt-6 pt-4 border-t border-white/10 flex flex-col gap-2">
-              <div className="flex items-center justify-between text-xs text-white/50">
-                <span>Precisa restaurar um backup?</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-2"
-                >
-                  <Upload className="w-3.5 h-3.5 mr-1" />
-                  Importar Arquivo
-                </Button>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".json,.enc"
-                onChange={handleImportFile}
-                className="hidden"
-              />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // ─── TELA PRINCIPAL DO COFRE DESBLOQUEADO ───────────────────────────────────
+  // ─── RENDER PRINCIPAL ───────────────────────────────────────────────────────
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Header Superior com Estatísticas e Ações */}
+      {/* Header Superior */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/[0.03] border border-white/[0.08] p-5 rounded-2xl backdrop-blur-md">
         <div>
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+            <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 shadow-md shadow-red-500/10">
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
                 Cofre 2FA & Contas
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  Protegido AES-256
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  Banco de Dados Ativo
                 </span>
               </h1>
               <p className="text-xs text-white/50 mt-0.5">
-                {accounts.length} {accounts.length === 1 ? 'canal gerenciado' : 'canais gerenciados'} com autenticação TOTP e Códigos de Backup
+                {accounts.length} {accounts.length === 1 ? 'conta do YouTube' : 'contas do YouTube'} com autenticador TOTP e 10 Códigos de Backup
               </p>
             </div>
           </div>
@@ -722,23 +380,24 @@ export default function Cofre2FA() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleExportBackup}
+            onClick={loadAccounts}
+            disabled={isLoading}
             className="h-9 text-xs border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"
-            title="Baixar backup criptografado no seu computador"
+            title="Atualizar do Banco de Dados"
           >
-            <Download className="w-3.5 h-3.5 mr-1.5 text-blue-400" />
-            Baixar Backup
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 text-red-400 ${isLoading ? 'animate-spin' : ''}`} />
+            Sincronizar
           </Button>
 
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setIsDriveModalOpen(true)}
+            onClick={handleExportBackup}
             className="h-9 text-xs border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"
-            title="Sincronizar com o Google Drive"
+            title="Exportar backup em arquivo JSON"
           >
-            <Cloud className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
-            Google Drive
+            <Download className="w-3.5 h-3.5 mr-1.5 text-blue-400" />
+            Exportar
           </Button>
 
           <Button
@@ -746,7 +405,7 @@ export default function Cofre2FA() {
             size="sm"
             onClick={() => fileInputRef.current?.click()}
             className="h-9 text-xs border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"
-            title="Restaurar backup de um arquivo"
+            title="Importar contas de um arquivo JSON"
           >
             <Upload className="w-3.5 h-3.5 mr-1.5 text-purple-400" />
             Importar
@@ -754,32 +413,10 @@ export default function Cofre2FA() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".json,.enc"
+            accept=".json"
             onChange={handleImportFile}
             className="hidden"
           />
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsChangePassModalOpen(true)}
-            className="h-9 text-xs text-white/70 hover:text-white hover:bg-white/5"
-            title="Trocar Senha Mestra"
-          >
-            <Key className="w-3.5 h-3.5 mr-1" />
-            Senha
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLockVault}
-            className="h-9 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
-            title="Bloquear cofre agora"
-          >
-            <Lock className="w-3.5 h-3.5 mr-1" />
-            Trancar
-          </Button>
         </div>
       </div>
 
@@ -831,7 +468,7 @@ export default function Cofre2FA() {
             return (
               <Card
                 key={account.id}
-                className="bg-white/[0.03] border-white/[0.08] hover:border-white/20 transition-all rounded-2xl overflow-hidden backdrop-blur-sm flex flex-col justify-between group"
+                className="bg-white/[0.03] border-white/[0.08] hover:border-white/20 transition-all rounded-2xl overflow-hidden backdrop-blur-sm flex flex-col justify-between group shadow-lg shadow-black/20"
               >
                 <div>
                   {/* Topo do Card: Nome e Ações */}
@@ -1131,7 +768,7 @@ export default function Cofre2FA() {
               {editingAccount ? 'Editar Canal & 2FA' : 'Adicionar Novo Canal ao Cofre'}
             </DialogTitle>
             <DialogDescription className="text-xs text-white/60">
-              Os dados são criptografados com sua Senha Mestra antes de serem salvos.
+              Salvo diretamente no banco de dados Supabase sincronizado com o sistema.
             </DialogDescription>
           </DialogHeader>
 
@@ -1139,7 +776,7 @@ export default function Cofre2FA() {
             {/* Atalho: Selecionar de Meus Canais */}
             {!editingAccount && (
               <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
-                <Label className="text-[11px] text-white/60">Importar dados de um canal já monitorado:</Label>
+                <Label className="text-[11px] text-white/60">Importar dados de um canal cadastrado:</Label>
                 <select
                   onChange={(e) => {
                     const sel = e.target.value;
@@ -1324,126 +961,6 @@ export default function Cofre2FA() {
         </DialogContent>
       </Dialog>
 
-      {/* ─── MODAL: GOOGLE DRIVE SYNC ─── */}
-      <Dialog open={isDriveModalOpen} onOpenChange={setIsDriveModalOpen}>
-        <DialogContent className="bg-[hsl(240,10%,5%)] border-white/10 text-white max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold text-white flex items-center gap-2">
-              <Cloud className="w-5 h-5 text-amber-400" />
-              Sincronização com Google Drive
-            </DialogTitle>
-            <DialogDescription className="text-xs text-white/60">
-              O arquivo <code>avantistube_vault.enc</code> é salvo criptografado direto no seu Drive.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-white/80">Token de Acesso do Google (OAuth 2.0)</Label>
-              <Input
-                type="password"
-                placeholder="Cole o Access Token ou chave do Google OAuth"
-                value={googleAccessToken}
-                onChange={(e) => setGoogleAccessToken(e.target.value)}
-                className="bg-white/5 border-white/10 text-white text-xs h-9 focus:border-amber-400/50"
-              />
-              <p className="text-[10px] text-white/40 leading-normal">
-                Dica: O arquivo salvo no Drive só pode ser aberto com a sua Senha Mestra (criptografia Zero-Knowledge).
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <Button
-                onClick={handleSaveToDrive}
-                disabled={isSyncingDrive || !googleAccessToken}
-                className="bg-amber-600 hover:bg-amber-500 text-white text-xs h-9 flex items-center justify-center gap-1.5"
-              >
-                {isSyncingDrive ? (
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <CloudUpload className="w-3.5 h-3.5" />
-                )}
-                Fazer Backup no Drive
-              </Button>
-
-              <Button
-                onClick={handleLoadFromDrive}
-                disabled={isSyncingDrive || !googleAccessToken}
-                variant="outline"
-                className="border-white/10 bg-white/5 text-white hover:bg-white/10 text-xs h-9 flex items-center justify-center gap-1.5"
-              >
-                {isSyncingDrive ? (
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <CloudDownload className="w-3.5 h-3.5" />
-                )}
-                Restaurar do Drive
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ─── MODAL: TROCAR SENHA MESTRA ─── */}
-      <Dialog open={isChangePassModalOpen} onOpenChange={setIsChangePassModalOpen}>
-        <DialogContent className="bg-[hsl(240,10%,5%)] border-white/10 text-white max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold text-white flex items-center gap-2">
-              <Key className="w-4 h-4 text-red-400" />
-              Trocar Senha Mestra
-            </DialogTitle>
-            <DialogDescription className="text-xs text-white/60">
-              Todos os canais e senhas serão recriptografados com a nova senha.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleChangeMasterPassword} className="space-y-3.5 py-2">
-            <div className="space-y-1">
-              <Label className="text-xs text-white/80">Nova Senha Mestra (mínimo 6 dígitos)</Label>
-              <Input
-                type="password"
-                required
-                placeholder="••••••••••••"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="bg-white/5 border-white/10 text-white text-xs h-9 focus:border-red-500/50"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs text-white/80">Confirme a Nova Senha</Label>
-              <Input
-                type="password"
-                required
-                placeholder="••••••••••••"
-                value={confirmNewPassword}
-                onChange={(e) => setConfirmNewPassword(e.target.value)}
-                className="bg-white/5 border-white/10 text-white text-xs h-9 focus:border-red-500/50"
-              />
-            </div>
-
-            <DialogFooter className="pt-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsChangePassModalOpen(false)}
-                className="text-xs text-white/60"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                size="sm"
-                className="bg-red-600 hover:bg-red-500 text-white text-xs font-semibold"
-              >
-                Atualizar Senha Mestra
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
       {/* ─── ALERT: CONFIRMAR EXCLUSÃO DE CONTA ─── */}
       <AlertDialog
         open={!!deletingAccountId}
@@ -1455,7 +972,7 @@ export default function Cofre2FA() {
               Remover este canal do cofre?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-white/60">
-              Esta ação removerá a conta, a chave 2FA e os códigos de backup do seu cofre criptografado.
+              Esta ação removerá a conta, a chave 2FA e os códigos de backup do banco de dados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
