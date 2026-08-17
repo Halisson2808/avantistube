@@ -332,6 +332,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const { data, error } = await db
       .from("social_links")
       .select("*")
+      .neq("label", "__VAULT_PAYLOAD__")
       .order("favorite", { ascending: false })
       .order("added_at", { ascending: false });
     if (error) throw new Error(error.message);
@@ -566,6 +567,8 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
   // ── Cofre 2FA (Guarda dados no Supabase) ───────────────────────────────────
   if (path === "/vault" && method === "GET") {
     const db = getSupabase();
+    
+    // 1. Tenta na tabela auth_vault
     try {
       const { data, error } = await db
         .from("auth_vault")
@@ -574,13 +577,43 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
         .limit(1)
         .maybeSingle();
 
-      if (error && error.code !== "PGRST116") {
-        return { status: 200, json: { vault: null } };
+      if (!error && data && data.ciphertext) {
+        return { status: 200, json: { vault: data } };
       }
-      return { status: 200, json: { vault: data || null } };
-    } catch {
-      return { status: 200, json: { vault: null } };
-    }
+    } catch {}
+
+    // 2. Fallback direto no Supabase (social_links com label __VAULT_PAYLOAD__)
+    try {
+      const { data, error } = await db
+        .from("social_links")
+        .select("url, added_at")
+        .eq("label", "__VAULT_PAYLOAD__")
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data && data.url) {
+        try {
+          const parsed = JSON.parse(data.url);
+          if (parsed.ciphertext && parsed.salt && parsed.iv) {
+            return {
+              status: 200,
+              json: {
+                vault: {
+                  id: "default",
+                  ciphertext: parsed.ciphertext,
+                  salt: parsed.salt,
+                  iv: parsed.iv,
+                  version: parsed.version || 1,
+                  updated_at: data.added_at,
+                },
+              },
+            };
+          }
+        } catch {}
+      }
+    } catch {}
+
+    return { status: 200, json: { vault: null } };
   }
 
   if (path === "/vault" && method === "POST") {
@@ -590,6 +623,9 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
       return { status: 400, json: { error: "Payload inválido" } };
     }
 
+    const payloadObj = { ciphertext, salt, iv, version, updatedAt: new Date().toISOString() };
+
+    // 1. Tenta salvar na tabela auth_vault
     try {
       const { data, error } = await db.from("auth_vault").upsert(
         {
@@ -603,8 +639,35 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
         { onConflict: "id" }
       ).select().single();
 
-      if (error) throw new Error(error.message);
-      return { status: 200, json: { ok: true, vault: data } };
+      if (!error) {
+        return { status: 200, json: { ok: true, vault: data } };
+      }
+    } catch {}
+
+    // 2. Fallback resiliente no Supabase (social_links)
+    try {
+      const { data: existing } = await db
+        .from("social_links")
+        .select("id")
+        .eq("label", "__VAULT_PAYLOAD__")
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        await db
+          .from("social_links")
+          .update({ url: JSON.stringify(payloadObj), added_at: new Date().toISOString() })
+          .eq("id", existing[0].id);
+      } else {
+        await db
+          .from("social_links")
+          .insert({
+            label: "__VAULT_PAYLOAD__",
+            url: JSON.stringify(payloadObj),
+            platform: "other",
+          });
+      }
+
+      return { status: 200, json: { ok: true, vault: payloadObj } };
     } catch (err) {
       return { status: 500, json: { error: err.message } };
     }
