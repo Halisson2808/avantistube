@@ -19,7 +19,6 @@ import Exportar from "./pages/Exportar";
 import PerfisSociais from "./pages/PerfisSociais";
 import BaixarThumbYoutube from "./pages/dark/BaixarThumbYoutube";
 import CompactarThumb from "./pages/dark/CompactarThumb";
-import Cofre2FA from "./pages/Cofre2FA";
 
 // Avantis Studio Layout e Dashboard
 import { StudioLayout } from "@/components/StudioLayout";
@@ -58,7 +57,6 @@ function ProtectedApp() {
       <Route path="/thumbnails" element={wrap(<StudioThumbnails />)} />
       <Route path="/baixar-thumb" element={wrap(<BaixarThumbYoutube />)} />
       <Route path="/compactar-thumb" element={wrap(<CompactarThumb />)} />
-      <Route path="/cofre" element={wrap(<Cofre2FA />)} />
 
       {/* Redirecionamentos de Rotas Legadas para as Novas Rotas Diretas */}
       <Route path="/studio/tube/buscar" element={<Navigate to="/buscar" replace />} />

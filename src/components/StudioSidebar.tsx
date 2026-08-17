@@ -15,7 +15,6 @@ const navItems = [
     { title: "Buscar Vídeos", url: "/buscar", icon: Search },
     { title: "Monitoramento", url: "/monitoramento", icon: TrendingUp },
     { title: "Meus Canais", url: "/meus-canais", icon: Video },
-    { title: "Cofre 2FA", url: "/cofre", icon: ShieldCheck },
     { title: "Exportar Dados", url: "/exportar", icon: Download },
     { title: "Perfis Salvos", url: "/perfis", icon: Link2 },
     { title: "Thumbnails", url: "/thumbnails", icon: Download },
