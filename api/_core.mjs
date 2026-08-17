@@ -563,5 +563,52 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     return { status: 200, json: { ok: true } };
   }
 
+  // ── Cofre 2FA (Guarda dados no Supabase) ───────────────────────────────────
+  if (path === "/vault" && method === "GET") {
+    const db = getSupabase();
+    try {
+      const { data, error } = await db
+        .from("auth_vault")
+        .select("id, ciphertext, salt, iv, version, updated_at")
+        .eq("id", "default")
+        .limit(1)
+        .maybeSingle();
+
+      if (error && error.code !== "PGRST116") {
+        return { status: 200, json: { vault: null } };
+      }
+      return { status: 200, json: { vault: data || null } };
+    } catch {
+      return { status: 200, json: { vault: null } };
+    }
+  }
+
+  if (path === "/vault" && method === "POST") {
+    const db = getSupabase();
+    const { ciphertext, salt, iv, version = 1 } = body;
+    if (!ciphertext || !salt || !iv) {
+      return { status: 400, json: { error: "Payload inválido" } };
+    }
+
+    try {
+      const { data, error } = await db.from("auth_vault").upsert(
+        {
+          id: "default",
+          ciphertext,
+          salt,
+          iv,
+          version,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      ).select().single();
+
+      if (error) throw new Error(error.message);
+      return { status: 200, json: { ok: true, vault: data } };
+    } catch (err) {
+      return { status: 500, json: { error: err.message } };
+    }
+  }
+
   return { status: 404, json: { error: "Not found" } };
 }

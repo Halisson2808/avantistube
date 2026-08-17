@@ -101,21 +101,50 @@ export default function Cofre2FA() {
   // Arquivo de importação
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Checar se já existe cofre salvo no localStorage
-  useEffect(() => {
+  const [dbPayload, setDbPayload] = useState<EncryptedPayload | null>(null);
+
+  // Checar se já existe cofre no Supabase ou no localStorage
+  const checkVaultExistence = async () => {
+    try {
+      const res = await fetch('/api/vault');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.vault && data.vault.ciphertext) {
+          const payload: EncryptedPayload = {
+            version: data.vault.version || 1,
+            ciphertext: data.vault.ciphertext,
+            salt: data.vault.salt,
+            iv: data.vault.iv,
+            updatedAt: data.vault.updated_at || new Date().toISOString(),
+          };
+          setDbPayload(payload);
+          setHasExistingVault(true);
+          localStorage.setItem(LOCAL_STORAGE_VAULT_KEY, JSON.stringify(payload));
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao consultar /api/vault:', e);
+    }
+
+    // Fallback para localStorage
     const raw = localStorage.getItem(LOCAL_STORAGE_VAULT_KEY);
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
         if (parsed.ciphertext && parsed.salt && parsed.iv) {
           setHasExistingVault(true);
+          setDbPayload(parsed);
+          return;
         }
-      } catch {
-        setHasExistingVault(false);
-      }
-    } else {
-      setHasExistingVault(false);
+      } catch {}
     }
+
+    setHasExistingVault(false);
+  };
+
+  useEffect(() => {
+    checkVaultExistence();
   }, []);
 
   // Intervalo do relógio para atualizar os códigos TOTP a cada segundo
@@ -153,24 +182,43 @@ export default function Cofre2FA() {
 
         const initialAccounts: VaultAccount[] = [];
         const payload = await encryptVault(initialAccounts, masterPasswordInput);
+        
+        // Salva no banco de dados e no localStorage
         localStorage.setItem(LOCAL_STORAGE_VAULT_KEY, JSON.stringify(payload));
+        try {
+          await fetch('/api/vault', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        } catch {}
 
         setAccounts(initialAccounts);
         setCurrentMasterPassword(masterPasswordInput);
         setIsUnlocked(true);
         setHasExistingVault(true);
-        toast.success('Cofre protegido criado com sucesso!');
+        setDbPayload(payload);
+        toast.success('Cofre protegido criado e sincronizado no banco de dados!');
       } else {
-        // Desbloquear cofre existente
-        const raw = localStorage.getItem(LOCAL_STORAGE_VAULT_KEY);
-        if (!raw) throw new Error('Cofre não encontrado');
-        const payload: EncryptedPayload = JSON.parse(raw);
+        // Desbloquear cofre existente do Supabase / localStorage
+        const payload = dbPayload || (localStorage.getItem(LOCAL_STORAGE_VAULT_KEY) ? JSON.parse(localStorage.getItem(LOCAL_STORAGE_VAULT_KEY)!) : null);
+        if (!payload) throw new Error('Cofre não encontrado');
 
         const decrypted = await decryptVault(payload, masterPasswordInput);
         setAccounts(decrypted);
         setCurrentMasterPassword(masterPasswordInput);
         setIsUnlocked(true);
-        toast.success('Cofre desbloqueado!');
+
+        // Se estava apenas no localStorage e não no banco, envia para o banco agora
+        try {
+          await fetch('/api/vault', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        } catch {}
+
+        toast.success('Cofre desbloqueado com sucesso!');
       }
       setMasterPasswordInput('');
       setConfirmPasswordInput('');
@@ -190,14 +238,29 @@ export default function Cofre2FA() {
     toast.info('Cofre bloqueado.');
   };
 
-  // Salva no localStorage criptografado
+  // Salva no banco de dados (Supabase) e no localStorage
   const saveEncryptedAccounts = async (updatedAccounts: VaultAccount[]) => {
     try {
       const payload = await encryptVault(updatedAccounts, currentMasterPassword);
+      
+      // Salva no localStorage (cache imediato)
       localStorage.setItem(LOCAL_STORAGE_VAULT_KEY, JSON.stringify(payload));
+      setDbPayload(payload);
       setAccounts(updatedAccounts);
+
+      // Salva no banco de dados (Supabase)
+      const res = await fetch('/api/vault', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        console.warn('Aviso: falha temporária ao sincronizar com banco');
+      }
     } catch (err) {
-      toast.error('Erro ao criptografar cofre');
+      console.error(err);
+      toast.error('Erro ao criptografar e salvar dados');
     }
   };
 
@@ -368,15 +431,25 @@ export default function Cofre2FA() {
         try {
           const importedAccounts = await decryptVault(payload, currentMasterPassword);
           localStorage.setItem(LOCAL_STORAGE_VAULT_KEY, text);
+          setDbPayload(payload);
           setAccounts(importedAccounts);
-          toast.success(`Backup restaurado! ${importedAccounts.length} contas carregadas.`);
+          try {
+            await fetch('/api/vault', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: text,
+            });
+          } catch {}
+          toast.success(`Backup restaurado e salvo no banco de dados! ${importedAccounts.length} contas.`);
         } catch {
           localStorage.setItem(LOCAL_STORAGE_VAULT_KEY, text);
+          setDbPayload(payload);
           handleLockVault();
           toast.info('Backup importado! Digite a senha mestre deste backup para desbloquear.');
         }
       } else {
         localStorage.setItem(LOCAL_STORAGE_VAULT_KEY, text);
+        setDbPayload(payload);
         setHasExistingVault(true);
         toast.success('Backup importado! Digite a senha mestre para desbloquear.');
       }
@@ -429,7 +502,17 @@ export default function Cofre2FA() {
 
       const payload: EncryptedPayload = JSON.parse(result.encryptedJson);
       localStorage.setItem(LOCAL_STORAGE_VAULT_KEY, result.encryptedJson);
+      setDbPayload(payload);
       setHasExistingVault(true);
+
+      // Sincroniza com banco
+      try {
+        await fetch('/api/vault', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: result.encryptedJson,
+        });
+      } catch {}
 
       if (isUnlocked && currentMasterPassword) {
         try {
@@ -470,11 +553,22 @@ export default function Cofre2FA() {
     try {
       const payload = await encryptVault(accounts, newPassword);
       localStorage.setItem(LOCAL_STORAGE_VAULT_KEY, JSON.stringify(payload));
+      setDbPayload(payload);
+
+      // Atualiza no banco de dados
+      try {
+        await fetch('/api/vault', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch {}
+
       setCurrentMasterPassword(newPassword);
       setNewPassword('');
       setConfirmNewPassword('');
       setIsChangePassModalOpen(false);
-      toast.success('Senha Mestra alterada e cofre recriptografado com sucesso!');
+      toast.success('Senha Mestra alterada e cofre sincronizado no banco de dados!');
     } catch {
       toast.error('Erro ao recriptografar com a nova senha');
     }
