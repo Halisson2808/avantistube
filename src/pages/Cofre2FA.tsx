@@ -1136,6 +1136,44 @@ export default function Cofre2FA() {
           </DialogHeader>
 
           <form onSubmit={handleSaveAccount} className="space-y-3.5 py-2">
+            {/* Atalho: Selecionar de Meus Canais */}
+            {!editingAccount && (
+              <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
+                <Label className="text-[11px] text-white/60">Importar dados de um canal já monitorado:</Label>
+                <select
+                  onChange={(e) => {
+                    const sel = e.target.value;
+                    if (!sel) return;
+                    try {
+                      const [name, id] = sel.split('|||');
+                      setFormChannelName(name);
+                      setFormChannelUrl(`https://youtube.com/channel/${id}`);
+                    } catch {}
+                  }}
+                  defaultValue=""
+                  className="w-full bg-white/5 border border-white/10 text-white text-xs rounded-lg px-2.5 py-1.5 focus:border-red-500/50 outline-none"
+                >
+                  <option value="" className="bg-[hsl(240,10%,5%)] text-white/50">
+                    -- Escolha um canal cadastrado no sistema para preencher --
+                  </option>
+                  {[
+                    { name: 'Halisson', id: 'UC63dhjjyajWtDZuYRIwoQTw' },
+                    { name: 'Coração do Interior', id: 'UCJdm5Op5_2INDXJiKRRPn9A' },
+                    { name: 'Absolute Past', id: 'UCW6lFQIDHcJ7GfcjFnPLBWg' },
+                    { name: 'La Tierra Sabe', id: 'UCRCZ6SFNDIm-VeJi1FpsAcA' },
+                    { name: 'Tempo Rural', id: 'UClPY82v8malsDIu1ar8Sp2w' },
+                    { name: 'Ecologizando', id: 'UCfG9YSf52iftCLiddsYDnxw' },
+                    { name: 'Hermetic Laboratory', id: 'UCSIXjeSwSC6mkhNuZsQKhww' },
+                    { name: 'Paradoja Animal', id: 'UCM1X9AiPdrBUw-OwqqfyMGA' },
+                  ].map((ch) => (
+                    <option key={ch.id} value={`${ch.name}|||${ch.id}`} className="bg-[hsl(240,10%,5%)] text-white">
+                      {ch.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs text-white/80">Nome do Canal *</Label>
