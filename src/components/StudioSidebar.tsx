@@ -1,9 +1,10 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
     Home,
     X, Download,
     Search, TrendingUp, ChevronDown, ChevronRight,
-    ExternalLink, LogOut, Link2, Video, ShieldCheck,
+    ExternalLink, LogOut, Link2, Video, Image,
+    BarChart3, Globe, Filter, Activity, Youtube, FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -11,13 +12,24 @@ import { useMonitoredChannels } from "@/hooks/use-monitored-channels";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 
-const navItems = [
-    { title: "Buscar Vídeos", url: "/buscar", icon: Search },
-    { title: "Monitoramento", url: "/monitoramento", icon: TrendingUp },
-    { title: "Meus Canais", url: "/meus-canais", icon: Video },
-    { title: "Exportar Dados", url: "/exportar", icon: Download },
-    { title: "Perfis Salvos", url: "/perfis", icon: Link2 },
-    { title: "Thumbnails", url: "/thumbnails", icon: Download },
+/** Módulo YouTube — tudo que trata de canais e vídeos. */
+const youtubeItems = [
+    { title: "Painel do YouTube", url: "/youtube", icon: Youtube, end: true },
+    { title: "Buscar Vídeos", url: "/youtube/buscar", icon: Search },
+    { title: "Monitoramento", url: "/youtube/monitoramento", icon: TrendingUp },
+    { title: "Meus Canais", url: "/youtube/meus-canais", icon: Video },
+    { title: "Exportar Dados", url: "/youtube/exportar", icon: Download },
+    { title: "Perfis Salvos", url: "/youtube/perfis", icon: Link2 },
+    { title: "Thumbnails", url: "/youtube/thumbnails", icon: Image },
+];
+
+/** Módulo Sites & Tráfego — cliques, funil e anúncios. */
+const analyticsItems = [
+    { title: "Visão Geral", url: "/analytics", icon: BarChart3, end: true },
+    { title: "Funil", url: "/analytics/funil", icon: Filter },
+    { title: "Eventos ao Vivo", url: "/analytics/eventos", icon: Activity },
+    { title: "Meus Sites", url: "/analytics/sites", icon: Globe },
+    { title: "Gerador de UTM", url: "/analytics/utm", icon: Link2 },
 ];
 
 interface StudioSidebarProps {
@@ -55,13 +67,18 @@ function SectionLabel({
 }
 
 export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
+    const { pathname } = useLocation();
+    const [youtubeOpen, setYoutubeOpen] = useState(!pathname.startsWith("/analytics"));
+    const [analyticsOpen, setAnalyticsOpen] = useState(pathname.startsWith("/analytics"));
     const [channelsOpen, setChannelsOpen] = useState(true);
     const { channels } = useMonitoredChannels();
     const { signOut } = useAuth();
 
-    const linkClass = ({ isActive }: { isActive: boolean }) =>
+    const linkClass = (accent: "red" | "emerald") => ({ isActive }: { isActive: boolean }) =>
         `flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-all duration-200 group text-xs ${isActive
-            ? "bg-red-500/15 text-white font-medium ring-1 ring-red-500/25"
+            ? accent === "red"
+                ? "bg-red-500/15 text-white font-medium ring-1 ring-red-500/25"
+                : "bg-emerald-500/15 text-white font-medium ring-1 ring-emerald-500/25"
             : "text-white hover:bg-white/6"
         }`;
 
@@ -108,30 +125,68 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
                 <div className="space-y-3">
 
                     {/* Home */}
-                    <NavLink
-                        to="/"
-                        end
-                        onClick={onClose}
-                        className={linkClass}
-                    >
+                    <NavLink to="/" end onClick={onClose} className={linkClass("red")}>
                         <Home className="h-3.5 w-3.5 flex-shrink-0" />
                         <span>Início</span>
                     </NavLink>
 
-                    {/* Ferramentas — rotas diretas */}
-                    <nav className="space-y-0.5">
-                        {navItems.map((item) => (
-                            <NavLink
-                                key={item.url}
-                                to={item.url}
-                                onClick={onClose}
-                                className={linkClass}
-                            >
-                                <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
-                                <span>{item.title}</span>
-                            </NavLink>
-                        ))}
-                    </nav>
+                    {/* Módulo YouTube */}
+                    <div>
+                        <SectionLabel
+                            label="YouTube"
+                            dot="bg-red-400"
+                            expanded={youtubeOpen}
+                            onToggle={() => setYoutubeOpen(v => !v)}
+                        />
+                        {youtubeOpen && (
+                            <nav className="space-y-0.5">
+                                {youtubeItems.map((item) => (
+                                    <NavLink
+                                        key={item.url}
+                                        to={item.url}
+                                        end={item.end}
+                                        onClick={onClose}
+                                        className={linkClass("red")}
+                                    >
+                                        <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                                        <span>{item.title}</span>
+                                    </NavLink>
+                                ))}
+                            </nav>
+                        )}
+                    </div>
+
+                    {/* Gerador de PDF — layout próprio, tema claro */}
+                    <NavLink to="/pdf" onClick={onClose} className={linkClass("red")}>
+                        <FileText className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span>Gerador de PDF</span>
+                    </NavLink>
+
+                    {/* Módulo Sites & Tráfego */}
+                    <div>
+                        <SectionLabel
+                            label="Sites & Tráfego"
+                            dot="bg-emerald-400"
+                            expanded={analyticsOpen}
+                            onToggle={() => setAnalyticsOpen(v => !v)}
+                        />
+                        {analyticsOpen && (
+                            <nav className="space-y-0.5">
+                                {analyticsItems.map((item) => (
+                                    <NavLink
+                                        key={item.url}
+                                        to={item.url}
+                                        end={item.end}
+                                        onClick={onClose}
+                                        className={linkClass("emerald")}
+                                    >
+                                        <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                                        <span>{item.title}</span>
+                                    </NavLink>
+                                ))}
+                            </nav>
+                        )}
+                    </div>
 
                     {/* CANAIS (Mais novos adicionados primeiro) */}
                     {channels.length > 0 && (

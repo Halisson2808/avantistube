@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import "./styles/pdf-scope.css";
 
 // ─── Desregistrar todos os Service Workers (Supabase Realtime registrava sw.js automaticamente)
 if ("serviceWorker" in navigator) {

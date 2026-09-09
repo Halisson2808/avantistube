@@ -14,11 +14,11 @@ function fmt(n: number): string {
 }
 
 const quickTools = [
-    { title: "Buscar Vídeos", url: "/buscar", icon: Search },
-    { title: "Monitoramento", url: "/monitoramento", icon: TrendingUp },
-    { title: "Meus Canais", url: "/meus-canais", icon: Video },
-    { title: "Exportar Dados", url: "/exportar", icon: Download },
-    { title: "Thumbnails", url: "/thumbnails", icon: Image },
+    { title: "Buscar Vídeos", url: "/youtube/buscar", icon: Search },
+    { title: "Monitoramento", url: "/youtube/monitoramento", icon: TrendingUp },
+    { title: "Meus Canais", url: "/youtube/meus-canais", icon: Video },
+    { title: "Exportar Dados", url: "/youtube/exportar", icon: Download },
+    { title: "Thumbnails", url: "/youtube/thumbnails", icon: Image },
 ];
 
 export default function StudioDashboard() {
@@ -47,7 +47,7 @@ export default function StudioDashboard() {
                     <h1 className="text-2xl font-bold text-white tracking-tight">
                         Avantis <span className="bg-gradient-to-r from-red-400 to-red-300 bg-clip-text text-transparent">Studio</span>
                     </h1>
-                    <p className="text-white/40 text-xs mt-0.5">Plataforma unificada de canais</p>
+                    <p className="text-white/40 text-xs mt-0.5">Canais, vídeos e thumbnails do YouTube</p>
                 </div>
             </div>
 
@@ -76,7 +76,7 @@ export default function StudioDashboard() {
 
             {/* Adicionados recentemente */}
             {recent.length > 0 && (
-                <Section title="Adicionados Recentemente" icon={TrendingUp} onMore={() => navigate("/monitoramento")}>
+                <Section title="Adicionados Recentemente" icon={TrendingUp} onMore={() => navigate("/youtube/monitoramento")}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                         {recent.map(c => <ChannelCard key={c.channelId} channel={c} />)}
                     </div>
@@ -85,7 +85,7 @@ export default function StudioDashboard() {
 
             {/* Top canais */}
             {topBySubs.length > 0 && (
-                <Section title="Top Canais por Inscritos" icon={Users} onMore={() => navigate("/monitoramento")}>
+                <Section title="Top Canais por Inscritos" icon={Users} onMore={() => navigate("/youtube/monitoramento")}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                         {topBySubs.map((c, i) => <ChannelCard key={c.channelId} channel={c} rank={i + 1} />)}
                     </div>

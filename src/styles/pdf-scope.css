@@ -1,0 +1,120 @@
+/**
+ * pdf-scope.css — tema do módulo Gerador de PDF (/pdf).
+ *
+ * O painel do Studio é escuro; os ebooks são claros e usam outra paleta e outras
+ * fontes. Em vez de trocar o tema global, as variáveis do sistema editorial ficam
+ * presas dentro de `.pdf-scope`, aplicada só no layout do /pdf.
+ */
+
+.pdf-scope {
+  /* Tom coral–rosado (produto feminino): laranja suave + rosa queimado */
+  --background: 25 42% 98%;
+  --foreground: 340 22% 16%;
+  --card: 0 0% 100%;
+  --card-foreground: 340 22% 16%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 340 22% 16%;
+  --primary: 14 82% 56%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 345 38% 95%;
+  --secondary-foreground: 340 28% 22%;
+  --muted: 22 32% 94%;
+  --muted-foreground: 340 14% 40%;
+  --accent: 350 45% 93%;
+  --accent-foreground: 340 28% 22%;
+  --destructive: 0 72% 52%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 25 28% 88%;
+  --input: 25 28% 88%;
+  --ring: 14 82% 56%;
+  --ebook-paper: 28 45% 99%;
+  --radius: 0.5rem;
+  --sidebar-background: 0 0% 98%;
+  --sidebar-foreground: 240 5.3% 26.1%;
+  --sidebar-primary: 240 5.9% 10%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 240 4.8% 95.9%;
+  --sidebar-accent-foreground: 240 5.9% 10%;
+  --sidebar-border: 220 13% 91%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
+
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* No projeto original a fonte base era DM Sans; aqui `font-sans` é a do painel,
+   então dentro do escopo do PDF a utilidade é reapontada. */
+.pdf-scope .font-sans {
+  font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Texto corrido das páginas de ebook */
+.pdf-scope .prose-ebook p {
+  margin-bottom: 1rem;
+}
+.pdf-scope .prose-ebook p:last-child,
+.pdf-scope .prose-ebook ul:last-child,
+.pdf-scope .prose-ebook ol:last-child {
+  margin-bottom: 0;
+}
+.pdf-scope .prose-ebook ul {
+  margin-bottom: 1rem;
+  list-style-type: disc;
+  padding-left: 1.25rem;
+}
+.pdf-scope .prose-ebook ol {
+  margin-bottom: 1rem;
+  list-style-type: decimal;
+  padding-left: 1.25rem;
+}
+.pdf-scope .prose-ebook ul > * + *,
+.pdf-scope .prose-ebook ol > * + * {
+  margin-top: 0.5rem;
+}
+.pdf-scope .prose-ebook strong {
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+/* Compacta as páginas na hora de gerar o PDF */
+.hide-shadows-for-pdf {
+  gap: 0 !important;
+}
+.hide-shadows-for-pdf > div {
+  box-shadow: none !important;
+  margin-bottom: 0 !important;
+  border-radius: 0 !important;
+}
+
+@media print {
+  @page {
+    margin: 0;
+    size: A4;
+  }
+
+  body {
+    background-color: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .page-break-before {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  .page-break-after {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .avoid-page-break {
+    page-break-inside: avoid;
+    break-inside: avoid-page;
+  }
+}

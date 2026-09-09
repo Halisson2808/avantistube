@@ -64,7 +64,7 @@ async function verifyUser(token) {
 }
 
 // Rotas liberadas sem login (status + proxies de imagem/título usados em <img>).
-const PUBLIC_PATHS = ["/status", "/proxy/thumbnail", "/proxy/oembed"];
+const PUBLIC_PATHS = ["/status", "/proxy/thumbnail", "/proxy/oembed", "/track"];
 
 // ─── YouTube helpers ───────────────────────────────────────────────────────────
 async function ytFetch(path) {
@@ -199,6 +199,173 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 /** channel_ids do YouTube são "UCxxxx" (nunca uuid) → distingue a coluna-alvo. */
 function idColumn(id) {
   return UUID_RE.test(id) ? "id" : "channel_id";
+}
+
+// ─── Analytics de sites (pixel, funil, UTM) ───────────────────────────────────
+
+/** GIF transparente 1x1 devolvido no beacon GET /track. */
+const PIXEL_GIF = Buffer.from(
+  "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+  "base64"
+);
+
+function str(v, max) {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  return s ? s.slice(0, max) : null;
+}
+
+function slugify(s) {
+  return String(s)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 30) || "site";
+}
+
+function randomToken(n) {
+  const abc = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let out = "";
+  for (let i = 0; i < n; i++) out += abc[Math.floor(Math.random() * abc.length)];
+  return out;
+}
+
+function cleanDomain(v) {
+  const s = str(v, 200);
+  if (!s) return null;
+  return s.replace(/^https?:\/\//i, "").replace(/\/.*$/, "").toLowerCase();
+}
+
+function safeHost(url) {
+  if (!url) return null;
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return null; }
+}
+
+function safePath(url) {
+  if (!url) return null;
+  try { return new URL(url).pathname || "/"; } catch { return null; }
+}
+
+function deviceFromUA(ua = "") {
+  if (/iPad|Tablet/i.test(ua)) return "tablet";
+  if (/Mobi|Android|iPhone/i.test(ua)) return "mobile";
+  return ua ? "desktop" : null;
+}
+
+function browserFromUA(ua = "") {
+  if (/Edg\//i.test(ua)) return "Edge";
+  if (/OPR\/|Opera/i.test(ua)) return "Opera";
+  if (/Chrome\//i.test(ua)) return "Chrome";
+  if (/Safari\//i.test(ua)) return "Safari";
+  if (/Firefox\//i.test(ua)) return "Firefox";
+  return ua ? "Outro" : null;
+}
+
+function osFromUA(ua = "") {
+  if (/Windows/i.test(ua)) return "Windows";
+  if (/Android/i.test(ua)) return "Android";
+  if (/iPhone|iPad|iOS/i.test(ua)) return "iOS";
+  if (/Mac OS X/i.test(ua)) return "macOS";
+  if (/Linux/i.test(ua)) return "Linux";
+  return ua ? "Outro" : null;
+}
+
+function clampDays(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 7;
+  return Math.min(Math.max(Math.round(n), 1), 90);
+}
+
+/** Lê os eventos do período (limite alto o bastante para uso pessoal). */
+async function fetchEvents({ siteKey, days }) {
+  const db = getSupabase();
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  let q = db
+    .from("tracking_events")
+    .select("*")
+    .gte("created_at", since)
+    .order("created_at", { ascending: true })
+    .limit(20000);
+  if (siteKey) q = q.eq("site_key", siteKey);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+function topBy(rows, keyFn, limit = 8) {
+  const map = new Map();
+  for (const r of rows) {
+    const key = keyFn(r) || "(direto)";
+    const cur = map.get(key) || { name: key, events: 0, sessions: new Set(), value: 0 };
+    cur.events += 1;
+    if (r.session_id) cur.sessions.add(r.session_id);
+    cur.value += Number(r.value) || 0;
+    map.set(key, cur);
+  }
+  return [...map.values()]
+    .map((v) => ({ name: v.name, events: v.events, sessions: v.sessions.size, value: v.value }))
+    .sort((a, b) => b.events - a.events)
+    .slice(0, limit);
+}
+
+/** Monta os números do painel a partir dos eventos brutos. */
+function buildOverview(rows, days) {
+  const pageviews = rows.filter((r) => r.event_type === "pageview");
+  const clicks = rows.filter((r) => r.event_type === "click");
+  const leads = rows.filter((r) => r.event_type === "lead");
+  const purchases = rows.filter((r) => r.event_type === "purchase");
+
+  const visitors = new Set(rows.map((r) => r.visitor_id).filter(Boolean)).size;
+  const sessions = new Set(rows.map((r) => r.session_id).filter(Boolean)).size;
+  const revenue = purchases.reduce((s, r) => s + (Number(r.value) || 0), 0);
+
+  // série diária
+  const byDay = new Map();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    byDay.set(d, { date: d, pageviews: 0, clicks: 0, leads: 0, purchases: 0, revenue: 0 });
+  }
+  for (const r of rows) {
+    const d = String(r.created_at).slice(0, 10);
+    const bucket = byDay.get(d);
+    if (!bucket) continue;
+    if (r.event_type === "pageview") bucket.pageviews += 1;
+    else if (r.event_type === "click") bucket.clicks += 1;
+    else if (r.event_type === "lead") bucket.leads += 1;
+    else if (r.event_type === "purchase") {
+      bucket.purchases += 1;
+      bucket.revenue += Number(r.value) || 0;
+    }
+  }
+
+  const paid = rows.filter((r) => r.click_id || r.ad_network || r.utm_medium === "cpc" || r.utm_medium === "paid");
+
+  return {
+    days,
+    totals: {
+      events: rows.length,
+      pageviews: pageviews.length,
+      clicks: clicks.length,
+      leads: leads.length,
+      purchases: purchases.length,
+      visitors,
+      sessions,
+      revenue,
+      paidEvents: paid.length,
+      organicEvents: rows.length - paid.length,
+      clickRate: pageviews.length ? clicks.length / pageviews.length : 0,
+      conversionRate: sessions ? purchases.length / sessions : 0,
+    },
+    timeseries: [...byDay.values()],
+    sources: topBy(rows, (r) => r.utm_source || r.referrer_host),
+    campaigns: topBy(rows.filter((r) => r.utm_campaign), (r) => r.utm_campaign),
+    pages: topBy(pageviews, (r) => r.path),
+    devices: topBy(rows, (r) => r.device),
+    topClicks: topBy(clicks, (r) => r.event_name),
+    sites: topBy(rows, (r) => r.site_key),
+  };
 }
 
 // ─── Handler principal ───────────────────────────────────────────────────────────
@@ -561,6 +728,212 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const channelId = decodeURIComponent(path.split("/")[2]);
     const { error } = await db.from("channel_video_cache").delete().eq("channel_id", channelId);
     if (error) throw new Error(error.message);
+    return { status: 200, json: { ok: true } };
+  }
+
+  // ── Analytics de sites (rastreio de cliques / funil) ─────────────────────────
+  if (path === "/analytics/sites" && method === "GET") {
+    const db = getSupabase();
+    const { data, error } = await db
+      .from("tracking_sites")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return { status: 200, json: data || [] };
+  }
+
+  if (path === "/analytics/sites" && method === "POST") {
+    const db = getSupabase();
+    const name = String(body.name || "").trim();
+    if (!name) return { status: 400, json: { error: "Informe o nome do site." } };
+    const siteKey = String(body.siteKey || "").trim() || slugify(name) + "-" + randomToken(4);
+
+    const { data: dup } = await db
+      .from("tracking_sites").select("id").eq("site_key", siteKey).limit(1);
+    if (dup && dup.length) return { status: 409, json: { error: "Já existe um site com essa chave." } };
+
+    const { data, error } = await db
+      .from("tracking_sites")
+      .insert({
+        site_key: siteKey,
+        name,
+        domain: cleanDomain(body.domain),
+        kind: ["organic", "paid", "both"].includes(body.kind) ? body.kind : "organic",
+        notes: body.notes || null,
+      })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return { status: 201, json: data };
+  }
+
+  if (path.startsWith("/analytics/sites/") && method === "PUT") {
+    const db = getSupabase();
+    const id = decodeURIComponent(path.split("/")[3]);
+    const patch = {};
+    if (body.name !== undefined) patch.name = String(body.name).trim();
+    if (body.domain !== undefined) patch.domain = cleanDomain(body.domain);
+    if (body.kind !== undefined) patch.kind = body.kind;
+    if (body.notes !== undefined) patch.notes = body.notes || null;
+    const { error } = await db.from("tracking_sites").update(patch).eq("id", id);
+    if (error) throw new Error(error.message);
+    return { status: 200, json: { ok: true } };
+  }
+
+  if (path.startsWith("/analytics/sites/") && method === "DELETE") {
+    const db = getSupabase();
+    const id = decodeURIComponent(path.split("/")[3]);
+    const { data: site } = await db.from("tracking_sites").select("site_key").eq("id", id).single();
+    const { error } = await db.from("tracking_sites").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    if (site?.site_key) {
+      await db.from("tracking_events").delete().eq("site_key", site.site_key);
+      await db.from("tracking_funnel_steps").delete().eq("site_key", site.site_key);
+    }
+    return { status: 200, json: { ok: true } };
+  }
+
+  // Visão geral: totais, série temporal, origens, campanhas, páginas, aparelhos.
+  if (path === "/analytics/overview" && method === "GET") {
+    const days = clampDays(searchParams.get("days"));
+    const siteKey = searchParams.get("site") || null;
+    const rows = await fetchEvents({ siteKey, days });
+    return { status: 200, json: buildOverview(rows, days) };
+  }
+
+  // Funil: etapas configuradas (ou padrão) + taxa de conversão entre elas.
+  if (path === "/analytics/funnel" && method === "GET") {
+    const db = getSupabase();
+    const days = clampDays(searchParams.get("days"));
+    const siteKey = searchParams.get("site") || null;
+
+    let steps = [];
+    if (siteKey) {
+      const { data } = await db
+        .from("tracking_funnel_steps")
+        .select("*")
+        .eq("site_key", siteKey)
+        .order("position", { ascending: true });
+      steps = data || [];
+    }
+
+    const rows = await fetchEvents({ siteKey, days });
+
+    if (!steps.length) {
+      // Funil padrão quando o site ainda não configurou etapas.
+      steps = [
+        { label: "Visitas", event_name: "pageview", position: 0 },
+        { label: "Cliques", event_name: "click", position: 1 },
+        { label: "Leads", event_name: "lead", position: 2 },
+        { label: "Vendas", event_name: "purchase", position: 3 },
+      ];
+    }
+
+    const result = steps.map((s) => {
+      const matched = rows.filter(
+        (r) => r.event_name === s.event_name || r.event_type === s.event_name
+      );
+      const sessions = new Set(matched.map((r) => r.session_id || r.id)).size;
+      return {
+        label: s.label,
+        eventName: s.event_name,
+        events: matched.length,
+        sessions,
+        value: matched.reduce((sum, r) => sum + (Number(r.value) || 0), 0),
+      };
+    });
+
+    return { status: 200, json: { days, steps: result } };
+  }
+
+  if (path === "/analytics/funnel-steps" && method === "POST") {
+    const db = getSupabase();
+    const siteKey = String(body.siteKey || "").trim();
+    if (!siteKey) return { status: 400, json: { error: "siteKey obrigatório." } };
+    const steps = Array.isArray(body.steps) ? body.steps : [];
+    await db.from("tracking_funnel_steps").delete().eq("site_key", siteKey);
+    if (steps.length) {
+      const rows = steps.map((s, i) => ({
+        site_key: siteKey,
+        position: i,
+        label: String(s.label || `Etapa ${i + 1}`),
+        event_name: String(s.eventName || s.event_name || "pageview"),
+      }));
+      const { error } = await db.from("tracking_funnel_steps").insert(rows);
+      if (error) throw new Error(error.message);
+    }
+    return { status: 200, json: { ok: true } };
+  }
+
+  // Eventos recentes (lista ao vivo).
+  if (path === "/analytics/events" && method === "GET") {
+    const db = getSupabase();
+    const limit = Math.min(Number(searchParams.get("limit")) || 100, 500);
+    const siteKey = searchParams.get("site") || null;
+    let q = db.from("tracking_events").select("*").order("created_at", { ascending: false }).limit(limit);
+    if (siteKey) q = q.eq("site_key", siteKey);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    return { status: 200, json: data || [] };
+  }
+
+  // ── Ingestão pública do pixel ────────────────────────────────────────────────
+  if (path === "/track" && (method === "POST" || method === "GET")) {
+    const raw = method === "POST" ? body : Object.fromEntries(searchParams.entries());
+    const siteKey = String(raw.siteKey || raw.s || "").trim();
+    if (!siteKey) return { status: 400, json: { error: "siteKey obrigatório." } };
+
+    const eventName = String(raw.eventName || raw.e || "pageview").slice(0, 80);
+    const eventType = ["pageview", "click", "lead", "purchase", "custom"].includes(raw.eventType)
+      ? raw.eventType
+      : ["pageview", "click", "lead", "purchase"].includes(eventName)
+        ? eventName
+        : "custom";
+
+    const pageUrl = str(raw.url, 1000);
+    const referrer = str(raw.referrer, 1000);
+    const ua = str(raw.userAgent, 500);
+
+    const row = {
+      site_key: siteKey,
+      event_type: eventType,
+      event_name: eventName,
+      page_url: pageUrl,
+      path: str(raw.path, 500) || safePath(pageUrl),
+      referrer,
+      referrer_host: safeHost(referrer),
+      utm_source: str(raw.utmSource, 200),
+      utm_medium: str(raw.utmMedium, 200),
+      utm_campaign: str(raw.utmCampaign, 200),
+      utm_content: str(raw.utmContent, 200),
+      utm_term: str(raw.utmTerm, 200),
+      click_id: str(raw.clickId, 300),
+      ad_network: str(raw.adNetwork, 40),
+      visitor_id: str(raw.visitorId, 80),
+      session_id: str(raw.sessionId, 80),
+      value: raw.value !== undefined && raw.value !== "" ? Number(raw.value) || 0 : null,
+      currency: str(raw.currency, 10) || "BRL",
+      device: str(raw.device, 20) || deviceFromUA(ua),
+      browser: str(raw.browser, 40) || browserFromUA(ua),
+      os: str(raw.os, 40) || osFromUA(ua),
+      country: str(raw.country, 5),
+      language: str(raw.language, 20),
+      user_agent: ua,
+      meta: typeof raw.meta === "object" && raw.meta ? raw.meta : {},
+    };
+
+    const { error } = await getSupabase().from("tracking_events").insert(row);
+    if (error) throw new Error(error.message);
+
+    // GET = beacon via <img>: devolve um GIF 1x1 transparente.
+    if (method === "GET") {
+      return {
+        status: 200,
+        buffer: PIXEL_GIF,
+        contentType: "image/gif",
+        cacheControl: "no-store, no-cache, must-revalidate",
+      };
+    }
     return { status: 200, json: { ok: true } };
   }
 
