@@ -3,7 +3,7 @@
  */
 import { useState } from "react";
 import { toast } from "sonner";
-import { Copy, Globe, Plus, Trash2, Code2, ExternalLink } from "lucide-react";
+import { Copy, Globe, Plus, Trash2, Code2, ExternalLink, BookOpen } from "lucide-react";
 
 import { useTrackingSites, type TrackingSite } from "@/hooks/use-analytics";
 import { Panel, EmptyState } from "@/components/analytics/AnalyticsShell";
@@ -40,11 +40,23 @@ export default function AnalyticsSites() {
 
     return (
         <div className="space-y-6 pb-10">
-            <div>
-                <h1 className="text-xl font-bold text-white tracking-tight">Meus Sites</h1>
-                <p className="text-white/40 text-xs mt-0.5">
-                    Cada site recebe uma chave própria — é ela que o pixel usa para separar os dados.
-                </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h1 className="text-xl font-bold text-white tracking-tight">Meus Sites</h1>
+                    <p className="text-white/40 text-xs mt-0.5">
+                        Cada site recebe uma chave própria — é ela que o pixel usa para separar os dados.
+                    </p>
+                </div>
+                {/* Guia para colar na conversa da IA que estiver montando a oferta nova. */}
+                <a
+                    href="/pixel-avantis.md"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white/70 hover:text-white hover:bg-white/[0.08] transition-colors text-xs"
+                >
+                    <BookOpen className="h-3.5 w-3.5" />
+                    Guia do pixel (para a IA)
+                </a>
             </div>
 
             {/* Cadastro */}

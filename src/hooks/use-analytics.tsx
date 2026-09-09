@@ -122,9 +122,21 @@ function rangeParams(range: DateRange): URLSearchParams {
 }
 
 async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch {
+    throw new Error("API fora do ar — rode `npm run dev` (ou `npm run server`).");
+  }
+
   if (!res.ok) {
-    const info = await res.json().catch(() => ({}));
+    const info = await res.json().catch(() => ({} as { error?: string }));
+    // 500 sem JSON de erro costuma ser o proxy do Vite sem o server.mjs atrás.
+    if (!info.error && res.status >= 500) {
+      throw new Error(
+        `A API respondeu ${res.status}. Se estiver rodando local, confira se o servidor da porta 3001 está no ar (npm run dev).`,
+      );
+    }
     throw new Error(info.error || `Erro ${res.status}`);
   }
   return res.json();

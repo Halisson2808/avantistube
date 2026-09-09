@@ -30,6 +30,17 @@ Migration: `supabase/migrations/20260909000000_analytics.sql`
 
 Leitura liberada para usuário logado; escrita só pelo backend (service_role).
 
+## Guia para instalar em site novo
+
+`public/pixel-avantis.md` é o documento para colar na conversa da IA que estiver
+montando uma oferta nova: lista todos os eventos suportados, os atributos HTML,
+a convenção de nomes e o que instrumentar em cada tipo de página. No painel ele
+fica no botão "Guia do pixel (para a IA)" em `/analytics/sites`, e publicado em
+`https://avantisstudio.vercel.app/pixel-avantis.md`.
+
+Fluxo: cria a oferta → cadastra o site no painel e copia a chave → manda o guia +
+a chave para a IA que fez o site → ela instrumenta → confere em `/analytics/eventos`.
+
 ## Instalação do pixel no site
 
 1. Cadastre o site em `/analytics/sites` e copie a chave.
