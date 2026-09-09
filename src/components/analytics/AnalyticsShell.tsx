@@ -62,6 +62,19 @@ export function useAnalyticsFilters() {
   };
 }
 
+/**
+ * Rotas para o filtro. Usa `paths` (lista completa do período) e cai para
+ * `pages` quando ele não vier — assim o filtro nunca fica vazio por causa de
+ * uma resposta antiga da API.
+ */
+export function rotasDoOverview(data?: {
+  paths?: Array<{ path: string; events: number }>;
+  pages?: Array<{ name: string; events: number }>;
+} | null): RouteOption[] {
+  if (data?.paths?.length) return data.paths;
+  return (data?.pages || []).map((p) => ({ path: p.name, events: p.events }));
+}
+
 export function AnalyticsHeader({
   title,
   subtitle,

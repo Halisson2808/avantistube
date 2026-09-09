@@ -16,7 +16,7 @@ import { useAnalyticsOverview, useAnalyticsFunnel } from "@/hooks/use-analytics"
 import { FunnelChart } from "@/components/analytics/FunnelChart";
 import {
     AnalyticsHeader, MetricCard, Panel, RankedList, EmptyState, MilestoneBars,
-    useAnalyticsFilters, fmtNum, fmtMoney, fmtPct, fmtDuration,
+    useAnalyticsFilters, rotasDoOverview, fmtNum, fmtMoney, fmtPct, fmtDuration,
 } from "@/components/analytics/AnalyticsShell";
 
 export default function AnalyticsDashboard() {
@@ -49,7 +49,7 @@ export default function AnalyticsDashboard() {
                 to={to}
                 onFromChange={setFrom}
                 onToChange={setTo}
-                routeOptions={data?.paths}
+                routeOptions={rotasDoOverview(data)}
                 selectedPaths={paths}
                 onPathsChange={setPaths}
                 onRefresh={reload}

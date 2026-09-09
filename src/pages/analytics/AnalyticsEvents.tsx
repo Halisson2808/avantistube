@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Activity } from "lucide-react";
 
 import { useTrackingEvents, useAnalyticsOverview, type TrackingEvent } from "@/hooks/use-analytics";
-import { AnalyticsHeader, EmptyState, useAnalyticsFilters, fmtMoney } from "@/components/analytics/AnalyticsShell";
+import { AnalyticsHeader, EmptyState, useAnalyticsFilters, rotasDoOverview, fmtMoney } from "@/components/analytics/AnalyticsShell";
 
 const TIPO_COR: Record<TrackingEvent["event_type"], string> = {
     pageview: "bg-emerald-500/15 text-emerald-300 border-emerald-500/25",
@@ -42,7 +42,7 @@ export default function AnalyticsEvents() {
                 to={to}
                 onFromChange={setFrom}
                 onToChange={setTo}
-                routeOptions={visaoGeral?.paths}
+                routeOptions={rotasDoOverview(visaoGeral)}
                 selectedPaths={paths}
                 onPathsChange={setPaths}
                 onRefresh={reload}

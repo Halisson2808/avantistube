@@ -7,7 +7,7 @@ import { Filter, Plus, Save, Trash2, TrendingDown } from "lucide-react";
 import { useAnalyticsFunnel, useAnalyticsOverview } from "@/hooks/use-analytics";
 import { FunnelChart } from "@/components/analytics/FunnelChart";
 import {
-    AnalyticsHeader, Panel, EmptyState, useAnalyticsFilters, fmtNum, fmtMoney,
+    AnalyticsHeader, Panel, EmptyState, useAnalyticsFilters, rotasDoOverview, fmtNum, fmtMoney,
 } from "@/components/analytics/AnalyticsShell";
 
 /** Mesmo funil padrão do backend: entrou → leu → clicou no checkout → comprou. */
@@ -60,7 +60,7 @@ export default function AnalyticsFunnel() {
                 to={to}
                 onFromChange={setFrom}
                 onToChange={setTo}
-                routeOptions={visaoGeral?.paths}
+                routeOptions={rotasDoOverview(visaoGeral)}
                 selectedPaths={paths}
                 onPathsChange={setPaths}
                 onRefresh={reload}

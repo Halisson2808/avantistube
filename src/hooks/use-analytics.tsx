@@ -132,7 +132,10 @@ function rangeParams(range: DateRange): URLSearchParams {
 async function getJson<T>(url: string): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(url);
+    // `no-store`: métrica nunca vem do cache do navegador. Sem isso, uma
+    // resposta antiga (de antes de um deploy) continua sendo servida e some
+    // campo novo do painel — foi o que aconteceu com o filtro de rotas.
+    res = await fetch(url, { cache: "no-store" });
   } catch {
     throw new Error("API fora do ar — rode `npm run dev` (ou `npm run server`).");
   }
