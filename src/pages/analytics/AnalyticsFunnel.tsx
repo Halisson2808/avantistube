@@ -5,15 +5,17 @@ import { useEffect, useState } from "react";
 import { Filter, Plus, Save, Trash2, TrendingDown } from "lucide-react";
 
 import { useAnalyticsFunnel } from "@/hooks/use-analytics";
+import { FunnelChart } from "@/components/analytics/FunnelChart";
 import {
     AnalyticsHeader, Panel, EmptyState, useAnalyticsFilters, fmtNum, fmtMoney,
 } from "@/components/analytics/AnalyticsShell";
 
+/** Mesmo funil padrão do backend: entrou → leu → clicou no checkout → comprou. */
 const PADRAO = [
-    { label: "Visitas", eventName: "pageview" },
-    { label: "Cliques", eventName: "click" },
-    { label: "Leads", eventName: "lead" },
-    { label: "Vendas", eventName: "purchase" },
+    { label: "Entrou", eventName: "pageview" },
+    { label: "Rolou a página", eventName: "rolagem_50" },
+    { label: "Foi pro checkout", eventName: "click" },
+    { label: "Comprou", eventName: "purchase" },
 ];
 
 /** Sugestões de etapa para montar o funil de uma página de vendas. */
@@ -136,7 +138,12 @@ export default function AnalyticsFunnel() {
                     description="Assim que o pixel registrar visitas e cliques, o funil aparece aqui com as taxas de conversão entre as etapas."
                 />
             ) : (
-                <div className="space-y-2">
+                <div className="space-y-4">
+                    <Panel title="Do primeiro clique até a compra" icon={Filter}>
+                        <FunnelChart steps={steps} />
+                    </Panel>
+
+                    <div className="space-y-2">
                     {steps.map((step, i) => {
                         const anterior = i > 0 ? steps[i - 1].sessions : step.sessions;
                         const taxaAnterior = anterior ? (step.sessions / anterior) * 100 : 0;
@@ -181,6 +188,8 @@ export default function AnalyticsFunnel() {
                             </div>
                         );
                     })}
+
+                    </div>
 
                     {receita > 0 && (
                         <div className="rounded-xl bg-violet-500/8 border border-violet-500/20 p-4 flex items-center justify-between">

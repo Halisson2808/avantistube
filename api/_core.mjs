@@ -949,12 +949,14 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const rows = await fetchEvents({ siteKey, range });
 
     if (!steps.length) {
-      // Funil padrão quando o site ainda não configurou etapas.
+      // Funil padrão de página de oferta: entrou → leu → clicou no checkout →
+      // comprou. Vale para qualquer site com o pixel instalado, sem configurar
+      // nada; quem quiser detalhar troca as etapas no painel.
       steps = [
-        { label: "Visitas", event_name: "pageview", position: 0 },
-        { label: "Cliques", event_name: "click", position: 1 },
-        { label: "Leads", event_name: "lead", position: 2 },
-        { label: "Vendas", event_name: "purchase", position: 3 },
+        { label: "Entrou", event_name: "pageview", position: 0 },
+        { label: "Rolou a página", event_name: "rolagem_50", position: 1 },
+        { label: "Foi pro checkout", event_name: "click", position: 2 },
+        { label: "Comprou", event_name: "purchase", position: 3 },
       ];
     }
 

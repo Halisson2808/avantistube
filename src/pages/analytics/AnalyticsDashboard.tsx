@@ -12,7 +12,8 @@ import {
     Clock, LogOut, Activity,
 } from "lucide-react";
 
-import { useAnalyticsOverview } from "@/hooks/use-analytics";
+import { useAnalyticsOverview, useAnalyticsFunnel } from "@/hooks/use-analytics";
+import { FunnelChart } from "@/components/analytics/FunnelChart";
 import {
     AnalyticsHeader, MetricCard, Panel, RankedList, EmptyState, MilestoneBars,
     useAnalyticsFilters, fmtNum, fmtMoney, fmtPct, fmtDuration,
@@ -24,6 +25,8 @@ export default function AnalyticsDashboard() {
         siteKey, setSiteKey, days, setDays, from, to, setFrom, setTo, range, sites, sitesLoading,
     } = useAnalyticsFilters();
     const { data, isLoading, reload } = useAnalyticsOverview(siteKey, range);
+    // O mesmo funil da tela dedicada, resumido aqui para ver de relance.
+    const { steps: funil } = useAnalyticsFunnel(siteKey, range);
 
     const t = data?.totals;
     const semSites = !sitesLoading && sites.length === 0;
@@ -99,6 +102,24 @@ export default function AnalyticsDashboard() {
                             color="bg-emerald-500"
                         />
                     </div>
+
+                    {/* Funil — o mesmo de /analytics/funil */}
+                    {funil.some((e) => e.sessions > 0) && (
+                        <Panel
+                            title="Funil de conversão"
+                            icon={Filter}
+                            right={
+                                <button
+                                    onClick={() => navigate("/analytics/funil")}
+                                    className="text-[11px] text-white/35 hover:text-white transition-colors"
+                                >
+                                    Abrir funil →
+                                </button>
+                            }
+                        >
+                            <FunnelChart steps={funil} />
+                        </Panel>
+                    )}
 
                     {/* Série temporal */}
                     {/* Engajamento — só faz sentido com o pixel novo instalado */}

@@ -11,7 +11,7 @@ só que dentro do painel e com os dados no seu Supabase.
 | `/youtube` | Painel do YouTube (canais, vídeos, thumbnails) |
 | `/youtube/buscar`, `/youtube/monitoramento`, `/youtube/meus-canais`, `/youtube/exportar`, `/youtube/perfis` | telas do módulo YouTube |
 | `/analytics` | Visão geral do tráfego |
-| `/analytics/funil` | Funil de conversão (etapas configuráveis por site) |
+| `/analytics/funil` | Funil de conversão desenhado + detalhe por etapa (configurável por site) |
 | `/analytics/eventos` | Últimos eventos recebidos |
 | `/analytics/sites` | Cadastro de sites + código de instalação |
 | `/analytics/utm` | Gerador de links com UTM |
@@ -114,6 +114,22 @@ feita minutos depois continua atribuída à campanha certa.
 | `POST /api/analytics/funnel-steps` | logado | salva as etapas de um site |
 | `GET /api/analytics/events?site=&limit=` | logado | eventos recentes |
 | `GET/POST/PUT/DELETE /api/analytics/sites` | logado | cadastro de sites |
+
+## Funil
+
+Sem configurar nada, todo site usa o funil padrão de página de oferta:
+
+| Etapa | Evento | O que conta |
+| --- | --- | --- |
+| Entrou | `pageview` | sessões que abriram a página |
+| Rolou a página | `rolagem_50` | passaram da metade |
+| Foi pro checkout | `click` | clicaram em algum CTA (não é lead: é clique) |
+| Comprou | `purchase` | venda confirmada na página de obrigado |
+
+A conta é por **sessão**, não por evento — quem rola duas vezes conta uma. O
+desenho aparece em `/analytics` (resumo) e em `/analytics/funil` (com o detalhe
+de quantos saíram em cada etapa). Para trocar as etapas, escolha um site e use
+"Editar etapas": qualquer nome de evento que o pixel mande pode virar etapa.
 
 ## Período
 
