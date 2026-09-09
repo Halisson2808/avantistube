@@ -368,13 +368,46 @@ async function ensureSite({ siteKey, name, url, kind }) {
       site_key: siteKey,
       name: name || nomeAPartirDaChave(siteKey),
       domain: safeHost(url),
-      kind: ["organic", "paid", "both"].includes(kind) ? kind : "both",
+      kind: ["organic", "paid", "both"].includes(kind) ? kind : "organic",
       auto_created: true,
     });
     _sitesConhecidos.add(siteKey);
   } catch {
     /* silencioso: o evento importa mais que o cadastro */
   }
+}
+
+/**
+ * Rotas selecionadas no painel (`?path=/,/sono`). Vazio = site inteiro.
+ * O site é um só; as rotas são recortes dele.
+ */
+function resolvePaths(searchParams) {
+  const bruto = searchParams.get("path") || searchParams.get("paths") || "";
+  const lista = bruto
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return lista.length ? lista : null;
+}
+
+/** Aplica o recorte de rotas sobre os eventos já lidos. */
+function filtrarPorRota(rows, paths) {
+  if (!paths) return rows;
+  const set = new Set(paths);
+  return rows.filter((r) => set.has(r.path || "/"));
+}
+
+/** Todas as rotas que apareceram no período — alimenta o seletor do painel. */
+function rotasDisponiveis(rows) {
+  const contagem = new Map();
+  for (const r of rows) {
+    const p = r.path || "/";
+    contagem.set(p, (contagem.get(p) || 0) + 1);
+  }
+  return [...contagem.entries()]
+    .map(([path, events]) => ({ path, events }))
+    .sort((a, b) => b.events - a.events)
+    .slice(0, 50);
 }
 
 /** Lê os eventos do período (limite alto o bastante para uso pessoal). */
@@ -450,7 +483,7 @@ function mediaMeta(rows, campo) {
 }
 
 /** Monta os números do painel a partir dos eventos brutos. */
-function buildOverview(rows, range) {
+function buildOverview(rows, range, paths) {
   const days = range.days;
   const pageviews = rows.filter((r) => r.event_type === "pageview");
   const clicks = rows.filter((r) => r.event_type === "click");
@@ -490,6 +523,9 @@ function buildOverview(rows, range) {
   return {
     days,
     range: { from: range.fromDate, to: range.toDate, custom: range.custom },
+    // Rotas do site no período (independem do recorte atual) + o que está ativo.
+    paths: paths || [],
+    selectedPaths: null,
     totals: {
       events: rows.length,
       pageviews: pageviews.length,
@@ -926,8 +962,12 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
   if (path === "/analytics/overview" && method === "GET") {
     const range = resolveRange(searchParams);
     const siteKey = searchParams.get("site") || null;
-    const rows = await fetchEvents({ siteKey, range });
-    return { status: 200, json: buildOverview(rows, range) };
+    const paths = resolvePaths(searchParams);
+    const todas = await fetchEvents({ siteKey, range });
+    const rows = filtrarPorRota(todas, paths);
+    const json = buildOverview(rows, range, rotasDisponiveis(todas));
+    json.selectedPaths = paths;
+    return { status: 200, json };
   }
 
   // Funil: etapas configuradas (ou padrão) + taxa de conversão entre elas.
@@ -946,7 +986,10 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
       steps = data || [];
     }
 
-    const rows = await fetchEvents({ siteKey, range });
+    const rows = filtrarPorRota(
+      await fetchEvents({ siteKey, range }),
+      resolvePaths(searchParams),
+    );
 
     if (!steps.length) {
       // Funil padrão de página de oferta: entrou → leu → clicou no checkout →
@@ -1010,6 +1053,17 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const siteKey = searchParams.get("site") || null;
     let q = db.from("tracking_events").select("*").order("created_at", { ascending: false }).limit(limit);
     if (siteKey) q = q.eq("site_key", siteKey);
+
+    // Mesmos recortes do resto do painel: período, rota e nome do evento.
+    const range = resolveRange(searchParams);
+    q = q.gte("created_at", range.fromIso).lte("created_at", range.toIso);
+
+    const paths = resolvePaths(searchParams);
+    if (paths) q = q.in("path", paths);
+
+    const eventName = searchParams.get("event");
+    if (eventName) q = q.eq("event_name", eventName);
+
     const { data, error } = await q;
     if (error) throw new Error(error.message);
     return { status: 200, json: data || [] };

@@ -6,6 +6,7 @@ import { RefreshCw } from "lucide-react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useTrackingSites, type DateRange, type TrackingSite } from "@/hooks/use-analytics";
 import { DateRangePicker } from "@/components/analytics/DateRangePicker";
+import { RouteFilter, type RouteOption } from "@/components/analytics/RouteFilter";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -27,9 +28,16 @@ export function useAnalyticsFilters() {
   const [days, setDays] = useLocalStorage<number>("avantis_analytics_days", 7);
   const [from, setFrom] = useLocalStorage<string>("avantis_analytics_from", "");
   const [to, setTo] = useLocalStorage<string>("avantis_analytics_to", "");
+  const [paths, setPaths] = useLocalStorage<string[]>("avantis_analytics_paths", []);
   const { sites, isLoading } = useTrackingSites();
 
-  const range: DateRange = from && to ? { days, from, to } : { days };
+  const range: DateRange = from && to ? { days, from, to, paths } : { days, paths };
+
+  // Trocar de site zera o recorte: as rotas de um site não existem no outro.
+  const trocarSite = (v: string) => {
+    setPaths([]);
+    setSiteKey(v);
+  };
 
   const setDaysPreset = (d: number) => {
     setFrom("");
@@ -39,7 +47,9 @@ export function useAnalyticsFilters() {
 
   return {
     siteKey: siteKey || null,
-    setSiteKey,
+    setSiteKey: trocarSite,
+    paths,
+    setPaths,
     days,
     setDays: setDaysPreset,
     from,
@@ -64,6 +74,9 @@ export function AnalyticsHeader({
   to,
   onFromChange,
   onToChange,
+  routeOptions,
+  selectedPaths,
+  onPathsChange,
   onRefresh,
   loading,
   actions,
@@ -79,6 +92,9 @@ export function AnalyticsHeader({
   to?: string;
   onFromChange?: (v: string) => void;
   onToChange?: (v: string) => void;
+  routeOptions?: RouteOption[];
+  selectedPaths?: string[];
+  onPathsChange?: (paths: string[]) => void;
   onRefresh?: () => void;
   loading?: boolean;
   actions?: React.ReactNode;
@@ -145,6 +161,15 @@ export function AnalyticsHeader({
               </button>
             ))}
           </div>
+        )}
+
+        {/* Recorte por rota dentro do site */}
+        {onPathsChange && (
+          <RouteFilter
+            options={routeOptions || []}
+            selected={selectedPaths || []}
+            onChange={onPathsChange}
+          />
         )}
 
         {/* Datas personalizadas — quando preenchidas, ganham dos presets */}

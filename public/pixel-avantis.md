@@ -6,8 +6,9 @@
 > nomes de plataforma nem instale Google Analytics, Meta Pixel ou similares —
 > aqui o rastreio é este, e só este.
 >
-> **Entregue no fim:** a lista dos eventos que você implementou, para o dono
-> cadastrar as etapas do funil no painel.
+> **Nada precisa ser cadastrado à mão.** Você escolhe a chave e o nome do site na
+> própria tag; na primeira visita o site aparece no painel sozinho, já com os
+> eventos. Entregue no fim só a lista do que implementou, para o dono conferir.
 
 ---
 
@@ -36,30 +37,36 @@ Na primeira visita rastreada, o site se cadastra sozinho no painel com esse nome
 
 ### `data-site` — a chave (identificador técnico)
 
-- minúsculas, sem acento, separado por hífen: `caderno-avo-yuki`, `pele-coreana-vsl`;
-- derive do produto, não do domínio (o domínio pode mudar);
-- **uma chave por oferta, não por página**: página de vendas, upsell e obrigado
-  usam a mesma chave — o caminho da URL já separa as páginas no painel;
+- minúsculas, sem acento, separado por hífen: `avo-yuki`, `pele-coreana`;
+- **uma chave por SITE, não por página e não por oferta**. Todas as rotas do
+  mesmo domínio usam a MESMA chave: `/`, `/vsl`, `/sono`, `/upsell`, `/obrigado`.
+  O painel separa por rota depois, com um filtro próprio — e o dono quer ver o
+  site inteiro num painel só;
+- só crie chave nova quando for outro site/domínio de verdade;
 - se o dono te passou uma chave pronta, use a dele.
+
+> Errado: `avo-yuki-caderno` numa página e `avo-yuki-sono` noutra do mesmo site.
+> Certo: `avo-yuki` nas duas — o caminho da URL já distingue.
 
 ### `data-site-name` — o nome que ele vê no painel
 
-Formato: **`Produto — Variação (R$ preço)`**
+Como o nome vale para o site inteiro, ele é o nome da marca/projeto — sem preço
+e sem variação, porque um site tem várias ofertas dentro:
 
 ```
-Avó Yuki — Caderno (R$ 47,90)
-Avó Yuki — Sono (R$ 37,90)
-Pele Coreana 50+ — VSL (R$ 97,00)
+Avó Yuki
+Pele Coreana 50+
+Protocolo Alfa
 ```
 
-- nome do produto como o dono chama, acentuado e com maiúsculas normais;
-- travessão separando a variação/funil;
-- preço principal entre parênteses, com `R$` e vírgula decimal;
+- do jeito que o dono chama, acentuado e com maiúsculas normais;
+- o mesmo nome em todas as páginas do site;
 - sem esse atributo o painel inventa um nome a partir da chave
-  (`caderno-avo-yuki` → "Caderno Avo Yuki"), que é feio — **sempre mande o nome**.
+  (`avo-yuki` → "Avo Yuki"), sem acento — **sempre mande o nome**.
 
-Opcional: `data-site-kind="paid"` (ou `organic`, ou `both`) para dizer de onde
-vem o tráfego. O padrão é `both`.
+Opcional: `data-site-kind`. **O padrão é `organic` e é para deixar assim.** Só
+use `paid` ou `both` se o dono disser, naquela conversa, que vai rodar anúncio
+para esse site. Não chute.
 
 > Se o dono renomear o site no painel depois, o nome dele prevalece — a tag não
 > sobrescreve nome que foi ajustado à mão.
@@ -221,11 +228,54 @@ player.on("progress", (pct) => {
 - venda confirmada só entra se a página de obrigado tiver o pixel e disparar
   `avantis.track("purchase", { value: 47.9 })`.
 
-**Página de obrigado**
-- mesma chave da oferta;
-- `purchase` com o valor real (se a plataforma devolver o valor na URL, use-o).
+**Página de obrigado — obrigatória em toda oferta**
 
-## 8. Regras que não podem ser quebradas
+Sem ela o funil termina no clique do checkout e a receita nunca aparece: o
+checkout é de terceiro (Cakto, Hotmart, Kiwify) e não avisa o painel sozinho.
+
+Se a oferta ainda não tiver página de obrigado, **crie uma** (`/obrigado`) e
+configure-a como página de redirecionamento pós-compra na plataforma. Regras:
+
+- mesma chave do site (`data-site` idêntico ao das outras páginas);
+- dispara `purchase` assim que carrega, com o valor real da venda;
+- se a plataforma mandar o valor na URL, use-o em vez do preço fixo;
+- nada de disparar `purchase` em página que a pessoa possa abrir sem ter
+  comprado (não vale colocar num popup ou na própria página de vendas).
+
+```html
+<script defer src="https://avantisstudio.vercel.app/avantis-pixel.js"
+        data-site="avo-yuki" data-site-name="Avó Yuki"></script>
+<script>
+  window.addEventListener("load", function () {
+    var p = new URLSearchParams(location.search);
+    var valor = parseFloat(p.get("valor") || p.get("amount") || "47.90");
+    if (window.avantis) window.avantis.track("purchase", { value: valor });
+  });
+</script>
+```
+
+Entregue sempre dizendo se a página de obrigado foi criada e qual o valor usado.
+
+## 8. Localhost não conta
+
+O pixel se desliga sozinho em ambiente de desenvolvimento — `localhost`,
+`127.0.0.1`, `192.168.x`, `10.x`, `172.16-31.x`, domínios `.local`/`.test` e
+arquivos abertos direto (`file://`). Nesses casos ele escreve um aviso no console
+e não manda nada.
+
+Isso é de propósito: o dono abre a página dezenas de vezes por dia enquanto
+constrói, e isso inflaria visitas, rolagem e funil com tráfego que não existe.
+
+- **Não remova essa proteção** e não coloque `data-allow-localhost="1"` na tag
+  que vai para produção.
+- Para testar o pixel de propósito na sua máquina, use `data-allow-localhost="1"`
+  **temporariamente** e tire antes de publicar. Melhor ainda: teste no domínio de
+  preview (Vercel/Netlify), que já conta como produção.
+- Como confirmar que está instalado sem ter dados: o console mostra
+  `[avantis-pixel] ambiente local ... nada será enviado`. Isso é sinal de que
+  carregou certo.
+
+## 9. Regras que não podem ser quebradas
 
 1. Um `data-avantis` por elemento clicável importante — sem exceção.
 2. `data-avantis-value` sempre com **ponto** decimal (`47.90`, nunca `47,90`).
@@ -241,7 +291,7 @@ player.on("progress", (pct) => {
    se você criar eventos próprios repetitivos, garanta você mesmo que não vão
    disparar em looping de scroll.
 
-## 9. Como testar antes de entregar
+## 10. Como testar antes de entregar
 
 1. Suba a página e abra com `?utm_source=teste&utm_medium=cpc&utm_campaign=validacao`.
 2. Troque `data-debug="0"` por `data-debug="1"` e abra o console: cada evento
@@ -254,13 +304,13 @@ player.on("progress", (pct) => {
    O site aparece sozinho em `/analytics/sites`, marcado como "automático",
    assim que o primeiro evento chegar.
 
-## 10. Modelo de entrega
+## 11. Modelo de entrega
 
 Termine a tarefa listando assim:
 
 ```
-Pixel instalado — chave: <CHAVE>   nome no painel: <NOME (R$ PREÇO)>
-Páginas: /, /obrigado
+Pixel instalado — chave: <CHAVE-DO-SITE>   nome no painel: <NOME DO SITE>
+Páginas: /, /vsl, /obrigado   (todas com a MESMA chave)
 
 Automático: pageview, rolagem 25/50/75/90, tempo 30/60/180s, saida_intencao, saida_pagina
 Marcados a mão:

@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { Activity } from "lucide-react";
 
-import { useTrackingEvents, type TrackingEvent } from "@/hooks/use-analytics";
+import { useTrackingEvents, useAnalyticsOverview, type TrackingEvent } from "@/hooks/use-analytics";
 import { AnalyticsHeader, EmptyState, useAnalyticsFilters, fmtMoney } from "@/components/analytics/AnalyticsShell";
 
 const TIPO_COR: Record<TrackingEvent["event_type"], string> = {
@@ -18,8 +18,12 @@ const TIPO_COR: Record<TrackingEvent["event_type"], string> = {
 const TIPOS: Array<TrackingEvent["event_type"] | "all"> = ["all", "pageview", "click", "lead", "purchase", "custom"];
 
 export default function AnalyticsEvents() {
-    const { siteKey, setSiteKey, days, setDays, from, to, setFrom, setTo, range, sites } = useAnalyticsFilters();
+    const {
+        siteKey, setSiteKey, days, setDays, from, to, setFrom, setTo,
+        paths, setPaths, range, sites,
+    } = useAnalyticsFilters();
     const { events, isLoading, reload } = useTrackingEvents(siteKey, range, 200);
+    const { data: visaoGeral } = useAnalyticsOverview(siteKey, range);
     const [tipo, setTipo] = useState<TrackingEvent["event_type"] | "all">("all");
 
     const lista = tipo === "all" ? events : events.filter((e) => e.event_type === tipo);
@@ -38,6 +42,9 @@ export default function AnalyticsEvents() {
                 to={to}
                 onFromChange={setFrom}
                 onToChange={setTo}
+                routeOptions={visaoGeral?.paths}
+                selectedPaths={paths}
+                onPathsChange={setPaths}
                 onRefresh={reload}
                 loading={isLoading}
             />

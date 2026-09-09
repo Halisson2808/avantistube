@@ -30,6 +30,16 @@ Migration: `supabase/migrations/20260909000000_analytics.sql`
 
 Leitura liberada para usuário logado; escrita só pelo backend (service_role).
 
+## Um site = um pixel = um painel
+
+A chave é do **site**, não da página nem da oferta: `/`, `/vsl`, `/sono` e
+`/obrigado` do mesmo domínio usam a mesma `data-site`. Escolhendo o site no
+painel, as métricas são do site inteiro; para olhar só algumas páginas existe o
+filtro de rotas (ao lado do período), que aceita várias de uma vez.
+
+Na API é `?path=/,/sono` (lista separada por vírgula), aceito por
+`overview`, `funnel` e `events`. Sem esse parâmetro, vem o site inteiro.
+
 ## Guia para instalar em site novo
 
 `public/pixel-avantis.md` é o documento para colar na conversa da IA que estiver
@@ -142,8 +152,16 @@ visão geral, funil e eventos.
 
 | Chave | Onde | Eventos próprios da página |
 | --- | --- | --- |
-| `avo-yuki-caderno` | yukinakamura.vercel.app `/` e `/page2` | `cta_menu`, `cta_topo`, `cta_meio`, `cta_final`, `cta_barra_mobile`, `cta_pop_saida`, `cta_checkout`, `pop_saida_exibido`, `pop_saida_fechado`, `barra_mobile_exibida` |
-| `avo-yuki-sono` | yukinakamura.vercel.app `/sono` | `cta_checkout`, `cta_final` |
+| `avo-yuki` | yukinakamura.vercel.app — `/`, `/page2` e `/sono` | `cta_menu`, `cta_topo`, `cta_meio`, `cta_final`, `cta_barra_mobile`, `cta_pop_saida`, `cta_checkout`, `pop_saida_exibido`, `pop_saida_fechado`, `barra_mobile_exibida`, `secao_faq_vista`, `secao_oferta_vista` |
 
 Os CTAs levam `data-avantis-value` com o preço, então o clique já entra no painel
-com o valor da oferta.
+com o valor da oferta. As três páginas usam a mesma chave; para ver só o Sono,
+use o filtro de rotas em `/sono/`.
+
+## Ambiente local
+
+O pixel não envia nada rodando em `localhost`, `127.0.0.1`, redes privadas
+(`192.168.x`, `10.x`, `172.16-31.x`), domínios `.local`/`.test` ou `file://` —
+senão o desenvolvimento inflaria as métricas. O console avisa quando isso
+acontece. Para testar de propósito: `data-allow-localhost="1"` na tag,
+temporariamente.

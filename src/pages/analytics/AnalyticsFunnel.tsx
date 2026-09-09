@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { Filter, Plus, Save, Trash2, TrendingDown } from "lucide-react";
 
-import { useAnalyticsFunnel } from "@/hooks/use-analytics";
+import { useAnalyticsFunnel, useAnalyticsOverview } from "@/hooks/use-analytics";
 import { FunnelChart } from "@/components/analytics/FunnelChart";
 import {
     AnalyticsHeader, Panel, EmptyState, useAnalyticsFilters, fmtNum, fmtMoney,
@@ -27,8 +27,13 @@ const SUGESTOES = [
 ];
 
 export default function AnalyticsFunnel() {
-    const { siteKey, setSiteKey, days, setDays, from, to, setFrom, setTo, range, sites } = useAnalyticsFilters();
+    const {
+        siteKey, setSiteKey, days, setDays, from, to, setFrom, setTo,
+        paths, setPaths, range, sites,
+    } = useAnalyticsFilters();
     const { steps, isLoading, reload, saveSteps } = useAnalyticsFunnel(siteKey, range);
+    // Só para saber quais rotas existem no período e alimentar o filtro.
+    const { data: visaoGeral } = useAnalyticsOverview(siteKey, range);
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(PADRAO);
 
@@ -55,6 +60,9 @@ export default function AnalyticsFunnel() {
                 to={to}
                 onFromChange={setFrom}
                 onToChange={setTo}
+                routeOptions={visaoGeral?.paths}
+                selectedPaths={paths}
+                onPathsChange={setPaths}
                 onRefresh={reload}
                 loading={isLoading}
                 actions={

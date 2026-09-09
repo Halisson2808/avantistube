@@ -26,7 +26,8 @@
  *   data-exit-intent="0"          desliga o evento de intenção de saída
  *   data-auto-clicks="0"          desliga o clique automático
  *   data-site-name="Oferta X (R$ 47,90)"  nome que aparece no painel
- *   data-site-kind="paid"         organic | paid | both (padrão: both)
+ *   data-site-kind="paid"         organic | paid | both (padrão: organic)
+ *   data-allow-localhost="1"      envia mesmo rodando em localhost (padrão: não)
  *   data-endpoint="https://..."   painel diferente do host do script
  *   data-debug="1"                loga no console cada evento enviado
  *
@@ -61,6 +62,45 @@
   function attr(name, fallback) {
     var v = script && script.getAttribute(name);
     return v === null || v === undefined ? fallback : v;
+  }
+
+  /**
+   * Ambiente de desenvolvimento não entra na conta.
+   *
+   * Abrir a página no localhost dezenas de vezes por dia enquanto se mexe no
+   * site inflaria visitas, rolagem e tudo mais. Só cai fora quem realmente é
+   * máquina de desenvolvimento — domínio de verdade sempre envia.
+   *
+   * Para testar o pixel localmente de propósito: data-allow-localhost="1".
+   */
+  function ambienteLocal() {
+    var host = window.location.hostname || "";
+    return (
+      window.location.protocol === "file:" ||
+      host === "" ||
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "::1" ||
+      host === "0.0.0.0" ||
+      /\.local$|\.test$|\.localhost$/i.test(host) ||
+      /^192\.168\./.test(host) ||
+      /^10\./.test(host) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+    );
+  }
+
+  if (ambienteLocal() && attr("data-allow-localhost", "0") === "0") {
+    console.info(
+      "[avantis-pixel] ambiente local (" + window.location.hostname +
+      ") — nada será enviado. Use data-allow-localhost=\"1\" para testar."
+    );
+    window.avantis = {
+      track: function () { },
+      trackVideo: function () { },
+      siteKey: siteKey,
+      desativado: "ambiente-local",
+    };
+    return;
   }
 
   function numbers(value) {

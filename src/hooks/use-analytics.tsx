@@ -55,6 +55,8 @@ export interface DateRange {
   days: number;
   from?: string | null;
   to?: string | null;
+  /** Rotas selecionadas dentro do site. Vazio/ausente = site inteiro. */
+  paths?: string[];
 }
 
 export interface Milestone {
@@ -66,6 +68,9 @@ export interface Milestone {
 export interface AnalyticsOverview {
   days: number;
   range: { from: string; to: string; custom: boolean };
+  /** Rotas vistas no período (para alimentar o filtro), independentes do recorte. */
+  paths: Array<{ path: string; events: number }>;
+  selectedPaths: string[] | null;
   totals: {
     events: number;
     pageviews: number;
@@ -120,6 +125,7 @@ function rangeParams(range: DateRange): URLSearchParams {
   } else {
     qs.set("days", String(range.days));
   }
+  if (range.paths && range.paths.length) qs.set("path", range.paths.join(","));
   return qs;
 }
 
@@ -225,7 +231,7 @@ export function useAnalyticsOverview(siteKey: string | null, range: DateRange) {
     } finally {
       setLoading(false);
     }
-  }, [siteKey, range.days, range.from, range.to]);
+  }, [siteKey, range.days, range.from, range.to, range.paths?.join(",")]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -249,7 +255,7 @@ export function useAnalyticsFunnel(siteKey: string | null, range: DateRange) {
     } finally {
       setLoading(false);
     }
-  }, [siteKey, range.days, range.from, range.to]);
+  }, [siteKey, range.days, range.from, range.to, range.paths?.join(",")]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -290,7 +296,7 @@ export function useTrackingEvents(siteKey: string | null, range: DateRange, limi
     } finally {
       setLoading(false);
     }
-  }, [siteKey, limit, range.days, range.from, range.to]);
+  }, [siteKey, limit, range.days, range.from, range.to, range.paths?.join(",")]);
 
   useEffect(() => { load(); }, [load]);
 

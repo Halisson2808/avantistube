@@ -22,7 +22,8 @@ import {
 export default function AnalyticsDashboard() {
     const navigate = useNavigate();
     const {
-        siteKey, setSiteKey, days, setDays, from, to, setFrom, setTo, range, sites, sitesLoading,
+        siteKey, setSiteKey, days, setDays, from, to, setFrom, setTo,
+        paths, setPaths, range, sites, sitesLoading,
     } = useAnalyticsFilters();
     const { data, isLoading, reload } = useAnalyticsOverview(siteKey, range);
     // O mesmo funil da tela dedicada, resumido aqui para ver de relance.
@@ -48,6 +49,9 @@ export default function AnalyticsDashboard() {
                 to={to}
                 onFromChange={setFrom}
                 onToChange={setTo}
+                routeOptions={data?.paths}
+                selectedPaths={paths}
+                onPathsChange={setPaths}
                 onRefresh={reload}
                 loading={isLoading}
                 actions={
