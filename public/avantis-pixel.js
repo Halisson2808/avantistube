@@ -2,7 +2,12 @@
  * Avantis Pixel — rastreio de visitas, rolagem, cliques, vídeo e conversões.
  *
  * Instalação (antes do </body> do site/oferta):
- *   <script defer src="https://SEU-PAINEL/avantis-pixel.js" data-site="CHAVE-DO-SITE"></script>
+ *   <script defer src="https://SEU-PAINEL/avantis-pixel.js"
+ *           data-site="chave-da-oferta"
+ *           data-site-name="Nome da Oferta (R$ 47,90)"></script>
+ *
+ * A chave não precisa existir no painel: na primeira visita o site se cadastra
+ * sozinho com o nome de data-site-name.
  *
  * O que envia sozinho:
  *   - pageview a cada carregamento (e a cada troca de rota em SPA)
@@ -20,6 +25,8 @@
  *   data-video="25,50,75,100"     marcos de vídeo (vazio desliga)
  *   data-exit-intent="0"          desliga o evento de intenção de saída
  *   data-auto-clicks="0"          desliga o clique automático
+ *   data-site-name="Oferta X (R$ 47,90)"  nome que aparece no painel
+ *   data-site-kind="paid"         organic | paid | both (padrão: both)
  *   data-endpoint="https://..."   painel diferente do host do script
  *   data-debug="1"                loga no console cada evento enviado
  *
@@ -63,6 +70,10 @@
       .filter(function (n) { return !isNaN(n); })
       .sort(function (a, b) { return a - b; });
   }
+
+  // Identificação da oferta no painel (usada no cadastro automático).
+  var siteName = attr("data-site-name", null);
+  var siteKind = attr("data-site-kind", null); // organic | paid | both
 
   var CONFIG = {
     scroll: numbers(attr("data-scroll", "25,50,75,90")),
@@ -175,6 +186,8 @@
 
     send({
       siteKey: siteKey,
+      siteName: siteName,
+      siteKind: siteKind,
       eventName: eventName,
       eventType: type,
       url: window.location.href,
@@ -412,6 +425,7 @@
     track: track,
     trackVideo: trackVideo,
     siteKey: siteKey,
+    siteName: siteName,
     visitorId: visitorId,
     sessionId: sessionId,
     attribution: attribution,

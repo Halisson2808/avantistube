@@ -320,6 +320,63 @@ function resolveRange(searchParams) {
   };
 }
 
+/**
+ * Cadastro automático de site.
+ *
+ * O pixel manda `siteName` junto com os eventos (atributo data-site-name da
+ * tag). Na primeira visita de uma chave desconhecida, o site entra sozinho no
+ * painel já com o nome certo — assim quem monta a oferta não precisa esperar
+ * ninguém cadastrar nada à mão.
+ *
+ * Nunca derruba a ingestão: qualquer erro aqui é engolido, o evento já foi
+ * gravado de qualquer jeito.
+ */
+const _sitesConhecidos = new Set();
+
+function nomeAPartirDaChave(siteKey) {
+  return String(siteKey)
+    .replace(/-[a-z0-9]{4}$/, "")
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(" ") || siteKey;
+}
+
+async function ensureSite({ siteKey, name, url, kind }) {
+  if (_sitesConhecidos.has(siteKey)) return;
+
+  try {
+    const db = getSupabase();
+    const { data } = await db
+      .from("tracking_sites")
+      .select("id, name, auto_created")
+      .eq("site_key", siteKey)
+      .limit(1);
+
+    const existente = data && data[0];
+    if (existente) {
+      // Site criado automaticamente sem nome decente e agora chegou um nome de
+      // verdade na tag: aproveita e corrige.
+      if (existente.auto_created && name && name !== existente.name) {
+        await db.from("tracking_sites").update({ name }).eq("id", existente.id);
+      }
+      _sitesConhecidos.add(siteKey);
+      return;
+    }
+
+    await db.from("tracking_sites").insert({
+      site_key: siteKey,
+      name: name || nomeAPartirDaChave(siteKey),
+      domain: safeHost(url),
+      kind: ["organic", "paid", "both"].includes(kind) ? kind : "both",
+      auto_created: true,
+    });
+    _sitesConhecidos.add(siteKey);
+  } catch {
+    /* silencioso: o evento importa mais que o cadastro */
+  }
+}
+
 /** Lê os eventos do período (limite alto o bastante para uso pessoal). */
 async function fetchEvents({ siteKey, range }) {
   const db = getSupabase();
@@ -839,7 +896,11 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const db = getSupabase();
     const id = decodeURIComponent(path.split("/")[3]);
     const patch = {};
-    if (body.name !== undefined) patch.name = String(body.name).trim();
+    if (body.name !== undefined) {
+      patch.name = String(body.name).trim();
+      // Nome ajustado à mão passa a valer sobre o que o pixel manda na tag.
+      patch.auto_created = false;
+    }
     if (body.domain !== undefined) patch.domain = cleanDomain(body.domain);
     if (body.kind !== undefined) patch.kind = body.kind;
     if (body.notes !== undefined) patch.notes = body.notes || null;
@@ -999,6 +1060,14 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
 
     const { error } = await getSupabase().from("tracking_events").insert(row);
     if (error) throw new Error(error.message);
+
+    // Site novo entra sozinho no painel, com o nome que veio na tag.
+    await ensureSite({
+      siteKey,
+      name: str(raw.siteName, 120),
+      url: pageUrl,
+      kind: str(raw.siteKind, 20),
+    });
 
     // GET = beacon via <img>: devolve um GIF 1x1 transparente.
     if (method === "GET") {

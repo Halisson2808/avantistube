@@ -14,6 +14,8 @@ export interface TrackingSite {
   domain?: string | null;
   kind: "organic" | "paid" | "both";
   notes?: string | null;
+  /** true = entrou sozinho na primeira visita, pelo data-site-name do pixel. */
+  auto_created?: boolean;
   created_at: string;
 }
 
@@ -181,6 +183,19 @@ export function useTrackingSites() {
     return data as TrackingSite;
   }, [load]);
 
+  const renameSite = useCallback(async (id: string, name: string) => {
+    const res = await fetch(`${API}/analytics/sites/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) {
+      toast.error("Erro ao renomear o site.");
+      return;
+    }
+    await load();
+  }, [load]);
+
   const removeSite = useCallback(async (id: string) => {
     const res = await fetch(`${API}/analytics/sites/${id}`, { method: "DELETE" });
     if (!res.ok) {
@@ -191,7 +206,7 @@ export function useTrackingSites() {
     await load();
   }, [load]);
 
-  return { sites, isLoading, reload: load, addSite, removeSite };
+  return { sites, isLoading, reload: load, addSite, renameSite, removeSite };
 }
 
 /* ── Visão geral ─────────────────────────────────────────────────────────── */

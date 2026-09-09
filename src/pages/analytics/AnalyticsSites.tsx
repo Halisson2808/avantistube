@@ -3,7 +3,7 @@
  */
 import { useState } from "react";
 import { toast } from "sonner";
-import { Copy, Globe, Plus, Trash2, Code2, ExternalLink, BookOpen } from "lucide-react";
+import { Copy, Globe, Plus, Trash2, Code2, ExternalLink, BookOpen, Pencil, Check, Sparkles } from "lucide-react";
 
 import { useTrackingSites, type TrackingSite } from "@/hooks/use-analytics";
 import { Panel, EmptyState } from "@/components/analytics/AnalyticsShell";
@@ -18,12 +18,14 @@ const KIND_LABEL: Record<TrackingSite["kind"], string> = {
 };
 
 export default function AnalyticsSites() {
-    const { sites, isLoading, addSite, removeSite } = useTrackingSites();
+    const { sites, isLoading, addSite, renameSite, removeSite } = useTrackingSites();
     const [name, setName] = useState("");
     const [domain, setDomain] = useState("");
     const [kind, setKind] = useState<TrackingSite["kind"]>("organic");
     const [saving, setSaving] = useState(false);
     const [openSnippet, setOpenSnippet] = useState<string | null>(null);
+    const [editando, setEditando] = useState<string | null>(null);
+    const [novoNome, setNovoNome] = useState("");
 
     async function handleAdd(e: React.FormEvent) {
         e.preventDefault();
@@ -61,6 +63,10 @@ export default function AnalyticsSites() {
 
             {/* Cadastro */}
             <Panel title="Cadastrar site ou página de oferta" icon={Plus}>
+                <p className="text-white/35 text-[11px] -mt-1">
+                    Só se quiser adiantar. Sites com o pixel instalado entram sozinhos na
+                    primeira visita, usando o nome que vier em <code className="text-emerald-300/80">data-site-name</code>.
+                </p>
                 <form onSubmit={handleAdd} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto] gap-2">
                     <input
                         value={name}
@@ -118,10 +124,50 @@ export default function AnalyticsSites() {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
-                                        <p className="text-white text-sm font-medium truncate">{site.name}</p>
-                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] text-white/50">
+                                        {editando === site.id ? (
+                                            <form
+                                                onSubmit={async (e) => {
+                                                    e.preventDefault();
+                                                    if (novoNome.trim()) await renameSite(site.id, novoNome.trim());
+                                                    setEditando(null);
+                                                }}
+                                                className="flex items-center gap-1.5 flex-1 min-w-0"
+                                            >
+                                                <input
+                                                    autoFocus
+                                                    value={novoNome}
+                                                    onChange={(e) => setNovoNome(e.target.value)}
+                                                    onBlur={() => setEditando(null)}
+                                                    className="h-7 flex-1 min-w-0 rounded-lg bg-white/[0.06] border border-emerald-500/30 text-white text-sm px-2 outline-none"
+                                                />
+                                                <button type="submit" className="p-1 text-emerald-300 hover:text-emerald-200">
+                                                    <Check className="h-3.5 w-3.5" />
+                                                </button>
+                                            </form>
+                                        ) : (
+                                            <>
+                                                <p className="text-white text-sm font-medium truncate">{site.name}</p>
+                                                <button
+                                                    onClick={() => { setEditando(site.id); setNovoNome(site.name); }}
+                                                    title="Renomear"
+                                                    className="text-white/25 hover:text-white transition-colors flex-shrink-0"
+                                                >
+                                                    <Pencil className="h-3 w-3" />
+                                                </button>
+                                            </>
+                                        )}
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] text-white/50 flex-shrink-0">
                                             {KIND_LABEL[site.kind]}
                                         </span>
+                                        {site.auto_created && (
+                                            <span
+                                                title="Entrou sozinho na primeira visita, pelo pixel instalado no site"
+                                                className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/12 border border-emerald-500/20 text-emerald-300 flex-shrink-0"
+                                            >
+                                                <Sparkles className="h-2.5 w-2.5" />
+                                                automático
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-2 mt-0.5">
                                         <code className="text-[10px] text-emerald-300/80">{site.site_key}</code>

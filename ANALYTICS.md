@@ -38,17 +38,24 @@ a convenção de nomes e o que instrumentar em cada tipo de página. No painel e
 fica no botão "Guia do pixel (para a IA)" em `/analytics/sites`, e publicado em
 `https://avantisstudio.vercel.app/pixel-avantis.md`.
 
-Fluxo: cria a oferta → cadastra o site no painel e copia a chave → manda o guia +
-a chave para a IA que fez o site → ela instrumenta → confere em `/analytics/eventos`.
+Fluxo: cria a oferta → manda o guia para a IA que fez o site → ela escolhe chave e
+nome, instrumenta e publica → o site aparece sozinho em `/analytics/sites` na
+primeira visita → confere em `/analytics/eventos`.
 
 ## Instalação do pixel no site
 
-1. Cadastre o site em `/analytics/sites` e copie a chave.
-2. Cole antes do `</body>` do site:
+Não precisa cadastrar nada antes: cole a tag no site com a chave e o nome, e na
+primeira visita o site entra sozinho no painel marcado como "automático".
 
 ```html
-<script defer src="https://SEU-PAINEL/avantis-pixel.js" data-site="CHAVE-DO-SITE"></script>
+<script defer src="https://SEU-PAINEL/avantis-pixel.js"
+        data-site="caderno-avo-yuki"
+        data-site-name="Avó Yuki — Caderno (R$ 47,90)"></script>
 ```
+
+Sem `data-site-name` o painel monta um nome a partir da chave, que fica feio.
+Renomeando no painel (lápis ao lado do nome), o nome escolhido passa a valer e a
+tag não sobrescreve mais.
 
 Já são registrados sozinhos:
 

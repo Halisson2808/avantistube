@@ -27,17 +27,42 @@ Antes do `</body>`:
 
 ```html
 <script defer src="https://avantisstudio.vercel.app/avantis-pixel.js"
-        data-site="CHAVE-DO-SITE"></script>
+        data-site="caderno-avo-yuki"
+        data-site-name="Avó Yuki — Caderno (R$ 47,90)"></script>
 ```
 
-**A `CHAVE-DO-SITE` é dada pelo dono** — ele cadastra a oferta em
-`/analytics/sites` no painel e copia a chave (algo como `oferta-vsl-x7k2`).
-Se você não recebeu a chave, deixe `data-site="TROCAR-PELA-CHAVE"` e avise no
-fim, em destaque, que falta esse passo. Não invente uma chave: evento com chave
-errada entra no painel como um site fantasma.
+**Você mesmo escolhe a chave e o nome — não precisa pedir nada a ninguém.**
+Na primeira visita rastreada, o site se cadastra sozinho no painel com esse nome.
 
-Uma chave por **oferta**, não por página: se a oferta tem página de vendas,
-upsell e obrigado, as três usam a mesma chave — o caminho da URL já separa.
+### `data-site` — a chave (identificador técnico)
+
+- minúsculas, sem acento, separado por hífen: `caderno-avo-yuki`, `pele-coreana-vsl`;
+- derive do produto, não do domínio (o domínio pode mudar);
+- **uma chave por oferta, não por página**: página de vendas, upsell e obrigado
+  usam a mesma chave — o caminho da URL já separa as páginas no painel;
+- se o dono te passou uma chave pronta, use a dele.
+
+### `data-site-name` — o nome que ele vê no painel
+
+Formato: **`Produto — Variação (R$ preço)`**
+
+```
+Avó Yuki — Caderno (R$ 47,90)
+Avó Yuki — Sono (R$ 37,90)
+Pele Coreana 50+ — VSL (R$ 97,00)
+```
+
+- nome do produto como o dono chama, acentuado e com maiúsculas normais;
+- travessão separando a variação/funil;
+- preço principal entre parênteses, com `R$` e vírgula decimal;
+- sem esse atributo o painel inventa um nome a partir da chave
+  (`caderno-avo-yuki` → "Caderno Avo Yuki"), que é feio — **sempre mande o nome**.
+
+Opcional: `data-site-kind="paid"` (ou `organic`, ou `both`) para dizer de onde
+vem o tráfego. O padrão é `both`.
+
+> Se o dono renomear o site no painel depois, o nome dele prevalece — a tag não
+> sobrescreve nome que foi ajustado à mão.
 
 ## 3. O que já vem sozinho (não precisa codar nada)
 
@@ -226,13 +251,15 @@ player.on("progress", (pct) => {
    e `saida_pagina` ao trocar de aba.
 5. Volte `data-debug` para `0` antes de publicar.
 6. O dono confere em `/analytics/eventos` no painel, que mostra os eventos ao vivo.
+   O site aparece sozinho em `/analytics/sites`, marcado como "automático",
+   assim que o primeiro evento chegar.
 
 ## 10. Modelo de entrega
 
 Termine a tarefa listando assim:
 
 ```
-Pixel instalado — chave: <CHAVE>
+Pixel instalado — chave: <CHAVE>   nome no painel: <NOME (R$ PREÇO)>
 Páginas: /, /obrigado
 
 Automático: pageview, rolagem 25/50/75/90, tempo 30/60/180s, saida_intencao, saida_pagina
