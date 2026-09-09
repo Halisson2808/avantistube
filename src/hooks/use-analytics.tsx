@@ -67,7 +67,7 @@ export interface Milestone {
 
 export interface AnalyticsOverview {
   days: number;
-  range: { from: string; to: string; custom: boolean };
+  range: { from: string; to: string; custom: boolean; granularity: "hour" | "day" };
   /** Rotas vistas no período (para alimentar o filtro), independentes do recorte. */
   paths: Array<{ path: string; events: number }>;
   selectedPaths: string[] | null;
@@ -90,6 +90,8 @@ export interface AnalyticsOverview {
   };
   timeseries: Array<{
     date: string;
+    /** Rótulo pronto para o eixo: "14h" por hora, "09/09" por dia. */
+    label: string;
     pageviews: number;
     clicks: number;
     leads: number;
@@ -126,6 +128,8 @@ function rangeParams(range: DateRange): URLSearchParams {
     qs.set("days", String(range.days));
   }
   if (range.paths && range.paths.length) qs.set("path", range.paths.join(","));
+  // Fuso de quem está olhando: sem isso "hoje" e as horas do dia sairiam em UTC.
+  qs.set("tz", String(new Date().getTimezoneOffset()));
   return qs;
 }
 

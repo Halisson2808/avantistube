@@ -31,9 +31,12 @@ export default function AnalyticsDashboard() {
 
     const t = data?.totals;
     const semSites = !sitesLoading && sites.length === 0;
-    const periodoLabel = data?.range?.custom
-        ? `Evolução — ${data.range.from} até ${data.range.to}`
-        : `Evolução — últimos ${days} dia(s)`;
+    const porHora = data?.range?.granularity === "hour";
+    const periodoLabel = porHora
+        ? "Evolução — hora a hora (últimas 24h)"
+        : data?.range?.custom
+            ? `Evolução — ${data.range.from} até ${data.range.to}`
+            : `Evolução — últimos ${days} dias`;
 
     return (
         <div className="space-y-6 pb-10">
@@ -154,9 +157,9 @@ export default function AnalyticsDashboard() {
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                                     <XAxis
-                                        dataKey="date"
+                                        dataKey="label"
                                         tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 10 }}
-                                        tickFormatter={(d: string) => d.slice(8) + "/" + d.slice(5, 7)}
+                                        interval={porHora ? 1 : 0}
                                         axisLine={false}
                                         tickLine={false}
                                     />

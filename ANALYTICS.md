@@ -144,7 +144,13 @@ de quantos saíram em cada etapa). Para trocar as etapas, escolha um site e use
 ## Período
 
 Todas as telas aceitam os atalhos (24h, 7, 30, 90 dias) ou um intervalo escolhido
-no calendário (dois meses, clique no primeiro e no último dia). Na API é `?days=N` ou `?from=AAAA-MM-DD&to=AAAA-MM-DD`
+no calendário (dois meses, clique no primeiro e no último dia).
+
+**Granularidade:** um período de um dia só (o atalho 24h ou uma data única no
+calendário) vira gráfico **hora a hora**, com 24 pontos; períodos maiores ficam
+por dia. As horas e os dias seguem o **fuso de quem está olhando** — o painel
+manda `tz` (minutos, como `Date#getTimezoneOffset()`) e o backend agrupa por
+esse fuso. Sem isso, um evento das 21h em Brasília cairia no dia seguinte. Na API é `?days=N` ou `?from=AAAA-MM-DD&to=AAAA-MM-DD`
 (as duas pontas entram na conta). A escolha fica salva no navegador e vale para
 visão geral, funil e eventos.
 

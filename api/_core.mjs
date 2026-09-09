@@ -284,14 +284,34 @@ const DIA_MS = 24 * 60 * 60 * 1000;
  * Período consultado. Aceita `days` (últimos N dias) ou o par `from`/`to`
  * (datas YYYY-MM-DD, inclusive nas duas pontas) vindo do seletor do painel.
  */
+const HORA_MS = 60 * 60 * 1000;
+
+/**
+ * Fuso do navegador, em minutos, no formato de `Date#getTimezoneOffset()`
+ * (Brasil = 180, porque UTC está 180 min à frente). Sem esse ajuste, "hoje" e
+ * "as horas do dia" seriam contados em UTC — e um evento das 21h em Brasília
+ * cairia no dia seguinte.
+ */
+function resolveTz(searchParams) {
+  const n = Number(searchParams.get("tz"));
+  return Number.isFinite(n) && Math.abs(n) <= 14 * 60 ? n : 0;
+}
+
+/** Instante UTC → Date deslocada para a hora local de quem está olhando. */
+function paraLocal(iso, tzMin) {
+  return new Date(new Date(iso).getTime() - tzMin * 60000);
+}
+
 function resolveRange(searchParams) {
   const from = (searchParams.get("from") || "").trim();
   const to = (searchParams.get("to") || "").trim();
+  const tzMin = resolveTz(searchParams);
   const dataValida = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
   if (dataValida(from) && dataValida(to)) {
-    const inicio = new Date(`${from}T00:00:00.000Z`);
-    const fim = new Date(`${to}T23:59:59.999Z`);
+    // Meia-noite LOCAL do primeiro dia até 23:59:59.999 local do último.
+    const inicio = new Date(Date.parse(`${from}T00:00:00.000Z`) + tzMin * 60000);
+    const fim = new Date(Date.parse(`${to}T23:59:59.999Z`) + tzMin * 60000);
     if (inicio <= fim) {
       // `fim` é 23:59:59.999 do último dia, então floor + 1 conta as duas pontas.
       const dias = Math.min(Math.floor((fim - inicio) / DIA_MS) + 1, 365);
@@ -301,6 +321,9 @@ function resolveRange(searchParams) {
         fromDate: from,
         toDate: to,
         days: dias,
+        tzMin,
+        // Um dia só vira gráfico por hora; vários dias, por dia.
+        granularity: dias <= 1 ? "hour" : "day",
         custom: true,
       };
     }
@@ -308,14 +331,36 @@ function resolveRange(searchParams) {
 
   const days = clampDays(searchParams.get("days"));
   const fim = new Date();
-  const inicio = new Date(fim.getTime() - (days - 1) * DIA_MS);
-  inicio.setUTCHours(0, 0, 0, 0);
+
+  // "24h" é mesmo as últimas 24 horas corridas, não o dia de hoje.
+  if (days === 1) {
+    const inicio = new Date(fim.getTime() - 23 * HORA_MS);
+    inicio.setUTCMinutes(0, 0, 0);
+    return {
+      fromIso: inicio.toISOString(),
+      toIso: fim.toISOString(),
+      fromDate: paraLocal(inicio, tzMin).toISOString().slice(0, 10),
+      toDate: paraLocal(fim, tzMin).toISOString().slice(0, 10),
+      days: 1,
+      tzMin,
+      granularity: "hour",
+      custom: false,
+    };
+  }
+
+  // Começa na meia-noite local de (hoje - days + 1).
+  const inicioLocal = paraLocal(new Date(fim.getTime() - (days - 1) * DIA_MS), tzMin);
+  const diaLocal = inicioLocal.toISOString().slice(0, 10);
+  const inicio = new Date(Date.parse(`${diaLocal}T00:00:00.000Z`) + tzMin * 60000);
+
   return {
     fromIso: inicio.toISOString(),
     toIso: fim.toISOString(),
-    fromDate: inicio.toISOString().slice(0, 10),
-    toDate: fim.toISOString().slice(0, 10),
+    fromDate: diaLocal,
+    toDate: paraLocal(fim, tzMin).toISOString().slice(0, 10),
     days,
+    tzMin,
+    granularity: "day",
     custom: false,
   };
 }
@@ -494,15 +539,37 @@ function buildOverview(rows, range, paths) {
   const sessions = new Set(rows.map((r) => r.session_id).filter(Boolean)).size;
   const revenue = purchases.reduce((s, r) => s + (Number(r.value) || 0), 0);
 
-  // série diária — cobre todo o período pedido, mesmo os dias sem evento
+  // Série temporal. Em "24h" cada ponto é uma HORA (24 pontos, mesmo os
+  // vazios); em períodos maiores, cada ponto é um dia. Sempre no fuso de quem
+  // está olhando — senão as horas apareceriam deslocadas.
+  const tz = range.tzMin || 0;
+  const porHora = range.granularity === "hour";
+  const passo = porHora ? HORA_MS : DIA_MS;
+
+  /** Chave/rótulo do balde a que um instante pertence, já em hora local. */
+  const chave = (iso) => {
+    const local = paraLocal(iso, tz).toISOString();
+    return porHora ? local.slice(0, 13) : local.slice(0, 10);
+  };
+  const rotulo = (k) => (porHora ? `${k.slice(11, 13)}h` : `${k.slice(8, 10)}/${k.slice(5, 7)}`);
+
   const byDay = new Map();
   const inicioSerie = new Date(range.fromIso);
-  for (let i = 0; i < days; i++) {
-    const d = new Date(inicioSerie.getTime() + i * DIA_MS).toISOString().slice(0, 10);
-    byDay.set(d, { date: d, pageviews: 0, clicks: 0, leads: 0, purchases: 0, revenue: 0 });
+  const fimSerie = new Date(range.toIso);
+  const baldes = Math.min(
+    Math.floor((fimSerie - inicioSerie) / passo) + 1,
+    porHora ? 48 : 365,
+  );
+  for (let i = 0; i < baldes; i++) {
+    const k = chave(new Date(inicioSerie.getTime() + i * passo).toISOString());
+    byDay.set(k, {
+      date: k,
+      label: rotulo(k),
+      pageviews: 0, clicks: 0, leads: 0, purchases: 0, revenue: 0,
+    });
   }
   for (const r of rows) {
-    const d = String(r.created_at).slice(0, 10);
+    const d = chave(r.created_at);
     const bucket = byDay.get(d);
     if (!bucket) continue;
     if (r.event_type === "pageview") bucket.pageviews += 1;
@@ -522,7 +589,12 @@ function buildOverview(rows, range, paths) {
 
   return {
     days,
-    range: { from: range.fromDate, to: range.toDate, custom: range.custom },
+    range: {
+      from: range.fromDate,
+      to: range.toDate,
+      custom: range.custom,
+      granularity: range.granularity || "day",
+    },
     // Rotas do site no período (independem do recorte atual) + o que está ativo.
     paths: paths || [],
     selectedPaths: null,
