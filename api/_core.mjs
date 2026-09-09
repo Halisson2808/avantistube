@@ -63,8 +63,8 @@ async function verifyUser(token) {
   }
 }
 
-// Rotas liberadas sem login (status + proxies de imagem/título usados em <img>).
-const PUBLIC_PATHS = ["/status", "/proxy/thumbnail", "/proxy/oembed", "/track"];
+// Rotas liberadas sem login: status e a ingestão do pixel, que roda em sites externos.
+const PUBLIC_PATHS = ["/status", "/track"];
 
 // ─── YouTube helpers ───────────────────────────────────────────────────────────
 async function ytFetch(path) {
@@ -749,37 +749,6 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
       });
 
     return { status: 200, json: results };
-  }
-
-  // ── Proxy de thumbnail (evita CORS/referrer block) ─────────────────────────────
-  if (path === "/proxy/thumbnail" && method === "GET") {
-    const videoId = searchParams.get("videoId");
-    if (!videoId) return { status: 400, json: { error: "Missing videoId" } };
-
-    const YT_HEADERS = { Referer: "https://www.youtube.com/", "User-Agent": "Mozilla/5.0" };
-    async function tryQuality(quality) {
-      const r = await fetch(`https://img.youtube.com/vi/${videoId}/${quality}.jpg`, { headers: YT_HEADERS });
-      if (!r.ok) return null;
-      const buf = Buffer.from(await r.arrayBuffer());
-      return buf.byteLength > 5000 ? buf : null;
-    }
-    const buf = (await tryQuality("maxresdefault")) || (await tryQuality("sddefault")) || (await tryQuality("hqdefault"));
-    if (!buf) return { status: 404, json: { error: "Thumbnail não encontrada" } };
-
-    return { status: 200, buffer: buf, contentType: "image/jpeg", cacheControl: "public, max-age=3600" };
-  }
-
-  // ── Proxy de oEmbed (título sem CORS) ──────────────────────────────────────────
-  if (path === "/proxy/oembed" && method === "GET") {
-    const videoId = searchParams.get("videoId");
-    if (!videoId) return { status: 400, json: { error: "Missing videoId" } };
-    const r = await fetch(
-      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
-      { headers: { Referer: "https://www.youtube.com/" } }
-    );
-    if (!r.ok) return { status: 200, json: { title: "" } };
-    const data = await r.json();
-    return { status: 200, json: { title: data.title || "" } };
   }
 
   // ── Cache de vídeos recentes (sincroniza entre aparelhos) ──────────────────

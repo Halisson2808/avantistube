@@ -3,7 +3,7 @@ import {
     Home,
     X, Download,
     Search, TrendingUp, ChevronDown, ChevronRight,
-    ExternalLink, LogOut, Link2, Video, Image,
+    ExternalLink, LogOut, Link2, Video,
     BarChart3, Globe, Filter, Activity, Youtube, FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,6 @@ const youtubeItems = [
     { title: "Meus Canais", url: "/youtube/meus-canais", icon: Video },
     { title: "Exportar Dados", url: "/youtube/exportar", icon: Download },
     { title: "Perfis Salvos", url: "/youtube/perfis", icon: Link2 },
-    { title: "Thumbnails", url: "/youtube/thumbnails", icon: Image },
 ];
 
 /** Módulo Sites & Tráfego — cliques, funil e anúncios. */

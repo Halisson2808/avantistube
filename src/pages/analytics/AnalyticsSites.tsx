@@ -7,6 +7,9 @@ import { Copy, Globe, Plus, Trash2, Code2, ExternalLink } from "lucide-react";
 
 import { useTrackingSites, type TrackingSite } from "@/hooks/use-analytics";
 import { Panel, EmptyState } from "@/components/analytics/AnalyticsShell";
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 const KIND_LABEL: Record<TrackingSite["kind"], string> = {
     organic: "Orgânico",
@@ -59,15 +62,18 @@ export default function AnalyticsSites() {
                         placeholder="Domínio (ex.: minhaoferta.com.br)"
                         className="h-9 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white text-xs px-3 outline-none focus:border-emerald-500/40 placeholder:text-white/25"
                     />
-                    <select
-                        value={kind}
-                        onChange={(e) => setKind(e.target.value as TrackingSite["kind"])}
-                        className="h-9 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white text-xs px-2.5 outline-none focus:border-emerald-500/40"
-                    >
-                        <option value="organic">Orgânico</option>
-                        <option value="paid">Tráfego pago</option>
-                        <option value="both">Pago + orgânico</option>
-                    </select>
+                    <Select value={kind} onValueChange={(v) => setKind(v as TrackingSite["kind"])}>
+                        <SelectTrigger className="h-9 w-full sm:w-[150px] rounded-lg bg-white/[0.04] border-white/[0.08] text-white text-xs focus:ring-0 focus:border-emerald-500/40">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[rgba(16,16,20,0.98)] border-white/10 text-white">
+                            {(Object.keys(KIND_LABEL) as Array<TrackingSite["kind"]>).map((k) => (
+                                <SelectItem key={k} value={k} className="text-xs focus:bg-white/10 focus:text-white">
+                                    {KIND_LABEL[k]}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                     <button
                         type="submit"
                         disabled={saving || !name.trim()}

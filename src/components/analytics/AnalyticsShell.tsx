@@ -2,9 +2,13 @@
  * AnalyticsShell.tsx — peças reutilizadas pelas telas de Sites & Tráfego:
  * cabeçalho com filtro de site/período, cartões de métrica e blocos de seção.
  */
-import { CalendarDays, RefreshCw, X } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useTrackingSites, type DateRange, type TrackingSite } from "@/hooks/use-analytics";
+import { DateRangePicker } from "@/components/analytics/DateRangePicker";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 export const PERIODS = [
   { label: "24h", days: 1 },
@@ -103,16 +107,28 @@ export function AnalyticsHeader({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <select
-          value={siteKey || ""}
-          onChange={(e) => onSiteChange(e.target.value)}
-          className="h-8 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white text-xs px-2.5 outline-none focus:border-emerald-500/40"
+        <Select
+          value={siteKey || "__todos__"}
+          onValueChange={(v) => onSiteChange(v === "__todos__" ? "" : v)}
         >
-          <option value="">Todos os sites</option>
-          {sites.map((s) => (
-            <option key={s.id} value={s.site_key}>{s.name}</option>
-          ))}
-        </select>
+          <SelectTrigger className="h-8 w-auto min-w-[160px] gap-2 rounded-lg bg-white/[0.04] border-white/[0.08] text-white text-xs focus:ring-0 focus:border-emerald-500/40">
+            <SelectValue placeholder="Todos os sites" />
+          </SelectTrigger>
+          <SelectContent className="bg-[rgba(16,16,20,0.98)] border-white/10 text-white">
+            <SelectItem value="__todos__" className="text-xs focus:bg-white/10 focus:text-white">
+              Todos os sites
+            </SelectItem>
+            {sites.map((s) => (
+              <SelectItem
+                key={s.id}
+                value={s.site_key}
+                className="text-xs focus:bg-white/10 focus:text-white"
+              >
+                {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         {onDaysChange && (
           <div className="flex items-center rounded-lg bg-white/[0.04] border border-white/[0.08] p-0.5">
@@ -133,38 +149,11 @@ export function AnalyticsHeader({
 
         {/* Datas personalizadas — quando preenchidas, ganham dos presets */}
         {onFromChange && onToChange && (
-          <div
-            className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 transition-colors ${periodoCustomizado
-              ? "bg-emerald-500/10 border-emerald-500/25"
-              : "bg-white/[0.04] border-white/[0.08]"
-              }`}
-          >
-            <CalendarDays className={`h-3.5 w-3.5 ${periodoCustomizado ? "text-emerald-300" : "text-white/35"}`} />
-            <input
-              type="date"
-              value={from || ""}
-              max={to || undefined}
-              onChange={(e) => onFromChange(e.target.value)}
-              className="bg-transparent text-white text-[11px] outline-none [color-scheme:dark]"
-            />
-            <span className="text-white/25 text-[11px]">até</span>
-            <input
-              type="date"
-              value={to || ""}
-              min={from || undefined}
-              onChange={(e) => onToChange(e.target.value)}
-              className="bg-transparent text-white text-[11px] outline-none [color-scheme:dark]"
-            />
-            {periodoCustomizado && (
-              <button
-                onClick={() => { onFromChange(""); onToChange(""); }}
-                title="Voltar para os períodos rápidos"
-                className="text-white/40 hover:text-white transition-colors"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </div>
+          <DateRangePicker
+            from={from}
+            to={to}
+            onChange={(inicio, fim) => { onFromChange(inicio); onToChange(fim); }}
+          />
         )}
       </div>
     </div>

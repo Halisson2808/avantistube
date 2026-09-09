@@ -19,10 +19,7 @@ import Monitoramento from "./pages/Monitoramento";
 import MeusCanais from "./pages/MeusCanais";
 import Exportar from "./pages/Exportar";
 import PerfisSociais from "./pages/PerfisSociais";
-import BaixarThumbYoutube from "./pages/dark/BaixarThumbYoutube";
-import CompactarThumb from "./pages/dark/CompactarThumb";
 import StudioDashboard from "./pages/studio/StudioDashboard";
-import StudioThumbnails from "./pages/studio/StudioThumbnails";
 
 // Módulo Sites & Tráfego — cliques, funil e anúncios (rotas em /analytics)
 import AnalyticsDashboard from "./pages/analytics/AnalyticsDashboard";
@@ -68,9 +65,6 @@ function ProtectedApp() {
       <Route path="/youtube/meus-canais" element={wrap(<MeusCanais />)} />
       <Route path="/youtube/exportar" element={wrap(<Exportar />)} />
       <Route path="/youtube/perfis" element={wrap(<PerfisSociais />)} />
-      <Route path="/youtube/thumbnails" element={wrap(<StudioThumbnails />)} />
-      <Route path="/youtube/baixar-thumb" element={wrap(<BaixarThumbYoutube />)} />
-      <Route path="/youtube/compactar-thumb" element={wrap(<CompactarThumb />)} />
 
       {/* Módulo Sites & Tráfego */}
       <Route path="/analytics" element={wrap(<AnalyticsDashboard />)} />
@@ -101,17 +95,11 @@ function ProtectedApp() {
       <Route path="/meus-canais" element={<Navigate to="/youtube/meus-canais" replace />} />
       <Route path="/exportar" element={<Navigate to="/youtube/exportar" replace />} />
       <Route path="/perfis" element={<Navigate to="/youtube/perfis" replace />} />
-      <Route path="/thumbnails" element={<Navigate to="/youtube/thumbnails" replace />} />
-      <Route path="/baixar-thumb" element={<Navigate to="/youtube/baixar-thumb" replace />} />
-      <Route path="/compactar-thumb" element={<Navigate to="/youtube/compactar-thumb" replace />} />
       <Route path="/studio/tube/buscar" element={<Navigate to="/youtube/buscar" replace />} />
       <Route path="/studio/tube/monitoramento" element={<Navigate to="/youtube/monitoramento" replace />} />
       <Route path="/studio/tube/meus-canais" element={<Navigate to="/youtube/meus-canais" replace />} />
       <Route path="/studio/tube/exportar" element={<Navigate to="/youtube/exportar" replace />} />
       <Route path="/studio/tube/perfis" element={<Navigate to="/youtube/perfis" replace />} />
-      <Route path="/studio/dark/thumbnails" element={<Navigate to="/youtube/thumbnails" replace />} />
-      <Route path="/studio/dark/baixar-thumb" element={<Navigate to="/youtube/baixar-thumb" replace />} />
-      <Route path="/studio/dark/compactar-thumb" element={<Navigate to="/youtube/compactar-thumb" replace />} />
       <Route path="/studio" element={<Navigate to="/" replace />} />
       <Route path="/studio/*" element={<Navigate to="/" replace />} />
       <Route path="/avantistube/*" element={<Navigate to="/youtube" replace />} />

@@ -9,7 +9,7 @@ só que dentro do painel e com os dados no seu Supabase.
 | --- | --- |
 | `/` | Início — escolhe o módulo |
 | `/youtube` | Painel do YouTube (canais, vídeos, thumbnails) |
-| `/youtube/buscar`, `/youtube/monitoramento`, `/youtube/meus-canais`, `/youtube/exportar`, `/youtube/perfis`, `/youtube/thumbnails` | telas do módulo YouTube |
+| `/youtube/buscar`, `/youtube/monitoramento`, `/youtube/meus-canais`, `/youtube/exportar`, `/youtube/perfis` | telas do módulo YouTube |
 | `/analytics` | Visão geral do tráfego |
 | `/analytics/funil` | Funil de conversão (etapas configuráveis por site) |
 | `/analytics/eventos` | Últimos eventos recebidos |
@@ -99,8 +99,8 @@ feita minutos depois continua atribuída à campanha certa.
 
 ## Período
 
-Todas as telas aceitam os atalhos (24h, 7, 30, 90 dias) ou um intervalo de datas
-escolhido no calendário. Na API é `?days=N` ou `?from=AAAA-MM-DD&to=AAAA-MM-DD`
+Todas as telas aceitam os atalhos (24h, 7, 30, 90 dias) ou um intervalo escolhido
+no calendário (dois meses, clique no primeiro e no último dia). Na API é `?days=N` ou `?from=AAAA-MM-DD&to=AAAA-MM-DD`
 (as duas pontas entram na conta). A escolha fica salva no navegador e vale para
 visão geral, funil e eventos.
 

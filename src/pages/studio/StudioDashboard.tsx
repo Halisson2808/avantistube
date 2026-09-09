@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import {
     TrendingUp, Download,
     Search, Zap, Users, Eye,
-    Video, ExternalLink, Image, ShieldCheck,
+    Video, ExternalLink, ShieldCheck,
 } from "lucide-react";
 import { useMonitoredChannels } from "@/hooks/use-monitored-channels";
 
@@ -18,7 +18,6 @@ const quickTools = [
     { title: "Monitoramento", url: "/youtube/monitoramento", icon: TrendingUp },
     { title: "Meus Canais", url: "/youtube/meus-canais", icon: Video },
     { title: "Exportar Dados", url: "/youtube/exportar", icon: Download },
-    { title: "Thumbnails", url: "/youtube/thumbnails", icon: Image },
 ];
 
 export default function StudioDashboard() {
