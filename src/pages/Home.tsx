@@ -8,12 +8,15 @@ import { Youtube, BarChart3, FileText, ArrowRight, Users, Eye, MousePointerClick
 
 import { useMonitoredChannels } from "@/hooks/use-monitored-channels";
 import { useAnalyticsOverview } from "@/hooks/use-analytics";
+
+/** O cartão do hub mostra sempre a última semana. */
+const SETE_DIAS = { days: 7 };
 import { fmtNum, fmtMoney } from "@/components/analytics/AnalyticsShell";
 
 export default function Home() {
     const navigate = useNavigate();
     const { channels } = useMonitoredChannels();
-    const { data } = useAnalyticsOverview(null, 7);
+    const { data } = useAnalyticsOverview(null, SETE_DIAS);
 
     const totalSubs = channels.reduce((s, c) => s + c.currentSubscribers, 0);
     const t = data?.totals;

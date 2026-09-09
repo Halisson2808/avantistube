@@ -18,8 +18,8 @@ const TIPO_COR: Record<TrackingEvent["event_type"], string> = {
 const TIPOS: Array<TrackingEvent["event_type"] | "all"> = ["all", "pageview", "click", "lead", "purchase", "custom"];
 
 export default function AnalyticsEvents() {
-    const { siteKey, setSiteKey, sites } = useAnalyticsFilters();
-    const { events, isLoading, reload } = useTrackingEvents(siteKey, 200);
+    const { siteKey, setSiteKey, days, setDays, from, to, setFrom, setTo, range, sites } = useAnalyticsFilters();
+    const { events, isLoading, reload } = useTrackingEvents(siteKey, range, 200);
     const [tipo, setTipo] = useState<TrackingEvent["event_type"] | "all">("all");
 
     const lista = tipo === "all" ? events : events.filter((e) => e.event_type === tipo);
@@ -32,6 +32,12 @@ export default function AnalyticsEvents() {
                 sites={sites}
                 siteKey={siteKey}
                 onSiteChange={setSiteKey}
+                days={days}
+                onDaysChange={setDays}
+                from={from}
+                to={to}
+                onFromChange={setFrom}
+                onToChange={setTo}
                 onRefresh={reload}
                 loading={isLoading}
             />

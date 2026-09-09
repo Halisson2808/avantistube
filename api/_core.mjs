@@ -275,17 +275,59 @@ function osFromUA(ua = "") {
 function clampDays(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) return 7;
-  return Math.min(Math.max(Math.round(n), 1), 90);
+  return Math.min(Math.max(Math.round(n), 1), 365);
+}
+
+const DIA_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Período consultado. Aceita `days` (últimos N dias) ou o par `from`/`to`
+ * (datas YYYY-MM-DD, inclusive nas duas pontas) vindo do seletor do painel.
+ */
+function resolveRange(searchParams) {
+  const from = (searchParams.get("from") || "").trim();
+  const to = (searchParams.get("to") || "").trim();
+  const dataValida = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+
+  if (dataValida(from) && dataValida(to)) {
+    const inicio = new Date(`${from}T00:00:00.000Z`);
+    const fim = new Date(`${to}T23:59:59.999Z`);
+    if (inicio <= fim) {
+      // `fim` é 23:59:59.999 do último dia, então floor + 1 conta as duas pontas.
+      const dias = Math.min(Math.floor((fim - inicio) / DIA_MS) + 1, 365);
+      return {
+        fromIso: inicio.toISOString(),
+        toIso: fim.toISOString(),
+        fromDate: from,
+        toDate: to,
+        days: dias,
+        custom: true,
+      };
+    }
+  }
+
+  const days = clampDays(searchParams.get("days"));
+  const fim = new Date();
+  const inicio = new Date(fim.getTime() - (days - 1) * DIA_MS);
+  inicio.setUTCHours(0, 0, 0, 0);
+  return {
+    fromIso: inicio.toISOString(),
+    toIso: fim.toISOString(),
+    fromDate: inicio.toISOString().slice(0, 10),
+    toDate: fim.toISOString().slice(0, 10),
+    days,
+    custom: false,
+  };
 }
 
 /** Lê os eventos do período (limite alto o bastante para uso pessoal). */
-async function fetchEvents({ siteKey, days }) {
+async function fetchEvents({ siteKey, range }) {
   const db = getSupabase();
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   let q = db
     .from("tracking_events")
     .select("*")
-    .gte("created_at", since)
+    .gte("created_at", range.fromIso)
+    .lte("created_at", range.toIso)
     .order("created_at", { ascending: true })
     .limit(20000);
   if (siteKey) q = q.eq("site_key", siteKey);
@@ -310,8 +352,49 @@ function topBy(rows, keyFn, limit = 8) {
     .slice(0, limit);
 }
 
+/**
+ * Marcos percentuais (rolagem, vídeo) reconstruídos a partir dos nomes de evento
+ * — `rolagem_50`, `video_75`, `video_completo` — ou de `meta.percentual`.
+ * Devolve quantas sessões chegaram em cada marco, em ordem crescente.
+ */
+function milestones(rows, prefixo) {
+  const porMarco = new Map();
+
+  for (const r of rows) {
+    const nome = String(r.event_name || "");
+    if (!nome.startsWith(prefixo)) continue;
+
+    let pct = Number(r.meta && r.meta.percentual);
+    if (!Number.isFinite(pct)) {
+      const m = nome.match(/_(\d+)$/);
+      if (m) pct = Number(m[1]);
+      else if (/_(completo|complete)$/.test(nome)) pct = 100;
+    }
+    if (!Number.isFinite(pct)) continue;
+
+    const cur = porMarco.get(pct) || { percent: pct, events: 0, sessions: new Set() };
+    cur.events += 1;
+    if (r.session_id) cur.sessions.add(r.session_id);
+    porMarco.set(pct, cur);
+  }
+
+  return [...porMarco.values()]
+    .map((v) => ({ percent: v.percent, events: v.events, sessions: v.sessions.size }))
+    .sort((a, b) => a.percent - b.percent);
+}
+
+/** Média simples de um campo numérico guardado em meta. */
+function mediaMeta(rows, campo) {
+  const valores = rows
+    .map((r) => Number(r.meta && r.meta[campo]))
+    .filter((n) => Number.isFinite(n));
+  if (!valores.length) return 0;
+  return valores.reduce((s, n) => s + n, 0) / valores.length;
+}
+
 /** Monta os números do painel a partir dos eventos brutos. */
-function buildOverview(rows, days) {
+function buildOverview(rows, range) {
+  const days = range.days;
   const pageviews = rows.filter((r) => r.event_type === "pageview");
   const clicks = rows.filter((r) => r.event_type === "click");
   const leads = rows.filter((r) => r.event_type === "lead");
@@ -321,10 +404,11 @@ function buildOverview(rows, days) {
   const sessions = new Set(rows.map((r) => r.session_id).filter(Boolean)).size;
   const revenue = purchases.reduce((s, r) => s + (Number(r.value) || 0), 0);
 
-  // série diária
+  // série diária — cobre todo o período pedido, mesmo os dias sem evento
   const byDay = new Map();
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const inicioSerie = new Date(range.fromIso);
+  for (let i = 0; i < days; i++) {
+    const d = new Date(inicioSerie.getTime() + i * DIA_MS).toISOString().slice(0, 10);
     byDay.set(d, { date: d, pageviews: 0, clicks: 0, leads: 0, purchases: 0, revenue: 0 });
   }
   for (const r of rows) {
@@ -342,8 +426,13 @@ function buildOverview(rows, days) {
 
   const paid = rows.filter((r) => r.click_id || r.ad_network || r.utm_medium === "cpc" || r.utm_medium === "paid");
 
+  const saidas = rows.filter((r) => r.event_name === "saida_pagina");
+  const saidaIntencao = rows.filter((r) => r.event_name === "saida_intencao");
+  const custom = rows.filter((r) => r.event_type === "custom");
+
   return {
     days,
+    range: { from: range.fromDate, to: range.toDate, custom: range.custom },
     totals: {
       events: rows.length,
       pageviews: pageviews.length,
@@ -357,6 +446,10 @@ function buildOverview(rows, days) {
       organicEvents: rows.length - paid.length,
       clickRate: pageviews.length ? clicks.length / pageviews.length : 0,
       conversionRate: sessions ? purchases.length / sessions : 0,
+      // Engajamento, vindo do resumo enviado no fim de cada visita.
+      avgSeconds: mediaMeta(saidas, "segundos"),
+      avgScroll: mediaMeta(saidas, "rolagem"),
+      exitIntents: saidaIntencao.length,
     },
     timeseries: [...byDay.values()],
     sources: topBy(rows, (r) => r.utm_source || r.referrer_host),
@@ -365,6 +458,12 @@ function buildOverview(rows, days) {
     devices: topBy(rows, (r) => r.device),
     topClicks: topBy(clicks, (r) => r.event_name),
     sites: topBy(rows, (r) => r.site_key),
+    // Sinais de comportamento — a régua muda de site para site, então tudo que
+    // o pixel mandar com nome de marco aparece aqui sem precisar mexer no código.
+    scroll: milestones(rows, "rolagem"),
+    video: milestones(rows, "video"),
+    customEvents: topBy(custom, (r) => r.event_name, 15),
+    allEvents: topBy(rows, (r) => r.event_name, 20),
   };
 }
 
@@ -795,16 +894,16 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
 
   // Visão geral: totais, série temporal, origens, campanhas, páginas, aparelhos.
   if (path === "/analytics/overview" && method === "GET") {
-    const days = clampDays(searchParams.get("days"));
+    const range = resolveRange(searchParams);
     const siteKey = searchParams.get("site") || null;
-    const rows = await fetchEvents({ siteKey, days });
-    return { status: 200, json: buildOverview(rows, days) };
+    const rows = await fetchEvents({ siteKey, range });
+    return { status: 200, json: buildOverview(rows, range) };
   }
 
   // Funil: etapas configuradas (ou padrão) + taxa de conversão entre elas.
   if (path === "/analytics/funnel" && method === "GET") {
     const db = getSupabase();
-    const days = clampDays(searchParams.get("days"));
+    const range = resolveRange(searchParams);
     const siteKey = searchParams.get("site") || null;
 
     let steps = [];
@@ -817,7 +916,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
       steps = data || [];
     }
 
-    const rows = await fetchEvents({ siteKey, days });
+    const rows = await fetchEvents({ siteKey, range });
 
     if (!steps.length) {
       // Funil padrão quando o site ainda não configurou etapas.
@@ -843,7 +942,14 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
       };
     });
 
-    return { status: 200, json: { days, steps: result } };
+    return {
+      status: 200,
+      json: {
+        days: range.days,
+        range: { from: range.fromDate, to: range.toDate, custom: range.custom },
+        steps: result,
+      },
+    };
   }
 
   if (path === "/analytics/funnel-steps" && method === "POST") {

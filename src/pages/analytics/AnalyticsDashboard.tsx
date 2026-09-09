@@ -8,22 +8,28 @@ import {
 } from "recharts";
 import {
     Eye, MousePointerClick, Users, ShoppingCart, DollarSign, Filter,
-    Globe, Megaphone, FileText, Smartphone, Plus,
+    Globe, Megaphone, FileText, Smartphone, Plus, ScrollText, PlayCircle,
+    Clock, LogOut, Activity,
 } from "lucide-react";
 
 import { useAnalyticsOverview } from "@/hooks/use-analytics";
 import {
-    AnalyticsHeader, MetricCard, Panel, RankedList, EmptyState,
-    useAnalyticsFilters, fmtNum, fmtMoney, fmtPct,
+    AnalyticsHeader, MetricCard, Panel, RankedList, EmptyState, MilestoneBars,
+    useAnalyticsFilters, fmtNum, fmtMoney, fmtPct, fmtDuration,
 } from "@/components/analytics/AnalyticsShell";
 
 export default function AnalyticsDashboard() {
     const navigate = useNavigate();
-    const { siteKey, setSiteKey, days, setDays, sites, sitesLoading } = useAnalyticsFilters();
-    const { data, isLoading, reload } = useAnalyticsOverview(siteKey, days);
+    const {
+        siteKey, setSiteKey, days, setDays, from, to, setFrom, setTo, range, sites, sitesLoading,
+    } = useAnalyticsFilters();
+    const { data, isLoading, reload } = useAnalyticsOverview(siteKey, range);
 
     const t = data?.totals;
     const semSites = !sitesLoading && sites.length === 0;
+    const periodoLabel = data?.range?.custom
+        ? `Evolução — ${data.range.from} até ${data.range.to}`
+        : `Evolução — últimos ${days} dia(s)`;
 
     return (
         <div className="space-y-6 pb-10">
@@ -35,6 +41,10 @@ export default function AnalyticsDashboard() {
                 onSiteChange={setSiteKey}
                 days={days}
                 onDaysChange={setDays}
+                from={from}
+                to={to}
+                onFromChange={setFrom}
+                onToChange={setTo}
                 onRefresh={reload}
                 loading={isLoading}
                 actions={
@@ -91,7 +101,19 @@ export default function AnalyticsDashboard() {
                     </div>
 
                     {/* Série temporal */}
-                    <Panel title={`Evolução — últimos ${days} dia(s)`} icon={Eye}>
+                    {/* Engajamento — só faz sentido com o pixel novo instalado */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <MetricCard icon={Clock} label="Tempo médio" value={fmtDuration(t?.avgSeconds ?? 0)}
+                            hint="por visita encerrada" loading={isLoading} accent="text-sky-400" />
+                        <MetricCard icon={ScrollText} label="Rolagem média" value={`${Math.round(t?.avgScroll ?? 0)}%`}
+                            hint="da página" loading={isLoading} accent="text-emerald-400" />
+                        <MetricCard icon={LogOut} label="Intenção de saída" value={fmtNum(t?.exitIntents ?? 0)}
+                            hint="mouse saiu da janela" loading={isLoading} accent="text-amber-400" />
+                        <MetricCard icon={Activity} label="Eventos" value={fmtNum(t?.events ?? 0)}
+                            hint="no período" loading={isLoading} accent="text-violet-400" />
+                    </div>
+
+                    <Panel title={periodoLabel} icon={Eye}>
                         <div className="h-64">
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={data?.timeseries || []}>
@@ -143,6 +165,25 @@ export default function AnalyticsDashboard() {
                         </Panel>
                         <Panel title="Botões e links mais clicados" icon={MousePointerClick}>
                             <RankedList items={data?.topClicks || []} unit="cliques" emptyLabel="Nenhum clique rastreado ainda." />
+                        </Panel>
+                        <Panel title="Rolagem da página" icon={ScrollText}>
+                            <MilestoneBars
+                                items={data?.scroll || []}
+                                emptyLabel="Nenhum marco de rolagem ainda — o pixel envia rolagem_25, rolagem_50…"
+                            />
+                        </Panel>
+                        <Panel title="Vídeo / VSL" icon={PlayCircle}>
+                            <MilestoneBars
+                                items={data?.video || []}
+                                color="bg-violet-500"
+                                emptyLabel="Nenhum vídeo rastreado ainda — o pixel liga sozinho em <video>."
+                            />
+                        </Panel>
+                        <Panel title="Eventos personalizados" icon={Activity}>
+                            <RankedList
+                                items={data?.customEvents || []}
+                                emptyLabel="Nada ainda. Use avantis.track('nome_do_evento') no site."
+                            />
                         </Panel>
                         <Panel title="Aparelhos" icon={Smartphone}>
                             <RankedList items={data?.devices || []} />

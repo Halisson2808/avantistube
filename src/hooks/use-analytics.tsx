@@ -48,8 +48,22 @@ export interface TopItem {
   value: number;
 }
 
+/** Recorte de tempo usado nas telas: presets em dias ou datas escolhidas. */
+export interface DateRange {
+  days: number;
+  from?: string | null;
+  to?: string | null;
+}
+
+export interface Milestone {
+  percent: number;
+  events: number;
+  sessions: number;
+}
+
 export interface AnalyticsOverview {
   days: number;
+  range: { from: string; to: string; custom: boolean };
   totals: {
     events: number;
     pageviews: number;
@@ -63,6 +77,9 @@ export interface AnalyticsOverview {
     organicEvents: number;
     clickRate: number;
     conversionRate: number;
+    avgSeconds: number;
+    avgScroll: number;
+    exitIntents: number;
   };
   timeseries: Array<{
     date: string;
@@ -78,6 +95,10 @@ export interface AnalyticsOverview {
   devices: TopItem[];
   topClicks: TopItem[];
   sites: TopItem[];
+  scroll: Milestone[];
+  video: Milestone[];
+  customEvents: TopItem[];
+  allEvents: TopItem[];
 }
 
 export interface FunnelStep {
@@ -86,6 +107,18 @@ export interface FunnelStep {
   events: number;
   sessions: number;
   value: number;
+}
+
+/** Traduz o filtro de período para a query string da API. */
+function rangeParams(range: DateRange): URLSearchParams {
+  const qs = new URLSearchParams();
+  if (range.from && range.to) {
+    qs.set("from", range.from);
+    qs.set("to", range.to);
+  } else {
+    qs.set("days", String(range.days));
+  }
+  return qs;
 }
 
 async function getJson<T>(url: string): Promise<T> {
@@ -150,14 +183,14 @@ export function useTrackingSites() {
 }
 
 /* ── Visão geral ─────────────────────────────────────────────────────────── */
-export function useAnalyticsOverview(siteKey: string | null, days: number) {
+export function useAnalyticsOverview(siteKey: string | null, range: DateRange) {
   const [data, setData] = useState<AnalyticsOverview | null>(null);
   const [isLoading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const qs = new URLSearchParams({ days: String(days) });
+      const qs = rangeParams(range);
       if (siteKey) qs.set("site", siteKey);
       setData(await getJson<AnalyticsOverview>(`${API}/analytics/overview?${qs}`));
     } catch (err) {
@@ -165,7 +198,7 @@ export function useAnalyticsOverview(siteKey: string | null, days: number) {
     } finally {
       setLoading(false);
     }
-  }, [siteKey, days]);
+  }, [siteKey, range.days, range.from, range.to]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -173,14 +206,14 @@ export function useAnalyticsOverview(siteKey: string | null, days: number) {
 }
 
 /* ── Funil ───────────────────────────────────────────────────────────────── */
-export function useAnalyticsFunnel(siteKey: string | null, days: number) {
+export function useAnalyticsFunnel(siteKey: string | null, range: DateRange) {
   const [steps, setSteps] = useState<FunnelStep[]>([]);
   const [isLoading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const qs = new URLSearchParams({ days: String(days) });
+      const qs = rangeParams(range);
       if (siteKey) qs.set("site", siteKey);
       const res = await getJson<{ steps: FunnelStep[] }>(`${API}/analytics/funnel?${qs}`);
       setSteps(res.steps || []);
@@ -189,7 +222,7 @@ export function useAnalyticsFunnel(siteKey: string | null, days: number) {
     } finally {
       setLoading(false);
     }
-  }, [siteKey, days]);
+  }, [siteKey, range.days, range.from, range.to]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -214,14 +247,15 @@ export function useAnalyticsFunnel(siteKey: string | null, days: number) {
 }
 
 /* ── Eventos ao vivo ─────────────────────────────────────────────────────── */
-export function useTrackingEvents(siteKey: string | null, limit = 100) {
+export function useTrackingEvents(siteKey: string | null, range: DateRange, limit = 100) {
   const [events, setEvents] = useState<TrackingEvent[]>([]);
   const [isLoading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const qs = new URLSearchParams({ limit: String(limit) });
+      const qs = rangeParams(range);
+      qs.set("limit", String(limit));
       if (siteKey) qs.set("site", siteKey);
       setEvents(await getJson<TrackingEvent[]>(`${API}/analytics/events?${qs}`));
     } catch (err) {
@@ -229,7 +263,7 @@ export function useTrackingEvents(siteKey: string | null, limit = 100) {
     } finally {
       setLoading(false);
     }
-  }, [siteKey, limit]);
+  }, [siteKey, limit, range.days, range.from, range.to]);
 
   useEffect(() => { load(); }, [load]);
 

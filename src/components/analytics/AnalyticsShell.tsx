@@ -2,9 +2,9 @@
  * AnalyticsShell.tsx — peças reutilizadas pelas telas de Sites & Tráfego:
  * cabeçalho com filtro de site/período, cartões de métrica e blocos de seção.
  */
-import { RefreshCw } from "lucide-react";
+import { CalendarDays, RefreshCw, X } from "lucide-react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { useTrackingSites, type TrackingSite } from "@/hooks/use-analytics";
+import { useTrackingSites, type DateRange, type TrackingSite } from "@/hooks/use-analytics";
 
 export const PERIODS = [
   { label: "24h", days: 1 },
@@ -13,16 +13,36 @@ export const PERIODS = [
   { label: "90 dias", days: 90 },
 ];
 
-/** Filtro de site + período compartilhado entre as telas (fica salvo no navegador). */
+/**
+ * Filtro de site + período compartilhado entre as telas (fica salvo no navegador).
+ * O período é um preset em dias OU um intervalo de datas escolhido a dedo —
+ * quando as duas datas estão preenchidas, elas mandam.
+ */
 export function useAnalyticsFilters() {
   const [siteKey, setSiteKey] = useLocalStorage<string>("avantis_analytics_site", "");
   const [days, setDays] = useLocalStorage<number>("avantis_analytics_days", 7);
+  const [from, setFrom] = useLocalStorage<string>("avantis_analytics_from", "");
+  const [to, setTo] = useLocalStorage<string>("avantis_analytics_to", "");
   const { sites, isLoading } = useTrackingSites();
+
+  const range: DateRange = from && to ? { days, from, to } : { days };
+
+  const setDaysPreset = (d: number) => {
+    setFrom("");
+    setTo("");
+    setDays(d);
+  };
+
   return {
     siteKey: siteKey || null,
     setSiteKey,
     days,
-    setDays,
+    setDays: setDaysPreset,
+    from,
+    to,
+    setFrom,
+    setTo,
+    range,
     sites,
     sitesLoading: isLoading,
   };
@@ -36,6 +56,10 @@ export function AnalyticsHeader({
   onSiteChange,
   days,
   onDaysChange,
+  from,
+  to,
+  onFromChange,
+  onToChange,
   onRefresh,
   loading,
   actions,
@@ -47,10 +71,16 @@ export function AnalyticsHeader({
   onSiteChange: (v: string) => void;
   days?: number;
   onDaysChange?: (d: number) => void;
+  from?: string;
+  to?: string;
+  onFromChange?: (v: string) => void;
+  onToChange?: (v: string) => void;
   onRefresh?: () => void;
   loading?: boolean;
   actions?: React.ReactNode;
 }) {
+  const periodoCustomizado = Boolean(from && to);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -90,7 +120,7 @@ export function AnalyticsHeader({
               <button
                 key={p.days}
                 onClick={() => onDaysChange(p.days)}
-                className={`px-2.5 py-1 rounded-md text-[11px] transition-colors ${days === p.days
+                className={`px-2.5 py-1 rounded-md text-[11px] transition-colors ${!periodoCustomizado && days === p.days
                   ? "bg-emerald-500/20 text-emerald-200 font-medium"
                   : "text-white/50 hover:text-white"
                   }`}
@@ -98,6 +128,42 @@ export function AnalyticsHeader({
                 {p.label}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* Datas personalizadas — quando preenchidas, ganham dos presets */}
+        {onFromChange && onToChange && (
+          <div
+            className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 transition-colors ${periodoCustomizado
+              ? "bg-emerald-500/10 border-emerald-500/25"
+              : "bg-white/[0.04] border-white/[0.08]"
+              }`}
+          >
+            <CalendarDays className={`h-3.5 w-3.5 ${periodoCustomizado ? "text-emerald-300" : "text-white/35"}`} />
+            <input
+              type="date"
+              value={from || ""}
+              max={to || undefined}
+              onChange={(e) => onFromChange(e.target.value)}
+              className="bg-transparent text-white text-[11px] outline-none [color-scheme:dark]"
+            />
+            <span className="text-white/25 text-[11px]">até</span>
+            <input
+              type="date"
+              value={to || ""}
+              min={from || undefined}
+              onChange={(e) => onToChange(e.target.value)}
+              className="bg-transparent text-white text-[11px] outline-none [color-scheme:dark]"
+            />
+            {periodoCustomizado && (
+              <button
+                onClick={() => { onFromChange(""); onToChange(""); }}
+                title="Voltar para os períodos rápidos"
+                className="text-white/40 hover:text-white transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -208,6 +274,56 @@ export function EmptyState({ title, description, children }: {
     </div>
   );
 }
+
+/**
+ * Barras de marcos (rolagem da página, progresso da VSL). Cada barra é medida
+ * contra o primeiro marco, então dá para ler onde a audiência trava.
+ */
+export function MilestoneBars({
+  items,
+  emptyLabel = "Nenhum marco registrado no período.",
+  color = "bg-emerald-500",
+}: {
+  items: Array<{ percent: number; events: number; sessions: number }>;
+  emptyLabel?: string;
+  color?: string;
+}) {
+  if (!items.length) {
+    return <p className="text-white/30 text-xs py-4 text-center">{emptyLabel}</p>;
+  }
+
+  const base = items[0]?.sessions || 1;
+
+  return (
+    <div className="space-y-2">
+      {items.map((m) => {
+        const pct = Math.min((m.sessions / base) * 100, 100);
+        return (
+          <div key={m.percent} className="space-y-1">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-white/70">{m.percent}%</span>
+              <span className="text-white/40">
+                {m.sessions.toLocaleString("pt-BR")} sessões · {pct.toFixed(0)}% de quem começou
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+              <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Segundos → "1m 20s" */
+export const fmtDuration = (segundos: number) => {
+  const s = Math.round(segundos || 0);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const resto = s % 60;
+  return resto ? `${m}m ${resto}s` : `${m}m`;
+};
 
 export const fmtNum = (n: number) =>
   n >= 1_000_000 ? (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M"

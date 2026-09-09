@@ -1,17 +1,38 @@
 /**
- * Avantis Pixel — rastreio de visitas, cliques e conversões.
+ * Avantis Pixel — rastreio de visitas, rolagem, cliques, vídeo e conversões.
  *
  * Instalação (antes do </body> do site/oferta):
  *   <script defer src="https://SEU-PAINEL/avantis-pixel.js" data-site="CHAVE-DO-SITE"></script>
  *
  * O que envia sozinho:
  *   - pageview a cada carregamento (e a cada troca de rota em SPA)
- *   - click em qualquer elemento com [data-avantis] e em links externos
+ *   - rolagem_25 / rolagem_50 / rolagem_75 / rolagem_90 (marcos configuráveis)
+ *   - tempo_30s / tempo_60s / tempo_180s (marcos configuráveis)
+ *   - clique em qualquer elemento com [data-avantis] e em links externos
+ *   - saida_intencao quando o mouse vai para fora da janela (desktop)
+ *   - video_play / video_25 / video_50 / video_75 / video_completo em <video>
+ *   - form_enviado em qualquer <form> submetido
+ *   - saida_pagina no fim da visita, com o resumo do engajamento
  *
- * Eventos manuais:
+ * Ajustes pelo próprio <script> (todos opcionais):
+ *   data-scroll="25,50,75,90"     marcos de rolagem (vazio desliga)
+ *   data-time="30,60,180"         marcos de tempo em segundos (vazio desliga)
+ *   data-video="25,50,75,100"     marcos de vídeo (vazio desliga)
+ *   data-exit-intent="0"          desliga o evento de intenção de saída
+ *   data-auto-clicks="0"          desliga o clique automático
+ *   data-endpoint="https://..."   painel diferente do host do script
+ *   data-debug="1"                loga no console cada evento enviado
+ *
+ * Eventos manuais (a estratégia de cada site é diferente — invente os nomes):
  *   avantis.track("lead");
- *   avantis.track("purchase", { value: 97, currency: "BRL" });
- *   avantis.track("clicou_botao_topo", { type: "click" });
+ *   avantis.track("purchase", { value: 47.9, currency: "BRL" });
+ *   avantis.track("abriu_pop_saida", { meta: { origem: "mouseout" } });
+ *   avantis.track("assistiu_vsl_50", { type: "custom" });
+ *   avantis.trackVideo(elementoOuObjeto, "vsl-principal");   // player próprio
+ *
+ * Marcação direto no HTML:
+ *   <button data-avantis="cta_topo">Comprar</button>
+ *   <a data-avantis="cta_final" data-avantis-type="lead" data-avantis-value="47.90">…</a>
  *
  * As UTMs e os IDs de anúncio (fbclid/gclid/ttclid) da primeira visita ficam
  * guardados na sessão, então a venda continua atribuída à origem certa.
@@ -29,17 +50,37 @@
     return;
   }
 
+  // ── Configuração ────────────────────────────────────────────────────────────
+  function attr(name, fallback) {
+    var v = script && script.getAttribute(name);
+    return v === null || v === undefined ? fallback : v;
+  }
+
+  function numbers(value) {
+    return String(value)
+      .split(",")
+      .map(function (n) { return parseFloat(n.trim()); })
+      .filter(function (n) { return !isNaN(n); })
+      .sort(function (a, b) { return a - b; });
+  }
+
+  var CONFIG = {
+    scroll: numbers(attr("data-scroll", "25,50,75,90")),
+    time: numbers(attr("data-time", "30,60,180")),
+    video: numbers(attr("data-video", "25,50,75,100")),
+    exitIntent: attr("data-exit-intent", "1") !== "0",
+    autoClicks: attr("data-auto-clicks", "1") !== "0",
+    debug: attr("data-debug", "0") !== "0",
+  };
+
   var endpoint =
-    (script && script.getAttribute("data-endpoint")) ||
-    (script && script.src ? script.src.replace(/\/avantis-pixel\.js.*$/, "") : "") ;
+    attr("data-endpoint", null) ||
+    (script && script.src ? script.src.replace(/\/avantis-pixel\.js.*$/, "") : "");
   var TRACK_URL = endpoint + "/api/track";
 
   // ── Identificadores ─────────────────────────────────────────────────────────
   function uid() {
-    return (
-      Date.now().toString(36) +
-      Math.random().toString(36).slice(2, 10)
-    );
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
   }
 
   function store(kind, key, value) {
@@ -95,6 +136,8 @@
   // ── Envio ───────────────────────────────────────────────────────────────────
   function send(payload) {
     var body = JSON.stringify(payload);
+    if (CONFIG.debug) console.log("[avantis-pixel]", payload.eventName, payload);
+
     try {
       if (navigator.sendBeacon) {
         var blob = new Blob([body], { type: "text/plain;charset=UTF-8" });
@@ -110,7 +153,15 @@
         keepalive: true,
         mode: "cors",
       }).catch(function () { });
-    } catch (e) { /* silencioso: nunca quebrar o site do cliente */ }
+    } catch (e) { /* silencioso: nunca quebrar o site */ }
+  }
+
+  /** Evita mandar duas vezes o mesmo marco na mesma página. */
+  var jaEnviado = {};
+  function once(chave, fn) {
+    if (jaEnviado[chave]) return;
+    jaEnviado[chave] = true;
+    fn();
   }
 
   function track(eventName, options) {
@@ -147,12 +198,19 @@
   }
 
   // ── Pageview automático (inclusive em SPAs) ─────────────────────────────────
+  var inicio = Date.now();
+  var rolagemMaxima = 0;
+  var cliques = 0;
+
   track("pageview");
 
   var lastPath = window.location.pathname;
   function onRouteChange() {
     if (window.location.pathname === lastPath) return;
     lastPath = window.location.pathname;
+    jaEnviado = {};
+    inicio = Date.now();
+    rolagemMaxima = 0;
     track("pageview");
   }
   ["pushState", "replaceState"].forEach(function (m) {
@@ -165,37 +223,198 @@
   });
   window.addEventListener("popstate", onRouteChange);
 
-  // ── Cliques automáticos ─────────────────────────────────────────────────────
-  document.addEventListener(
-    "click",
-    function (ev) {
-      var el = ev.target && ev.target.closest ? ev.target.closest("a, button, [data-avantis]") : null;
-      if (!el) return;
+  // ── Rolagem ─────────────────────────────────────────────────────────────────
+  function percentualLido() {
+    var doc = document.documentElement;
+    var alturaTotal = Math.max(
+      document.body.scrollHeight, doc.scrollHeight,
+      document.body.offsetHeight, doc.offsetHeight
+    );
+    var visivel = window.innerHeight || doc.clientHeight;
+    var rolavel = alturaTotal - visivel;
+    if (rolavel <= 0) return 100;
+    var y = window.pageYOffset || doc.scrollTop || 0;
+    return Math.min(Math.round((y / rolavel) * 100), 100);
+  }
 
-      var named = el.getAttribute("data-avantis");
-      var href = el.getAttribute("href") || "";
-      var isExternal = href && /^https?:\/\//i.test(href) && href.indexOf(window.location.host) === -1;
+  function checarRolagem() {
+    var pct = percentualLido();
+    if (pct > rolagemMaxima) rolagemMaxima = pct;
+    CONFIG.scroll.forEach(function (marco) {
+      if (pct >= marco) {
+        once("scroll-" + marco, function () {
+          track("rolagem_" + marco, { meta: { percentual: marco } });
+        });
+      }
+    });
+  }
 
-      if (!named && !isExternal) return;
+  if (CONFIG.scroll.length) {
+    var scrollAgendado = false;
+    window.addEventListener("scroll", function () {
+      if (scrollAgendado) return;
+      scrollAgendado = true;
+      setTimeout(function () { scrollAgendado = false; checarRolagem(); }, 300);
+    }, { passive: true });
+    checarRolagem();
+  }
 
-      track(named || "clique_saida", {
-        type: "click",
-        value: el.getAttribute("data-avantis-value") || undefined,
+  // ── Tempo na página ─────────────────────────────────────────────────────────
+  CONFIG.time.forEach(function (segundos) {
+    setTimeout(function () {
+      // Só conta quem ainda está com a aba aberta.
+      if (document.visibilityState === "hidden") return;
+      once("tempo-" + segundos, function () {
+        track("tempo_" + segundos + "s", { meta: { segundos: segundos } });
+      });
+    }, segundos * 1000);
+  });
+
+  // ── Cliques ─────────────────────────────────────────────────────────────────
+  if (CONFIG.autoClicks) {
+    document.addEventListener(
+      "click",
+      function (ev) {
+        var el = ev.target && ev.target.closest
+          ? ev.target.closest("a, button, [data-avantis]")
+          : null;
+        if (!el) return;
+
+        var named = el.getAttribute("data-avantis");
+        var href = el.getAttribute("href") || "";
+        var isExternal = href && /^https?:\/\//i.test(href) && href.indexOf(window.location.host) === -1;
+
+        if (!named && !isExternal) return;
+        cliques++;
+
+        var valor = el.getAttribute("data-avantis-value");
+        track(named || "clique_saida", {
+          type: el.getAttribute("data-avantis-type") || "click",
+          value: valor ? parseFloat(String(valor).replace(",", ".")) : undefined,
+          meta: {
+            href: href || null,
+            texto: (el.innerText || "").trim().slice(0, 120) || null,
+            segundos: Math.round((Date.now() - inicio) / 1000),
+            rolagem: rolagemMaxima,
+          },
+        });
+      },
+      true
+    );
+  }
+
+  // ── Intenção de saída ───────────────────────────────────────────────────────
+  if (CONFIG.exitIntent) {
+    document.addEventListener("mouseout", function (ev) {
+      if (ev.clientY > 0 || ev.relatedTarget) return;
+      once("exit-intent", function () {
+        track("saida_intencao", {
+          meta: {
+            segundos: Math.round((Date.now() - inicio) / 1000),
+            rolagem: rolagemMaxima,
+          },
+        });
+      });
+    });
+  }
+
+  // ── Vídeo / VSL ─────────────────────────────────────────────────────────────
+  /**
+   * Liga os marcos de progresso a um player.
+   * @param alvo  um <video> da página, ou um objeto { duration, currentTime }
+   *              consultado a cada segundo (players de terceiros).
+   * @param nome  identificador do vídeo nos relatórios (ex.: "vsl-principal").
+   */
+  function trackVideo(alvo, nome) {
+    if (!alvo || !CONFIG.video.length) return;
+    var id = nome || alvo.getAttribute && (alvo.getAttribute("data-avantis-video") || alvo.id) || "video";
+
+    function progresso() {
+      var duracao = Number(alvo.duration) || 0;
+      var atual = Number(alvo.currentTime) || 0;
+      if (!duracao) return;
+      var pct = Math.min(Math.round((atual / duracao) * 100), 100);
+
+      CONFIG.video.forEach(function (marco) {
+        if (pct >= marco) {
+          once("video-" + id + "-" + marco, function () {
+            track(marco >= 100 ? "video_completo" : "video_" + marco, {
+              meta: { video: id, percentual: marco, segundos: Math.round(atual) },
+            });
+          });
+        }
+      });
+    }
+
+    if (typeof alvo.addEventListener === "function") {
+      alvo.addEventListener("play", function () {
+        once("video-" + id + "-play", function () {
+          track("video_play", { meta: { video: id } });
+        });
+      });
+      alvo.addEventListener("timeupdate", progresso);
+      alvo.addEventListener("ended", function () {
+        once("video-" + id + "-100", function () {
+          track("video_completo", { meta: { video: id, percentual: 100 } });
+        });
+      });
+    } else {
+      // Player de terceiros: consulta o estado uma vez por segundo.
+      setInterval(progresso, 1000);
+    }
+  }
+
+  function ligarVideosDaPagina() {
+    var videos = document.querySelectorAll("video");
+    for (var i = 0; i < videos.length; i++) {
+      if (videos[i].__avantisLigado) continue;
+      videos[i].__avantisLigado = true;
+      trackVideo(videos[i], videos[i].getAttribute("data-avantis-video") || "video-" + (i + 1));
+    }
+  }
+  ligarVideosDaPagina();
+  // VSLs costumam ser injetadas depois do carregamento.
+  setTimeout(ligarVideosDaPagina, 3000);
+  setTimeout(ligarVideosDaPagina, 10000);
+
+  // ── Formulários ─────────────────────────────────────────────────────────────
+  document.addEventListener("submit", function (ev) {
+    var form = ev.target;
+    if (!form || form.hasAttribute("data-avantis-ignore")) return;
+    track(form.getAttribute("data-avantis") || "form_enviado", {
+      type: form.getAttribute("data-avantis-type") || "lead",
+      meta: {
+        formulario: form.getAttribute("name") || form.id || null,
+        segundos: Math.round((Date.now() - inicio) / 1000),
+      },
+    });
+  }, true);
+
+  // ── Fim da visita: resumo do engajamento ────────────────────────────────────
+  function encerrar() {
+    once("saida", function () {
+      track("saida_pagina", {
         meta: {
-          href: href || null,
-          texto: (el.innerText || "").trim().slice(0, 120) || null,
+          segundos: Math.round((Date.now() - inicio) / 1000),
+          rolagem: rolagemMaxima,
+          cliques: cliques,
         },
       });
-    },
-    true
-  );
+    });
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") encerrar();
+  });
+  window.addEventListener("pagehide", encerrar);
 
   // ── API pública ─────────────────────────────────────────────────────────────
   window.avantis = {
     track: track,
+    trackVideo: trackVideo,
     siteKey: siteKey,
     visitorId: visitorId,
     sessionId: sessionId,
     attribution: attribution,
+    config: CONFIG,
   };
 })();

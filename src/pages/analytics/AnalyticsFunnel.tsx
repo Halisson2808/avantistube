@@ -16,9 +16,17 @@ const PADRAO = [
     { label: "Vendas", eventName: "purchase" },
 ];
 
+/** Sugestões de etapa para montar o funil de uma página de vendas. */
+const SUGESTOES = [
+    "pageview", "rolagem_25", "rolagem_50", "rolagem_75", "rolagem_90",
+    "tempo_30s", "tempo_60s", "tempo_180s",
+    "video_play", "video_25", "video_50", "video_75", "video_completo",
+    "saida_intencao", "cta_topo", "cta_meio", "cta_final", "lead", "purchase",
+];
+
 export default function AnalyticsFunnel() {
-    const { siteKey, setSiteKey, days, setDays, sites } = useAnalyticsFilters();
-    const { steps, isLoading, reload, saveSteps } = useAnalyticsFunnel(siteKey, days);
+    const { siteKey, setSiteKey, days, setDays, from, to, setFrom, setTo, range, sites } = useAnalyticsFilters();
+    const { steps, isLoading, reload, saveSteps } = useAnalyticsFunnel(siteKey, range);
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(PADRAO);
 
@@ -41,6 +49,10 @@ export default function AnalyticsFunnel() {
                 onSiteChange={setSiteKey}
                 days={days}
                 onDaysChange={setDays}
+                from={from}
+                to={to}
+                onFromChange={setFrom}
+                onToChange={setTo}
                 onRefresh={reload}
                 loading={isLoading}
                 actions={
@@ -63,6 +75,9 @@ export default function AnalyticsFunnel() {
 
             {editing && siteKey && (
                 <Panel title="Etapas do funil" icon={Filter}>
+                    <datalist id="eventos-sugeridos">
+                        {SUGESTOES.map((nome) => <option key={nome} value={nome} />)}
+                    </datalist>
                     <div className="space-y-2">
                         {draft.map((step, i) => (
                             <div key={i} className="flex items-center gap-2">
@@ -77,6 +92,7 @@ export default function AnalyticsFunnel() {
                                     value={step.eventName}
                                     onChange={(e) => setDraft(d => d.map((s, j) => j === i ? { ...s, eventName: e.target.value } : s))}
                                     placeholder="nome_do_evento"
+                                    list="eventos-sugeridos"
                                     className="h-8 flex-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-emerald-200 text-xs px-3 outline-none focus:border-emerald-500/40 font-mono"
                                 />
                                 <button
