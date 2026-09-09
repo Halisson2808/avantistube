@@ -84,7 +84,7 @@ export default function AnalyticsSites() {
                         <SelectTrigger className="h-9 w-full sm:w-[150px] rounded-lg bg-white/[0.04] border-white/[0.08] text-white text-xs focus:ring-0 focus:border-emerald-500/40">
                             <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-[rgba(16,16,20,0.98)] border-white/10 text-white">
+                        <SelectContent className="bg-[#101014] border-white/10 text-white">
                             {(Object.keys(KIND_LABEL) as Array<TrackingSite["kind"]>).map((k) => (
                                 <SelectItem key={k} value={k} className="text-xs focus:bg-white/10 focus:text-white">
                                     {KIND_LABEL[k]}

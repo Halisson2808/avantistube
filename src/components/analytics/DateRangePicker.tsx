@@ -70,7 +70,7 @@ export function DateRangePicker({
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="w-auto p-0 bg-[rgba(16,16,20,0.98)] border-white/10 text-white"
+          className="w-auto p-0 bg-[#101014] border-white/10 text-white"
         >
           <Calendar
             mode="range"

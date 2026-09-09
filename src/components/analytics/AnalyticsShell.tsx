@@ -119,7 +119,13 @@ export function AnalyticsHeader({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-white tracking-tight">{title}</h1>
-          {subtitle && <p className="text-white/40 text-xs mt-0.5">{subtitle}</p>}
+          {selectedPaths && selectedPaths.length > 0 ? (
+            <p className="text-emerald-300/80 text-xs mt-0.5">
+              Mostrando apenas {selectedPaths.join(", ")}
+            </p>
+          ) : (
+            subtitle && <p className="text-white/40 text-xs mt-0.5">{subtitle}</p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {actions}
@@ -143,7 +149,7 @@ export function AnalyticsHeader({
           <SelectTrigger className="h-8 w-auto min-w-[160px] gap-2 rounded-lg bg-white/[0.04] border-white/[0.08] text-white text-xs focus:ring-0 focus:border-emerald-500/40">
             <SelectValue placeholder="Todos os sites" />
           </SelectTrigger>
-          <SelectContent className="bg-[rgba(16,16,20,0.98)] border-white/10 text-white">
+          <SelectContent className="bg-[#101014] border-white/10 text-white">
             <SelectItem value="__todos__" className="text-xs focus:bg-white/10 focus:text-white">
               Todos os sites
             </SelectItem>

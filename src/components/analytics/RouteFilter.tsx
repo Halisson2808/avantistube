@@ -65,7 +65,7 @@ export function RouteFilter({
 
         <PopoverContent
           align="start"
-          className="w-64 p-0 bg-[rgba(16,16,20,0.98)] border-white/10 text-white"
+          className="w-64 p-0 bg-[#101014] border-white/10 text-white"
         >
           <div className="max-h-72 overflow-y-auto py-1">
             {vazio && (
