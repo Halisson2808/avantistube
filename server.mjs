@@ -30,6 +30,11 @@ const PORT = 3001;
 // import dinâmico: garante que o .env já está em process.env
 const { handleApiRequest } = await import("./api/_core.mjs");
 
+/** Igual ao Vercel: resposta de API do painel nunca entra em cache. */
+function semCache(res) {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+}
+
 function cors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
@@ -73,6 +78,7 @@ const server = createServer(async (req, res) => {
       res.end(result.buffer);
       return;
     }
+    semCache(res);
     res.writeHead(result.status, { "Content-Type": "application/json" });
     res.end(JSON.stringify(result.json));
   } catch (err) {

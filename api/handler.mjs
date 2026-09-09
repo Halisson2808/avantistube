@@ -50,6 +50,8 @@ export default async function handler(req, res) {
       res.send(result.buffer);
       return;
     }
+    // Métrica cacheada é métrica errada: o painel precisa sempre do dado fresco.
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
     res.status(result.status).json(result.json);
   } catch (err) {
     console.error(`[api] ${req.method} ${url.pathname} →`, err.message);

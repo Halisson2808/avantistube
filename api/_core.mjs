@@ -576,7 +576,17 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
 
   // ── Status ──────────────────────────────────────────────────────────────────
   if (path === "/status" && method === "GET") {
-    return { status: 200, json: { status: "ok", version: "2.0.0", supabase: true } };
+    return {
+      status: 200,
+      json: {
+        status: "ok",
+        version: "2.1.0",
+        supabase: true,
+        // Marcadores do que este backend implementa. Servem para conferir de
+        // fora (sem login) se o deploy realmente subiu.
+        features: ["analytics", "track", "route-filter", "auto-site", "date-range"],
+      },
+    };
   }
 
   // ── Canais ────────────────────────────────────────────────────────────────────
