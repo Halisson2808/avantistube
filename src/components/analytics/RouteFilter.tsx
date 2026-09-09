@@ -6,7 +6,7 @@
  * diferentes. Nada selecionado = site inteiro.
  */
 import { useState } from "react";
-import { Check, Route, X } from "lucide-react";
+import { Check, ChevronDown, Route, X } from "lucide-react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -26,9 +26,9 @@ export function RouteFilter({
 }) {
   const [aberto, setAberto] = useState(false);
 
-  // Sem rota nenhuma registrada ainda não há o que filtrar.
-  if (!options.length) return null;
-
+  // Continua visível mesmo sem rota no período: sumir da tela faz parecer que o
+  // filtro não existe. Sem opções ele só avisa que não há o que recortar.
+  const vazio = options.length === 0;
   const ativo = selected.length > 0;
   const rotulo = !ativo
     ? "Todas as rotas"
@@ -59,6 +59,7 @@ export function RouteFilter({
           >
             <Route className="h-3.5 w-3.5 flex-shrink-0" />
             <span className="truncate">{rotulo}</span>
+            <ChevronDown className="h-3 w-3 flex-shrink-0 opacity-50" />
           </button>
         </PopoverTrigger>
 
@@ -67,6 +68,11 @@ export function RouteFilter({
           className="w-64 p-0 bg-[rgba(16,16,20,0.98)] border-white/10 text-white"
         >
           <div className="max-h-72 overflow-y-auto py-1">
+            {vazio && (
+              <p className="px-3 py-4 text-center text-white/35 text-[11px]">
+                Nenhuma rota registrada no período.
+              </p>
+            )}
             {options.map((o) => {
               const marcado = selected.includes(o.path);
               return (
