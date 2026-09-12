@@ -68,7 +68,9 @@ function SectionLabel({
 export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
     const { pathname } = useLocation();
     const [youtubeOpen, setYoutubeOpen] = useState(!pathname.startsWith("/analytics"));
-    const [analyticsOpen, setAnalyticsOpen] = useState(pathname.startsWith("/analytics"));
+    // Sites & Tráfego fica visível desde a abertura da aplicação, mesmo quando
+    // o usuário estiver navegando pelo módulo do YouTube.
+    const [analyticsOpen, setAnalyticsOpen] = useState(true);
     const [channelsOpen, setChannelsOpen] = useState(true);
     const { channels } = useMonitoredChannels();
     const { signOut } = useAuth();

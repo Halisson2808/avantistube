@@ -723,8 +723,23 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const db = getSupabase();
     const channelId = await resolveChannelId(body.channelInput || body.channelId);
 
-    const { data: dup } = await db.from("channels").select("id").eq("channel_id", channelId).limit(1);
-    if (dup && dup.length) return { status: 409, json: { error: "already being monitored" } };
+    const { data: dup } = await db.from("channels").select("*").eq("channel_id", channelId).limit(1);
+    if (dup && dup.length) {
+      // "Meus Canais" e "Monitoramento" compartilham a mesma tabela. Se o
+      // canal já estiver no monitoramento, salvá-lo como próprio deve movê-lo
+      // para a outra lista — não acusar duplicidade e deixá-lo invisível.
+      if (body.isOwnChannel) {
+        const { data: moved, error } = await db
+          .from("channels")
+          .update({ is_own_channel: true, niche: null, last_updated: new Date().toISOString() })
+          .eq("channel_id", channelId)
+          .select()
+          .single();
+        if (error) throw new Error(error.message);
+        return { status: 200, json: { channel: moved, moved: true } };
+      }
+      return { status: 409, json: { error: "already being monitored" } };
+    }
 
     const info = await getChannelInfo(channelId);
     const nowIso = new Date().toISOString();
@@ -747,6 +762,19 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
 
     await recordHistory(channelId, info.subscriberCount, info.viewCount, info.videoCount);
     return { status: 201, json: { channel: inserted } };
+  }
+
+  if (path.startsWith("/channels/") && path.endsWith("/move-to-own") && method === "POST") {
+    const db = getSupabase();
+    const channelId = decodeURIComponent(path.split("/")[2]);
+    const { data, error } = await db
+      .from("channels")
+      .update({ is_own_channel: true, niche: null, last_updated: new Date().toISOString() })
+      .eq(idColumn(channelId), channelId)
+      .select()
+      .single();
+    if (error) return { status: 404, json: { error: error.message } };
+    return { status: 200, json: { channel: data } };
   }
 
   if (path.startsWith("/channels/") && method === "PUT") {

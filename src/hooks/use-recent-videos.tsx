@@ -93,6 +93,7 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
     updateContentType,
     removeChannel,
     updateChannelStats,
+    moveChannelToOwn,
     isLoading: isLoadingChannels
   } = useMonitoredChannels();
 
@@ -704,5 +705,6 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
     updateContentType,
     removeChannel: removeChannelSafely,
     updateChannelStats,
+    moveChannelToOwn,
   };
 };

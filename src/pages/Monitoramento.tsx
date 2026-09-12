@@ -367,6 +367,7 @@ const RecentVideos = () => {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedChannelIds, setSelectedChannelIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteAlert, setShowBulkDeleteAlert] = useState(false);
+  const [isMovingToOwn, setIsMovingToOwn] = useState(false);
   const [showBulkNicheDialog, setShowBulkNicheDialog] = useState(false);
   const [bulkNiche, setBulkNiche] = useState("");
   const [bulkCustomNiche, setBulkCustomNiche] = useState("");
@@ -638,6 +639,21 @@ const RecentVideos = () => {
       toast.error("Erro ao remover canais");
     } finally {
       setIsBulkProcessing(false);
+    }
+  };
+
+  const handleMoveSelectedToOwn = async () => {
+    setIsMovingToOwn(true);
+    const selected = Array.from(selectedChannelIds);
+    try {
+      const results = await Promise.allSettled(selected.map(channelId => moveChannelToOwn(channelId)));
+      const moved = results.filter(result => result.status === 'fulfilled').length;
+      const failed = results.length - moved;
+      if (moved) toast.success(`${moved} canal(is) enviado(s) para Meus Canais`);
+      if (failed) toast.error(`${failed} canal(is) não puderam ser movido(s)`);
+      if (moved) exitSelectionMode();
+    } finally {
+      setIsMovingToOwn(false);
     }
   };
 
@@ -1538,6 +1554,16 @@ const RecentVideos = () => {
           >
             <Tag className="w-3.5 h-3.5 mr-1.5" />
             Mudar Nicho
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8"
+            disabled={isMovingToOwn}
+            onClick={handleMoveSelectedToOwn}
+          >
+            {isMovingToOwn ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Video className="w-3.5 h-3.5 mr-1.5" />}
+            Meus Canais
           </Button>
           <Button
             size="sm"

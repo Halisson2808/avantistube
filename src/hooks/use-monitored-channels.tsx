@@ -205,6 +205,16 @@ export const useMonitoredChannels = () => {
     }
   };
 
+  /** Move um canal do Monitoramento para a lista pessoal, sem apagar dados ou histórico. */
+  const moveChannelToOwn = async (channelId: string) => {
+    const res = await fetch(`${API}/channels/${encodeURIComponent(channelId)}/move-to-own`, {
+      method: 'POST',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Erro ${res.status}`);
+    await loadChannels();
+  };
+
   return {
     channels,
     isLoading,
@@ -217,5 +227,6 @@ export const useMonitoredChannels = () => {
     updateNotes,
     updateChannelStats,
     updateContentType,
+    moveChannelToOwn,
   };
 };
