@@ -26,7 +26,6 @@
  *   data-exit-intent="0"          desliga o evento de intenção de saída
  *   data-auto-clicks="0"          desliga o clique automático
  *   data-site-name="Oferta X (R$ 47,90)"  nome que aparece no painel
- *   data-site-kind="paid"         organic | paid | both (padrão: organic)
  *   data-allow-localhost="1"      envia mesmo rodando em localhost (padrão: não)
  *   data-endpoint="https://..."   painel diferente do host do script
  *   data-debug="1"                loga no console cada evento enviado
@@ -42,8 +41,8 @@
  *   <button data-avantis="cta_topo">Comprar</button>
  *   <a data-avantis="cta_final" data-avantis-type="lead" data-avantis-value="47.90">…</a>
  *
- * As UTMs e os IDs de anúncio (fbclid/gclid/ttclid) da primeira visita ficam
- * guardados na sessão, então a venda continua atribuída à origem certa.
+ * As UTMs da primeira visita ficam guardadas na sessão, então a conversão
+ * continua atribuída à origem certa.
  */
 (function () {
   "use strict";
@@ -113,7 +112,6 @@
 
   // Identificação da oferta no painel (usada no cadastro automático).
   var siteName = attr("data-site-name", null);
-  var siteKind = attr("data-site-kind", null); // organic | paid | both
 
   var CONFIG = {
     scroll: numbers(attr("data-scroll", "25,50,75,90")),
@@ -149,7 +147,6 @@
 
   // ── Origem do tráfego (persiste na sessão) ──────────────────────────────────
   var UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"];
-  var CLICK_IDS = { fbclid: "meta", gclid: "google", ttclid: "tiktok", msclkid: "microsoft" };
 
   function readAttribution() {
     var params = new URLSearchParams(window.location.search);
@@ -159,15 +156,6 @@
     UTM_KEYS.forEach(function (k) {
       var v = params.get(k);
       if (v) { data[k] = v; found = true; }
-    });
-
-    Object.keys(CLICK_IDS).forEach(function (k) {
-      var v = params.get(k);
-      if (v) {
-        data.click_id = v;
-        data.ad_network = CLICK_IDS[k];
-        found = true;
-      }
     });
 
     if (found) {
@@ -227,7 +215,6 @@
     send({
       siteKey: siteKey,
       siteName: siteName,
-      siteKind: siteKind,
       eventName: eventName,
       eventType: type,
       url: window.location.href,
@@ -238,8 +225,6 @@
       utmCampaign: attribution.utm_campaign || null,
       utmContent: attribution.utm_content || null,
       utmTerm: attribution.utm_term || null,
-      clickId: attribution.click_id || null,
-      adNetwork: attribution.ad_network || null,
       visitorId: visitorId,
       sessionId: sessionId,
       value: options.value,

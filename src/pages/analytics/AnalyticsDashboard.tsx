@@ -24,7 +24,7 @@ export default function AnalyticsDashboard() {
     const {
         siteKey, setSiteKey, days, setDays, from, to, setFrom, setTo,
         paths, setPaths, range, sites, sitesLoading,
-    } = useAnalyticsFilters();
+    } = useAnalyticsFilters({ startAt24Hours: true });
     const { data, isLoading, reload } = useAnalyticsOverview(siteKey, range);
     // O mesmo funil da tela dedicada, resumido aqui para ver de relance.
     const { steps: funil } = useAnalyticsFunnel(siteKey, range);
@@ -42,7 +42,7 @@ export default function AnalyticsDashboard() {
         <div className="space-y-6 pb-10">
             <AnalyticsHeader
                 title="Sites & Tráfego"
-                subtitle="Cliques, origem dos anúncios e conversões dos seus sites"
+                subtitle="Visitas, origens, comportamento e conversões dos seus sites"
                 sites={sites}
                 siteKey={siteKey}
                 onSiteChange={setSiteKey}
@@ -92,22 +92,6 @@ export default function AnalyticsDashboard() {
                         <MetricCard icon={ShoppingCart} label="Vendas" value={fmtNum(t?.purchases ?? 0)}
                             hint={t ? `${fmtPct(t.conversionRate)} por sessão` : undefined} loading={isLoading} accent="text-violet-400" />
                         <MetricCard icon={DollarSign} label="Receita" value={fmtMoney(t?.revenue ?? 0)} loading={isLoading} />
-                    </div>
-
-                    {/* Pago x orgânico */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <SplitBar
-                            label="Tráfego pago"
-                            value={t?.paidEvents ?? 0}
-                            total={(t?.paidEvents ?? 0) + (t?.organicEvents ?? 0)}
-                            color="bg-sky-500"
-                        />
-                        <SplitBar
-                            label="Tráfego orgânico"
-                            value={t?.organicEvents ?? 0}
-                            total={(t?.paidEvents ?? 0) + (t?.organicEvents ?? 0)}
-                            color="bg-emerald-500"
-                        />
                     </div>
 
                     {/* Funil — o mesmo de /analytics/funil */}
@@ -224,28 +208,6 @@ export default function AnalyticsDashboard() {
                     </div>
                 </>
             )}
-        </div>
-    );
-}
-
-function SplitBar({ label, value, total, color }: {
-    label: string;
-    value: number;
-    total: number;
-    color: string;
-}) {
-    const pct = total ? (value / total) * 100 : 0;
-    return (
-        <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 space-y-2">
-            <div className="flex items-center justify-between">
-                <span className="text-white text-xs">{label}</span>
-                <span className="text-white/45 text-[11px]">
-                    {fmtNum(value)} eventos · {pct.toFixed(0)}%
-                </span>
-            </div>
-            <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
-            </div>
         </div>
     );
 }

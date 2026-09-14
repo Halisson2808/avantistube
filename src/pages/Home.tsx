@@ -49,7 +49,7 @@ export default function Home() {
                 />
                 <ModuleCard
                     title="Sites & Tráfego"
-                    description="Rastreio de cliques, origem dos anúncios (UTM), funil de conversão e receita das ofertas."
+                    description="Rastreio de visitas, origens por UTM, comportamento, conversões e receita dos sites."
                     icon={BarChart3}
                     accent="emerald"
                     onClick={() => navigate("/analytics")}

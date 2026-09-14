@@ -2,6 +2,7 @@
  * AnalyticsShell.tsx — peças reutilizadas pelas telas de Sites & Tráfego:
  * cabeçalho com filtro de site/período, cartões de métrica e blocos de seção.
  */
+import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useTrackingSites, type DateRange, type TrackingSite } from "@/hooks/use-analytics";
@@ -23,13 +24,26 @@ export const PERIODS = [
  * O período é um preset em dias OU um intervalo de datas escolhido a dedo —
  * quando as duas datas estão preenchidas, elas mandam.
  */
-export function useAnalyticsFilters() {
+export function useAnalyticsFilters({ startAt24Hours = false } = {}) {
   const [siteKey, setSiteKey] = useLocalStorage<string>("avantis_analytics_site", "");
-  const [days, setDays] = useLocalStorage<number>("avantis_analytics_days", 7);
-  const [from, setFrom] = useLocalStorage<string>("avantis_analytics_from", "");
-  const [to, setTo] = useLocalStorage<string>("avantis_analytics_to", "");
+  const [storedDays, setStoredDays] = useLocalStorage<number>("avantis_analytics_days", 7);
+  const [storedFrom, setStoredFrom] = useLocalStorage<string>("avantis_analytics_from", "");
+  const [storedTo, setStoredTo] = useLocalStorage<string>("avantis_analytics_to", "");
   const [paths, setPaths] = useLocalStorage<string[]>("avantis_analytics_paths", []);
+  // A Visão geral sempre começa em 24h, independentemente do último período
+  // usado nela ou nas telas de Funil/Eventos. Dentro da tela o usuário ainda
+  // pode trocar o período normalmente.
+  const [overviewDays, setOverviewDays] = useState(1);
+  const [overviewFrom, setOverviewFrom] = useState("");
+  const [overviewTo, setOverviewTo] = useState("");
   const { sites, isLoading } = useTrackingSites();
+
+  const days = startAt24Hours ? overviewDays : storedDays;
+  const from = startAt24Hours ? overviewFrom : storedFrom;
+  const to = startAt24Hours ? overviewTo : storedTo;
+  const setDays = startAt24Hours ? setOverviewDays : setStoredDays;
+  const setFrom = startAt24Hours ? setOverviewFrom : setStoredFrom;
+  const setTo = startAt24Hours ? setOverviewTo : setStoredTo;
 
   const range: DateRange = from && to ? { days, from, to, paths } : { days, paths };
 

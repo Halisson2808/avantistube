@@ -21,7 +21,7 @@ import Exportar from "./pages/Exportar";
 import PerfisSociais from "./pages/PerfisSociais";
 import StudioDashboard from "./pages/studio/StudioDashboard";
 
-// Módulo Sites & Tráfego — cliques, funil e anúncios (rotas em /analytics)
+// Módulo Sites & Tráfego — visitas, cliques e funil (rotas em /analytics)
 import AnalyticsDashboard from "./pages/analytics/AnalyticsDashboard";
 import AnalyticsSites from "./pages/analytics/AnalyticsSites";
 import AnalyticsFunnel from "./pages/analytics/AnalyticsFunnel";

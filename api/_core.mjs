@@ -54,13 +54,22 @@ function getSupabaseAnon() {
 /** Retorna o usuário se o token for válido, senão null. */
 async function verifyUser(token) {
   if (!token) return null;
+  let result;
   try {
-    const { data, error } = await getSupabaseAnon().auth.getUser(token);
-    if (error || !data?.user) return null;
-    return data.user;
-  } catch {
-    return null;
+    result = await getSupabaseAnon().auth.getUser(token);
+  } catch (error) {
+    throw new Error(`Serviço de autenticação temporariamente indisponível: ${error.message}`);
   }
+
+  const { data, error } = result;
+  if (error) {
+    const status = Number(error.status) || 0;
+    // Token inválido/expirado é falha real de autenticação. Timeout, rate
+    // limit e erros 5xx são indisponibilidade e não devem expulsar o usuário.
+    if (status >= 400 && status < 500 && status !== 408 && status !== 429) return null;
+    throw new Error(`Serviço de autenticação temporariamente indisponível: ${error.message}`);
+  }
+  return data?.user || null;
 }
 
 // Rotas liberadas sem login: status e a ingestão do pixel, que roda em sites externos.
@@ -387,7 +396,7 @@ function nomeAPartirDaChave(siteKey) {
     .join(" ") || siteKey;
 }
 
-async function ensureSite({ siteKey, name, url, kind }) {
+async function ensureSite({ siteKey, name, url }) {
   if (_sitesConhecidos.has(siteKey)) return;
 
   try {
@@ -413,7 +422,6 @@ async function ensureSite({ siteKey, name, url, kind }) {
       site_key: siteKey,
       name: name || nomeAPartirDaChave(siteKey),
       domain: safeHost(url),
-      kind: ["organic", "paid", "both"].includes(kind) ? kind : "organic",
       auto_created: true,
     });
     _sitesConhecidos.add(siteKey);
@@ -581,8 +589,6 @@ function buildOverview(rows, range, paths) {
     }
   }
 
-  const paid = rows.filter((r) => r.click_id || r.ad_network || r.utm_medium === "cpc" || r.utm_medium === "paid");
-
   const saidas = rows.filter((r) => r.event_name === "saida_pagina");
   const saidaIntencao = rows.filter((r) => r.event_name === "saida_intencao");
   const custom = rows.filter((r) => r.event_type === "custom");
@@ -607,8 +613,6 @@ function buildOverview(rows, range, paths) {
       visitors,
       sessions,
       revenue,
-      paidEvents: paid.length,
-      organicEvents: rows.length - paid.length,
       clickRate: pageviews.length ? clicks.length / pageviews.length : 0,
       conversionRate: sessions ? purchases.length / sessions : 0,
       // Engajamento, vindo do resumo enviado no fim de cada visita.
@@ -642,7 +646,12 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
 
   // ── Proteção: tudo que não é público exige login válido ────────────────────
   if (!PUBLIC_PATHS.includes(path)) {
-    const user = await verifyUser(authToken);
+    let user;
+    try {
+      user = await verifyUser(authToken);
+    } catch (error) {
+      return { status: 503, json: { error: error.message } };
+    }
     if (!user) return { status: 401, json: { error: "Não autorizado. Faça login." } };
   }
 
@@ -1007,7 +1016,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const db = getSupabase();
     const { data, error } = await db
       .from("tracking_sites")
-      .select("*")
+      .select("id, site_key, name, domain, notes, auto_created, created_at")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return { status: 200, json: data || [] };
@@ -1029,10 +1038,9 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
         site_key: siteKey,
         name,
         domain: cleanDomain(body.domain),
-        kind: ["organic", "paid", "both"].includes(body.kind) ? body.kind : "organic",
         notes: body.notes || null,
       })
-      .select()
+      .select("id, site_key, name, domain, notes, auto_created, created_at")
       .single();
     if (error) throw new Error(error.message);
     return { status: 201, json: data };
@@ -1048,7 +1056,6 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
       patch.auto_created = false;
     }
     if (body.domain !== undefined) patch.domain = cleanDomain(body.domain);
-    if (body.kind !== undefined) patch.kind = body.kind;
     if (body.notes !== undefined) patch.notes = body.notes || null;
     const { error } = await db.from("tracking_sites").update(patch).eq("id", id);
     if (error) throw new Error(error.message);
@@ -1161,7 +1168,11 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const db = getSupabase();
     const limit = Math.min(Number(searchParams.get("limit")) || 100, 500);
     const siteKey = searchParams.get("site") || null;
-    let q = db.from("tracking_events").select("*").order("created_at", { ascending: false }).limit(limit);
+    let q = db
+      .from("tracking_events")
+      .select("id, site_key, event_type, event_name, page_url, path, referrer_host, utm_source, utm_medium, utm_campaign, utm_content, visitor_id, session_id, value, currency, device, browser, os, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
     if (siteKey) q = q.eq("site_key", siteKey);
 
     // Mesmos recortes do resto do painel: período, rota e nome do evento.
@@ -1209,8 +1220,6 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
       utm_campaign: str(raw.utmCampaign, 200),
       utm_content: str(raw.utmContent, 200),
       utm_term: str(raw.utmTerm, 200),
-      click_id: str(raw.clickId, 300),
-      ad_network: str(raw.adNetwork, 40),
       visitor_id: str(raw.visitorId, 80),
       session_id: str(raw.sessionId, 80),
       value: raw.value !== undefined && raw.value !== "" ? Number(raw.value) || 0 : null,
@@ -1232,7 +1241,6 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
       siteKey,
       name: str(raw.siteName, 120),
       url: pageUrl,
-      kind: str(raw.siteKind, 20),
     });
 
     // GET = beacon via <img>: devolve um GIF 1x1 transparente.

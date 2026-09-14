@@ -14,10 +14,10 @@
 
 ## 1. O que é
 
-Um `<script>` de 16 KB (4,7 KB comprimido), sem dependência, que manda eventos para o painel Avantis
+Um `<script>` sem dependência que manda eventos para o painel Avantis
 (`https://avantisstudio.vercel.app`) e grava tudo no Supabase. Serve para montar
-funil, ver origem de anúncio (UTM, fbclid/gclid/ttclid), medir retenção de VSL,
-rolagem, tempo de página, pop de saída e receita por criativo.
+funil, identificar origens por UTM, medir retenção de VSL, rolagem, tempo de
+página, pop de saída e conversões por conteúdo.
 
 Nada bloqueia a página: o script é `defer`, falha em silêncio e nunca lança erro
 para o site.
@@ -64,10 +64,6 @@ Protocolo Alfa
 - sem esse atributo o painel inventa um nome a partir da chave
   (`avo-yuki` → "Avo Yuki"), sem acento — **sempre mande o nome**.
 
-Opcional: `data-site-kind`. **O padrão é `organic` e é para deixar assim.** Só
-use `paid` ou `both` se o dono disser, naquela conversa, que vai rodar anúncio
-para esse site. Não chute.
-
 > Se o dono renomear o site no painel depois, o nome dele prevalece — a tag não
 > sobrescreve nome que foi ajustado à mão.
 
@@ -85,9 +81,9 @@ para esse site. Não chute.
 | `form_enviado` | submit de qualquer `<form>` (entra como **lead**) | `formulario`, `segundos` |
 | `saida_pagina` | fim da visita | `segundos`, `rolagem` (máxima), `cliques` |
 
-Todo evento carrega junto, automaticamente: UTMs, `fbclid`/`gclid`/`ttclid` +
-a rede do anúncio, id de visitante (localStorage), id de sessão (sessionStorage),
-caminho da página, referenciador, idioma e aparelho/navegador/SO.
+Todo evento carrega junto, automaticamente: UTMs, id de visitante (localStorage),
+id de sessão (sessionStorage), caminho da página, referenciador, idioma e
+aparelho/navegador/SO.
 
 **Atribuição:** a origem da primeira visita fica guardada na sessão, então uma
 venda que acontece 20 minutos depois continua atribuída à campanha certa.
@@ -293,7 +289,7 @@ constrói, e isso inflaria visitas, rolagem e funil com tráfego que não existe
 
 ## 10. Como testar antes de entregar
 
-1. Suba a página e abra com `?utm_source=teste&utm_medium=cpc&utm_campaign=validacao`.
+1. Suba a página e abra com `?utm_source=teste&utm_medium=conteudo&utm_campaign=validacao`.
 2. Troque `data-debug="0"` por `data-debug="1"` e abra o console: cada evento
    aparece como `[avantis-pixel] nome {…}`.
 3. Role a página inteira, clique em cada CTA (volte depois), abra o pop de saída.

@@ -12,7 +12,6 @@ export interface TrackingSite {
   site_key: string;
   name: string;
   domain?: string | null;
-  kind: "organic" | "paid" | "both";
   notes?: string | null;
   /** true = entrou sozinho na primeira visita, pelo data-site-name do pixel. */
   auto_created?: boolean;
@@ -31,8 +30,6 @@ export interface TrackingEvent {
   utm_medium?: string | null;
   utm_campaign?: string | null;
   utm_content?: string | null;
-  click_id?: string | null;
-  ad_network?: string | null;
   visitor_id?: string | null;
   session_id?: string | null;
   value?: number | null;
@@ -80,8 +77,6 @@ export interface AnalyticsOverview {
     visitors: number;
     sessions: number;
     revenue: number;
-    paidEvents: number;
-    organicEvents: number;
     clickRate: number;
     conversionRate: number;
     avgSeconds: number;
@@ -177,7 +172,6 @@ export function useTrackingSites() {
   const addSite = useCallback(async (input: {
     name: string;
     domain?: string;
-    kind?: TrackingSite["kind"];
     siteKey?: string;
     notes?: string;
   }) => {

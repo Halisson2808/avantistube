@@ -109,9 +109,6 @@ export default function AnalyticsEvents() {
                                         <Td className="text-white/60 max-w-[180px] truncate">{ev.path || "—"}</Td>
                                         <Td className="text-white/50">
                                             {ev.utm_source || ev.referrer_host || "direto"}
-                                            {ev.ad_network && (
-                                                <span className="ml-1 text-[9px] text-sky-300/80">({ev.ad_network})</span>
-                                            )}
                                         </Td>
                                         <Td className="text-white/50 max-w-[140px] truncate">{ev.utm_campaign || "—"}</Td>
                                         <Td className="text-white/40">{ev.device || "—"}</Td>

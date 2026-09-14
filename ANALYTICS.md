@@ -25,7 +25,7 @@ Migration: `supabase/migrations/20260909000000_analytics.sql`
 
 - `tracking_sites` — sites/ofertas cadastrados, cada um com uma `site_key`.
 - `tracking_events` — eventos brutos (pageview, click, lead, purchase, custom) com UTM,
-  identificador de anúncio (fbclid/gclid/ttclid), sessão, visitante, valor e aparelho.
+  sessão, visitante, valor e aparelho.
 - `tracking_funnel_steps` — etapas do funil por site.
 
 Leitura liberada para usuário logado; escrita só pelo backend (service_role).
@@ -111,8 +111,8 @@ O nome do evento é livre — a estratégia muda de site para site, e tudo que
 chegar aparece no painel em "Eventos personalizados" e pode virar etapa do funil
 sem precisar mexer no código.
 
-A UTM e o ID do anúncio da primeira visita ficam guardados na sessão, então uma venda
-feita minutos depois continua atribuída à campanha certa.
+As UTMs da primeira visita ficam guardadas na sessão, então uma conversão feita
+minutos depois continua atribuída ao canal e ao conteúdo certos.
 
 ## Rotas da API
 

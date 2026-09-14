@@ -5,23 +5,13 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Copy, Globe, Plus, Trash2, Code2, ExternalLink, BookOpen, Pencil, Check, Sparkles } from "lucide-react";
 
-import { useTrackingSites, type TrackingSite } from "@/hooks/use-analytics";
+import { useTrackingSites } from "@/hooks/use-analytics";
 import { Panel, EmptyState } from "@/components/analytics/AnalyticsShell";
-import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-
-const KIND_LABEL: Record<TrackingSite["kind"], string> = {
-    organic: "Orgânico",
-    paid: "Tráfego pago",
-    both: "Pago + orgânico",
-};
 
 export default function AnalyticsSites() {
     const { sites, isLoading, addSite, renameSite, removeSite } = useTrackingSites();
     const [name, setName] = useState("");
     const [domain, setDomain] = useState("");
-    const [kind, setKind] = useState<TrackingSite["kind"]>("organic");
     const [saving, setSaving] = useState(false);
     const [openSnippet, setOpenSnippet] = useState<string | null>(null);
     const [editando, setEditando] = useState<string | null>(null);
@@ -31,7 +21,7 @@ export default function AnalyticsSites() {
         e.preventDefault();
         if (!name.trim()) return;
         setSaving(true);
-        const created = await addSite({ name: name.trim(), domain: domain.trim(), kind });
+        const created = await addSite({ name: name.trim(), domain: domain.trim() });
         setSaving(false);
         if (created) {
             setName("");
@@ -67,7 +57,7 @@ export default function AnalyticsSites() {
                     Só se quiser adiantar. Sites com o pixel instalado entram sozinhos na
                     primeira visita, usando o nome que vier em <code className="text-emerald-300/80">data-site-name</code>.
                 </p>
-                <form onSubmit={handleAdd} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto] gap-2">
+                <form onSubmit={handleAdd} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
                     <input
                         value={name}
                         onChange={(e) => setName(e.target.value)}
@@ -80,18 +70,6 @@ export default function AnalyticsSites() {
                         placeholder="Domínio (ex.: minhaoferta.com.br)"
                         className="h-9 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white text-xs px-3 outline-none focus:border-emerald-500/40 placeholder:text-white/25"
                     />
-                    <Select value={kind} onValueChange={(v) => setKind(v as TrackingSite["kind"])}>
-                        <SelectTrigger className="h-9 w-full sm:w-[150px] rounded-lg bg-white/[0.04] border-white/[0.08] text-white text-xs focus:ring-0 focus:border-emerald-500/40">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#101014] border-white/10 text-white">
-                            {(Object.keys(KIND_LABEL) as Array<TrackingSite["kind"]>).map((k) => (
-                                <SelectItem key={k} value={k} className="text-xs focus:bg-white/10 focus:text-white">
-                                    {KIND_LABEL[k]}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
                     <button
                         type="submit"
                         disabled={saving || !name.trim()}
@@ -156,9 +134,6 @@ export default function AnalyticsSites() {
                                                 </button>
                                             </>
                                         )}
-                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] text-white/50 flex-shrink-0">
-                                            {KIND_LABEL[site.kind]}
-                                        </span>
                                         {site.auto_created && (
                                             <span
                                                 title="Entrou sozinho na primeira visita, pelo pixel instalado no site"

@@ -1,5 +1,5 @@
 /**
- * AnalyticsUtm.tsx — montador de links com UTM para colar nos anúncios.
+ * AnalyticsUtm.tsx — montador de links com UTM para identificar origens.
  */
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -9,11 +9,10 @@ import { useTrackingSites } from "@/hooks/use-analytics";
 import { Panel } from "@/components/analytics/AnalyticsShell";
 
 const PRESETS = [
-    { label: "Meta Ads", source: "facebook", medium: "cpc", campaign: "{{campaign.name}}", content: "{{ad.name}}" },
-    { label: "Google Ads", source: "google", medium: "cpc", campaign: "{campaignid}", content: "{creative}" },
-    { label: "TikTok Ads", source: "tiktok", medium: "cpc", campaign: "__CAMPAIGN_NAME__", content: "__AID_NAME__" },
-    { label: "Bio Instagram", source: "instagram", medium: "organico", campaign: "bio", content: "link-bio" },
-    { label: "YouTube (descrição)", source: "youtube", medium: "organico", campaign: "video", content: "descricao" },
+    { label: "Bio Instagram", source: "instagram", medium: "social", campaign: "bio", content: "link-bio" },
+    { label: "YouTube (descrição)", source: "youtube", medium: "video", campaign: "descricao", content: "link-video" },
+    { label: "Bio TikTok", source: "tiktok", medium: "social", campaign: "bio", content: "link-bio" },
+    { label: "E-mail", source: "newsletter", medium: "email", campaign: "conteudo", content: "link-email" },
 ];
 
 export default function AnalyticsUtm() {
@@ -57,7 +56,7 @@ export default function AnalyticsUtm() {
             <div>
                 <h1 className="text-xl font-bold text-white tracking-tight">Gerador de Links (UTM)</h1>
                 <p className="text-white/40 text-xs mt-0.5">
-                    Monte o link do anúncio com as marcações que o painel usa para separar cada origem.
+                    Monte links identificados para separar cada canal e conteúdo de origem.
                 </p>
             </div>
 
@@ -79,10 +78,10 @@ export default function AnalyticsUtm() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     <Field label="URL de destino" value={base} onChange={setBase} placeholder="https://minhaoferta.com.br/vsl" full
                         list={sites.filter(s => s.domain).map(s => `https://${s.domain}`)} />
-                    <Field label="utm_source (de onde vem)" value={source} onChange={setSource} placeholder="facebook" />
-                    <Field label="utm_medium (tipo)" value={medium} onChange={setMedium} placeholder="cpc" />
-                    <Field label="utm_campaign (campanha)" value={campaign} onChange={setCampaign} placeholder="black-friday" />
-                    <Field label="utm_content (criativo)" value={content} onChange={setContent} placeholder="video-01" />
+                    <Field label="utm_source (de onde vem)" value={source} onChange={setSource} placeholder="instagram" />
+                    <Field label="utm_medium (formato)" value={medium} onChange={setMedium} placeholder="social" />
+                    <Field label="utm_campaign (grupo)" value={campaign} onChange={setCampaign} placeholder="bio" />
+                    <Field label="utm_content (conteúdo)" value={content} onChange={setContent} placeholder="link-bio" />
                     <Field label="utm_term (palavra-chave)" value={term} onChange={setTerm} placeholder="opcional" />
                 </div>
 
@@ -106,8 +105,8 @@ export default function AnalyticsUtm() {
             </Panel>
 
             <p className="text-white/30 text-[11px]">
-                O pixel guarda a UTM e o identificador do anúncio (fbclid, gclid, ttclid) durante toda a sessão —
-                então uma venda feita minutos depois continua atribuída à campanha certa.
+                O pixel guarda as UTMs durante toda a sessão, então uma conversão feita minutos depois
+                continua atribuída ao canal e ao conteúdo certos.
             </p>
         </div>
     );

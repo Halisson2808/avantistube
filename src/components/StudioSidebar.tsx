@@ -22,7 +22,7 @@ const youtubeItems = [
     { title: "Perfis Salvos", url: "/youtube/perfis", icon: Link2 },
 ];
 
-/** Módulo Sites & Tráfego — cliques, funil e anúncios. */
+/** Módulo Sites & Tráfego — visitas, cliques e funil. */
 const analyticsItems = [
     { title: "Visão Geral", url: "/analytics", icon: BarChart3, end: true },
     { title: "Funil", url: "/analytics/funil", icon: Filter },
