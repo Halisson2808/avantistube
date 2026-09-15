@@ -91,6 +91,8 @@ export interface AnalyticsOverview {
     date: string;
     /** Rótulo pronto para o eixo: "14h" por hora, "09/09" por dia. */
     label: string;
+    /** Dia local do ponto (AAAA-MM-DD). */
+    day?: string;
     // null = hora que ainda não chegou (a linha para no "agora").
     pageviews: number | null;
     clicks: number | null;

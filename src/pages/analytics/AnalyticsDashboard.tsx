@@ -4,7 +4,7 @@
  */
 import { useNavigate } from "react-router-dom";
 import {
-    Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
+    Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import {
     Eye, MousePointerClick, Users, ShoppingCart, DollarSign, Filter,
@@ -32,10 +32,21 @@ export default function AnalyticsDashboard() {
     const t = data?.totals;
     const semSites = !sitesLoading && sites.length === 0;
     const porHora = data?.range?.granularity === "hour";
+    // Na janela de 24h, marca onde começa o dia de hoje e diferencia as horas de ontem.
+    const serie = data?.timeseries || [];
+    const hojeDia = data?.range?.to;
+    const viradaDoDia = porHora
+        ? serie.find((p, i) => i > 0 && p.day === hojeDia && serie[i - 1].day !== hojeDia)?.label
+        : undefined;
+    const rotuloTooltip = (label: string) => {
+        if (!porHora) return label;
+        const ponto = serie.find((p) => p.label === label);
+        return ponto?.day && ponto.day !== hojeDia ? `ontem, ${label}` : `hoje, ${label}`;
+    };
     const periodoLabel = porHora
         ? data?.range?.custom
             ? `Evolução — ${data.range.from}, hora a hora`
-            : "Evolução — hoje, hora a hora"
+            : "Evolução — últimas 24h, hora a hora"
         : data?.range?.custom
             ? `Evolução — ${data.range.from} até ${data.range.to}`
             : `Evolução — últimos ${days} dias`;
@@ -155,7 +166,16 @@ export default function AnalyticsDashboard() {
                                         tickLine={false}
                                     />
                                     <YAxis tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 10 }} axisLine={false} tickLine={false} width={32} />
+                                    {viradaDoDia && (
+                                        <ReferenceLine
+                                            x={viradaDoDia}
+                                            stroke="rgba(255,255,255,0.25)"
+                                            strokeDasharray="4 4"
+                                            label={{ value: "hoje", position: "insideTopLeft", fill: "rgba(255,255,255,0.45)", fontSize: 10 }}
+                                        />
+                                    )}
                                     <Tooltip
+                                        labelFormatter={(l: string) => rotuloTooltip(l)}
                                         // Hora que ainda não chegou vem null: mostra "—" em vez de vazio.
                                         formatter={(v: number | null) => (v === null ? "—" : v)}
                                         contentStyle={{

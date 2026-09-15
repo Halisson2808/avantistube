@@ -341,20 +341,17 @@ function resolveRange(searchParams) {
   const days = clampDays(searchParams.get("days"));
   const fim = new Date();
 
-  // "Hoje" é o dia de hoje no fuso de quem olha, das 00h às 23h. A janela
-  // corrida de 24h começava "ontem à noite" (às 21h abria em 22h de ontem) e o
-  // gráfico parecia apontar para o outro dia.
+  // "24h": as últimas 24 horas corridas, terminando na hora atual — a hora de
+  // agora fica sempre no fim do gráfico. As horas de ontem vão marcadas como
+  // "ontem" no painel, para não parecer que o gráfico aponta para outro dia.
   if (days === 1) {
-    const hoje = paraLocal(fim, tzMin).toISOString().slice(0, 10);
-    const inicio = new Date(Date.parse(`${hoje}T00:00:00.000Z`) + tzMin * 60000);
-    const fimDoDia = new Date(Date.parse(`${hoje}T23:59:59.999Z`) + tzMin * 60000);
+    const inicio = new Date(fim.getTime() - 23 * HORA_MS);
+    inicio.setUTCMinutes(0, 0, 0);
     return {
       fromIso: inicio.toISOString(),
       toIso: fim.toISOString(),
-      // A série desenha o dia inteiro; as horas que ainda não chegaram ficam vazias.
-      seriesEndIso: fimDoDia.toISOString(),
-      fromDate: hoje,
-      toDate: hoje,
+      fromDate: paraLocal(inicio, tzMin).toISOString().slice(0, 10),
+      toDate: paraLocal(fim, tzMin).toISOString().slice(0, 10),
       days: 1,
       tzMin,
       granularity: "hour",
@@ -616,6 +613,8 @@ function buildOverview(rows, range, paths) {
     const v = futuro ? null : 0;
     byDay.set(k, {
       date: k,
+      // Dia local do balde: o painel usa para marcar "ontem" / "hoje".
+      day: k.slice(0, 10),
       label: rotulo(k),
       pageviews: v, clicks: v, leads: v, purchases: v, revenue: v,
     });
