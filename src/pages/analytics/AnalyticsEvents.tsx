@@ -41,6 +41,9 @@ export default function AnalyticsEvents() {
     const [tipo, setTipo] = useState<TrackingEvent["event_type"] | "all">("all");
     const [aberta, setAberta] = useState<string | null>(null);
 
+    // Chave do site -> nome do painel, para a linha dizer em qual site a pessoa entrou.
+    const nomeDoSite = (key: string) => sites.find((x) => x.site_key === key)?.name || key;
+
     // O filtro de tipo mostra as visitas em que aquilo aconteceu ao menos uma vez.
     const lista = tipo === "all" ? sessions : sessions.filter((s) => (s.types[tipo] || 0) > 0);
 
@@ -104,6 +107,7 @@ export default function AnalyticsEvents() {
                                 <tr>
                                     <Th />
                                     <Th>Última atividade</Th>
+                                    <Th>Site</Th>
                                     <Th>Visitante</Th>
                                     <Th>Entrou por</Th>
                                     <Th>Origem</Th>
@@ -117,6 +121,7 @@ export default function AnalyticsEvents() {
                                     <Fragment key={s.id}>
                                         <LinhaVisita
                                             sessao={s}
+                                            site={nomeDoSite(s.siteKey)}
                                             aberta={aberta === s.id}
                                             onToggle={() => setAberta(aberta === s.id ? null : s.id)}
                                         />
@@ -132,8 +137,9 @@ export default function AnalyticsEvents() {
     );
 }
 
-function LinhaVisita({ sessao: s, aberta, onToggle }: {
+function LinhaVisita({ sessao: s, site, aberta, onToggle }: {
     sessao: TrackingSession;
+    site: string;
     aberta: boolean;
     onToggle: () => void;
 }) {
@@ -147,6 +153,7 @@ function LinhaVisita({ sessao: s, aberta, onToggle }: {
                 {aberta ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
             </Td>
             <Td className="text-white/60 whitespace-nowrap">{dataHora(s.lastAt)}</Td>
+            <Td className="text-white/80 max-w-[180px] truncate">{site}</Td>
             <Td className="whitespace-nowrap">
                 <span className="font-mono text-white/70">{(s.visitorId || s.id).slice(-6)}</span>
                 {s.isTest && (
@@ -180,7 +187,7 @@ function LinhaVisita({ sessao: s, aberta, onToggle }: {
 function DetalheVisita({ sessao: s }: { sessao: TrackingSession }) {
     return (
         <tr className="bg-black/20">
-            <td colSpan={8} className="px-4 py-3">
+            <td colSpan={9} className="px-4 py-3">
                 <div className="flex flex-wrap items-center gap-1.5 mb-2 text-[10px] text-white/40">
                     <span>{dataHora(s.startedAt)} → {dataHora(s.lastAt)}</span>
                     <span>·</span>
