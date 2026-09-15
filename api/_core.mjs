@@ -341,15 +341,20 @@ function resolveRange(searchParams) {
   const days = clampDays(searchParams.get("days"));
   const fim = new Date();
 
-  // "24h" é mesmo as últimas 24 horas corridas, não o dia de hoje.
+  // "Hoje" é o dia de hoje no fuso de quem olha, das 00h às 23h. A janela
+  // corrida de 24h começava "ontem à noite" (às 21h abria em 22h de ontem) e o
+  // gráfico parecia apontar para o outro dia.
   if (days === 1) {
-    const inicio = new Date(fim.getTime() - 23 * HORA_MS);
-    inicio.setUTCMinutes(0, 0, 0);
+    const hoje = paraLocal(fim, tzMin).toISOString().slice(0, 10);
+    const inicio = new Date(Date.parse(`${hoje}T00:00:00.000Z`) + tzMin * 60000);
+    const fimDoDia = new Date(Date.parse(`${hoje}T23:59:59.999Z`) + tzMin * 60000);
     return {
       fromIso: inicio.toISOString(),
       toIso: fim.toISOString(),
-      fromDate: paraLocal(inicio, tzMin).toISOString().slice(0, 10),
-      toDate: paraLocal(fim, tzMin).toISOString().slice(0, 10),
+      // A série desenha o dia inteiro; as horas que ainda não chegaram ficam vazias.
+      seriesEndIso: fimDoDia.toISOString(),
+      fromDate: hoje,
+      toDate: hoje,
       days: 1,
       tzMin,
       granularity: "hour",
@@ -463,6 +468,37 @@ function rotasDisponiveis(rows) {
     .slice(0, 50);
 }
 
+/**
+ * Tráfego de teste — validação de pixel, deploy, a própria IA conferindo a
+ * instalação. Reconhecido por marcador em nome de evento ou UTM
+ * (`teste_conexao`, `utm_campaign=validacao`…) e pelos ids de checagem de
+ * deploy. Ids de sessão comuns NÃO entram na regra: são aleatórios e dariam
+ * falso positivo.
+ */
+const MARCADOR_TESTE = /(^|[^a-z])(teste?s?|testing|validacao|validação|debug|demo|homolog)([^a-z]|$)/i;
+const SESSAO_TESTE = /^(deploy-check|prod-check|demo-)/i;
+
+function ehTeste(r) {
+  if (SESSAO_TESTE.test(r.session_id || "") || SESSAO_TESTE.test(r.visitor_id || "")) return true;
+  return [r.event_name, r.utm_source, r.utm_medium, r.utm_campaign, r.utm_content]
+    .some((v) => v && MARCADOR_TESTE.test(String(v)));
+}
+
+/**
+ * Remove a SESSÃO inteira que teve qualquer evento de teste — senão o pageview
+ * e a rolagem da visita de validação continuariam contando.
+ */
+function separarTestes(rows) {
+  const chaveSessao = (r) => r.session_id || r.visitor_id || r.id;
+  const sessoesTeste = new Set();
+  for (const r of rows) if (ehTeste(r)) sessoesTeste.add(chaveSessao(r));
+  if (!sessoesTeste.size) return { rows, ocultas: 0 };
+  return {
+    rows: rows.filter((r) => !sessoesTeste.has(chaveSessao(r))),
+    ocultas: sessoesTeste.size,
+  };
+}
+
 /** Lê os eventos do período (limite alto o bastante para uso pessoal). */
 async function fetchEvents({ siteKey, range }) {
   const db = getSupabase();
@@ -562,24 +598,32 @@ function buildOverview(rows, range, paths) {
   const rotulo = (k) => (porHora ? `${k.slice(11, 13)}h` : `${k.slice(8, 10)}/${k.slice(5, 7)}`);
 
   const byDay = new Map();
+  const futuros = new Set();
   const inicioSerie = new Date(range.fromIso);
-  const fimSerie = new Date(range.toIso);
+  const fimSerie = new Date(range.seriesEndIso || range.toIso);
+  const agora = Date.now();
   const baldes = Math.min(
     Math.floor((fimSerie - inicioSerie) / passo) + 1,
     porHora ? 48 : 365,
   );
   for (let i = 0; i < baldes; i++) {
-    const k = chave(new Date(inicioSerie.getTime() + i * passo).toISOString());
+    const inicioBalde = inicioSerie.getTime() + i * passo;
+    const k = chave(new Date(inicioBalde).toISOString());
+    // Hora que ainda não chegou fica null: a linha para no "agora" em vez de
+    // despencar para zero, e o eixo continua mostrando o dia inteiro.
+    const futuro = inicioBalde > agora;
+    if (futuro) futuros.add(k);
+    const v = futuro ? null : 0;
     byDay.set(k, {
       date: k,
       label: rotulo(k),
-      pageviews: 0, clicks: 0, leads: 0, purchases: 0, revenue: 0,
+      pageviews: v, clicks: v, leads: v, purchases: v, revenue: v,
     });
   }
   for (const r of rows) {
     const d = chave(r.created_at);
     const bucket = byDay.get(d);
-    if (!bucket) continue;
+    if (!bucket || futuros.has(d)) continue;
     if (r.event_type === "pageview") bucket.pageviews += 1;
     else if (r.event_type === "click") bucket.clicks += 1;
     else if (r.event_type === "lead") bucket.leads += 1;
@@ -1080,10 +1124,14 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const range = resolveRange(searchParams);
     const siteKey = searchParams.get("site") || null;
     const paths = resolvePaths(searchParams);
-    const todas = await fetchEvents({ siteKey, range });
+    const lidas = await fetchEvents({ siteKey, range });
+    const { rows: todas, ocultas } = searchParams.get("hideTests") === "1"
+      ? separarTestes(lidas)
+      : { rows: lidas, ocultas: 0 };
     const rows = filtrarPorRota(todas, paths);
     const json = buildOverview(rows, range, rotasDisponiveis(todas));
     json.selectedPaths = paths;
+    json.hiddenTestSessions = ocultas;
     return { status: 200, json };
   }
 
@@ -1103,10 +1151,11 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
       steps = data || [];
     }
 
-    const rows = filtrarPorRota(
-      await fetchEvents({ siteKey, range }),
-      resolvePaths(searchParams),
-    );
+    const lidas = await fetchEvents({ siteKey, range });
+    const { rows: semTeste, ocultas } = searchParams.get("hideTests") === "1"
+      ? separarTestes(lidas)
+      : { rows: lidas, ocultas: 0 };
+    const rows = filtrarPorRota(semTeste, resolvePaths(searchParams));
 
     if (!steps.length) {
       // Funil padrão de página de oferta: entrou → leu → clicou no checkout →
@@ -1140,6 +1189,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
         days: range.days,
         range: { from: range.fromDate, to: range.toDate, custom: range.custom },
         steps: result,
+        hiddenTestSessions: ocultas,
       },
     };
   }
@@ -1161,6 +1211,73 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
       if (error) throw new Error(error.message);
     }
     return { status: 200, json: { ok: true } };
+  }
+
+  // Visitas para "Eventos ao Vivo": uma linha por sessão, com a lista de tudo o
+  // que a pessoa fez dentro. Evita que uma visita rolando a página vire uma
+  // parede de linhas soltas.
+  if (path === "/analytics/sessions" && method === "GET") {
+    const db = getSupabase();
+    const limite = Math.min(Number(searchParams.get("limit")) || 100, 300);
+    const siteKey = searchParams.get("site") || null;
+    const range = resolveRange(searchParams);
+    const paths = resolvePaths(searchParams);
+
+    let q = db
+      .from("tracking_events")
+      .select("id, site_key, event_type, event_name, path, referrer_host, utm_source, utm_medium, utm_campaign, utm_content, visitor_id, session_id, value, device, browser, os, created_at")
+      .gte("created_at", range.fromIso)
+      .lte("created_at", range.toIso)
+      .order("created_at", { ascending: false })
+      .limit(5000);
+    if (siteKey) q = q.eq("site_key", siteKey);
+    if (paths) q = q.in("path", paths);
+
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+
+    const porSessao = new Map();
+    for (const ev of data || []) {
+      const id = ev.session_id || ev.visitor_id || ev.id;
+      if (!porSessao.has(id)) porSessao.set(id, []);
+      porSessao.get(id).push(ev);
+    }
+
+    const sessoes = [...porSessao.entries()]
+      .map(([id, evs]) => {
+        evs.sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+        const primeiro = evs[0];
+        const ultimo = evs[evs.length - 1];
+        const comOrigem = evs.find((e) => e.utm_source || e.referrer_host);
+        const tipos = {};
+        for (const e of evs) tipos[e.event_type] = (tipos[e.event_type] || 0) + 1;
+        return {
+          id,
+          visitorId: primeiro.visitor_id || null,
+          siteKey: primeiro.site_key,
+          startedAt: primeiro.created_at,
+          lastAt: ultimo.created_at,
+          entryPath: primeiro.path || "/",
+          paths: [...new Set(evs.map((e) => e.path || "/"))],
+          source: comOrigem ? comOrigem.utm_source || comOrigem.referrer_host : null,
+          campaign: evs.find((e) => e.utm_campaign)?.utm_campaign || null,
+          device: primeiro.device || null,
+          browser: primeiro.browser || null,
+          os: primeiro.os || null,
+          eventCount: evs.length,
+          types: tipos,
+          value: evs
+            .filter((e) => e.event_type === "purchase")
+            .reduce((sum, e) => sum + (Number(e.value) || 0), 0),
+          converted: evs.some((e) => e.event_type === "purchase"),
+          isTest: evs.some(ehTeste),
+          events: evs,
+        };
+      })
+      .sort((a, b) => (a.lastAt < b.lastAt ? 1 : -1))
+      .slice(0, limite);
+
+    return { status: 200, json: sessoes };
   }
 
   // Eventos recentes (lista ao vivo).

@@ -29,9 +29,9 @@ const SUGESTOES = [
 export default function AnalyticsFunnel() {
     const {
         siteKey, setSiteKey, days, setDays, from, to, setFrom, setTo,
-        paths, setPaths, range, sites,
+        paths, setPaths, hideTests, setHideTests, range, sites,
     } = useAnalyticsFilters();
-    const { steps, isLoading, reload, saveSteps } = useAnalyticsFunnel(siteKey, range);
+    const { steps, hiddenTestSessions, isLoading, reload, saveSteps } = useAnalyticsFunnel(siteKey, range);
     // Só para saber quais rotas existem no período e alimentar o filtro.
     const { data: visaoGeral } = useAnalyticsOverview(siteKey, range);
     const [editing, setEditing] = useState(false);
@@ -65,6 +65,11 @@ export default function AnalyticsFunnel() {
                 onPathsChange={setPaths}
                 onRefresh={reload}
                 loading={isLoading}
+                testsToggle={{
+                    value: hideTests,
+                    onChange: setHideTests,
+                    hiddenCount: hiddenTestSessions,
+                }}
                 actions={
                     siteKey ? (
                         <button

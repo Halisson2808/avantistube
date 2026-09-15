@@ -329,6 +329,7 @@ const RecentVideos = () => {
     updateContentType,
     removeChannel,
     updateChannelStats,
+    moveChannelToOwn,
   } = useRecentVideos();
 
   const { niches, renameNiche, loadNiches } = useNiches();

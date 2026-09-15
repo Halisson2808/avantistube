@@ -23,7 +23,7 @@ export default function AnalyticsDashboard() {
     const navigate = useNavigate();
     const {
         siteKey, setSiteKey, days, setDays, from, to, setFrom, setTo,
-        paths, setPaths, range, sites, sitesLoading,
+        paths, setPaths, hideTests, setHideTests, range, sites, sitesLoading,
     } = useAnalyticsFilters({ startAt24Hours: true });
     const { data, isLoading, reload } = useAnalyticsOverview(siteKey, range);
     // O mesmo funil da tela dedicada, resumido aqui para ver de relance.
@@ -33,7 +33,9 @@ export default function AnalyticsDashboard() {
     const semSites = !sitesLoading && sites.length === 0;
     const porHora = data?.range?.granularity === "hour";
     const periodoLabel = porHora
-        ? "Evolução — hora a hora (últimas 24h)"
+        ? data?.range?.custom
+            ? `Evolução — ${data.range.from}, hora a hora`
+            : "Evolução — hoje, hora a hora"
         : data?.range?.custom
             ? `Evolução — ${data.range.from} até ${data.range.to}`
             : `Evolução — últimos ${days} dias`;
@@ -57,6 +59,11 @@ export default function AnalyticsDashboard() {
                 onPathsChange={setPaths}
                 onRefresh={reload}
                 loading={isLoading}
+                testsToggle={{
+                    value: hideTests,
+                    onChange: setHideTests,
+                    hiddenCount: data?.hiddenTestSessions,
+                }}
                 actions={
                     <button
                         onClick={() => navigate("/analytics/sites")}
@@ -149,6 +156,8 @@ export default function AnalyticsDashboard() {
                                     />
                                     <YAxis tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 10 }} axisLine={false} tickLine={false} width={32} />
                                     <Tooltip
+                                        // Hora que ainda não chegou vem null: mostra "—" em vez de vazio.
+                                        formatter={(v: number | null) => (v === null ? "—" : v)}
                                         contentStyle={{
                                             background: "rgba(10,10,14,0.95)",
                                             border: "1px solid rgba(255,255,255,0.1)",

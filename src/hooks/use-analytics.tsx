@@ -54,6 +54,8 @@ export interface DateRange {
   to?: string | null;
   /** Rotas selecionadas dentro do site. Vazio/ausente = site inteiro. */
   paths?: string[];
+  /** Esconde sessões de teste/validação (só visão geral e funil respeitam). */
+  hideTests?: boolean;
 }
 
 export interface Milestone {
@@ -68,6 +70,8 @@ export interface AnalyticsOverview {
   /** Rotas vistas no período (para alimentar o filtro), independentes do recorte. */
   paths: Array<{ path: string; events: number }>;
   selectedPaths: string[] | null;
+  /** Quantas sessões de teste foram escondidas por causa do filtro. */
+  hiddenTestSessions?: number;
   totals: {
     events: number;
     pageviews: number;
@@ -87,11 +91,12 @@ export interface AnalyticsOverview {
     date: string;
     /** Rótulo pronto para o eixo: "14h" por hora, "09/09" por dia. */
     label: string;
-    pageviews: number;
-    clicks: number;
-    leads: number;
-    purchases: number;
-    revenue: number;
+    // null = hora que ainda não chegou (a linha para no "agora").
+    pageviews: number | null;
+    clicks: number | null;
+    leads: number | null;
+    purchases: number | null;
+    revenue: number | null;
   }>;
   sources: TopItem[];
   campaigns: TopItem[];
@@ -103,6 +108,28 @@ export interface AnalyticsOverview {
   video: Milestone[];
   customEvents: TopItem[];
   allEvents: TopItem[];
+}
+
+/** Uma visita (sessão) com tudo o que a pessoa fez dentro. */
+export interface TrackingSession {
+  id: string;
+  visitorId: string | null;
+  siteKey: string;
+  startedAt: string;
+  lastAt: string;
+  entryPath: string;
+  paths: string[];
+  source: string | null;
+  campaign: string | null;
+  device: string | null;
+  browser: string | null;
+  os: string | null;
+  eventCount: number;
+  types: Partial<Record<TrackingEvent["event_type"], number>>;
+  value: number;
+  converted: boolean;
+  isTest: boolean;
+  events: TrackingEvent[];
 }
 
 export interface FunnelStep {
@@ -123,6 +150,7 @@ function rangeParams(range: DateRange): URLSearchParams {
     qs.set("days", String(range.days));
   }
   if (range.paths && range.paths.length) qs.set("path", range.paths.join(","));
+  if (range.hideTests) qs.set("hideTests", "1");
   // Fuso de quem está olhando: sem isso "hoje" e as horas do dia sairiam em UTC.
   qs.set("tz", String(new Date().getTimezoneOffset()));
   return qs;
@@ -232,7 +260,7 @@ export function useAnalyticsOverview(siteKey: string | null, range: DateRange) {
     } finally {
       setLoading(false);
     }
-  }, [siteKey, range.days, range.from, range.to, range.paths?.join(",")]);
+  }, [siteKey, range.days, range.from, range.to, range.paths?.join(","), range.hideTests]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -242,6 +270,7 @@ export function useAnalyticsOverview(siteKey: string | null, range: DateRange) {
 /* ── Funil ───────────────────────────────────────────────────────────────── */
 export function useAnalyticsFunnel(siteKey: string | null, range: DateRange) {
   const [steps, setSteps] = useState<FunnelStep[]>([]);
+  const [hiddenTestSessions, setHidden] = useState(0);
   const [isLoading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -249,14 +278,17 @@ export function useAnalyticsFunnel(siteKey: string | null, range: DateRange) {
     try {
       const qs = rangeParams(range);
       if (siteKey) qs.set("site", siteKey);
-      const res = await getJson<{ steps: FunnelStep[] }>(`${API}/analytics/funnel?${qs}`);
+      const res = await getJson<{ steps: FunnelStep[]; hiddenTestSessions?: number }>(
+        `${API}/analytics/funnel?${qs}`,
+      );
       setSteps(res.steps || []);
+      setHidden(res.hiddenTestSessions || 0);
     } catch (err) {
       toast.error(`Erro ao carregar o funil: ${(err as Error).message}`);
     } finally {
       setLoading(false);
     }
-  }, [siteKey, range.days, range.from, range.to, range.paths?.join(",")]);
+  }, [siteKey, range.days, range.from, range.to, range.paths?.join(","), range.hideTests]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -277,23 +309,24 @@ export function useAnalyticsFunnel(siteKey: string | null, range: DateRange) {
     await load();
   }, [load]);
 
-  return { steps, isLoading, reload: load, saveSteps };
+  return { steps, hiddenTestSessions, isLoading, reload: load, saveSteps };
 }
 
-/* ── Eventos ao vivo ─────────────────────────────────────────────────────── */
-export function useTrackingEvents(siteKey: string | null, range: DateRange, limit = 100) {
-  const [events, setEvents] = useState<TrackingEvent[]>([]);
+/* ── Visitas (Eventos ao Vivo agrupados por sessão) ─────────────────────── */
+export function useTrackingSessions(siteKey: string | null, range: DateRange, limit = 100) {
+  const [sessions, setSessions] = useState<TrackingSession[]>([]);
   const [isLoading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const qs = rangeParams(range);
+      qs.delete("hideTests"); // aqui tudo aparece, teste inclusive
       qs.set("limit", String(limit));
       if (siteKey) qs.set("site", siteKey);
-      setEvents(await getJson<TrackingEvent[]>(`${API}/analytics/events?${qs}`));
+      setSessions(await getJson<TrackingSession[]>(`${API}/analytics/sessions?${qs}`));
     } catch (err) {
-      toast.error(`Erro ao carregar eventos: ${(err as Error).message}`);
+      toast.error(`Erro ao carregar visitas: ${(err as Error).message}`);
     } finally {
       setLoading(false);
     }
@@ -301,5 +334,5 @@ export function useTrackingEvents(siteKey: string | null, range: DateRange, limi
 
   useEffect(() => { load(); }, [load]);
 
-  return { events, isLoading, reload: load };
+  return { sessions, isLoading, reload: load };
 }

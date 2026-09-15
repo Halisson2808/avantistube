@@ -8,15 +8,16 @@ import { Youtube, BarChart3, FileText, ArrowRight, Users, Eye, MousePointerClick
 
 import { useMonitoredChannels } from "@/hooks/use-monitored-channels";
 import { useAnalyticsOverview } from "@/hooks/use-analytics";
-
-/** O cartão do hub mostra sempre a última semana. */
-const SETE_DIAS = { days: 7 };
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import { fmtNum, fmtMoney } from "@/components/analytics/AnalyticsShell";
 
 export default function Home() {
     const navigate = useNavigate();
     const { channels } = useMonitoredChannels();
-    const { data } = useAnalyticsOverview(null, SETE_DIAS);
+    // O cartão do hub mostra a última semana e segue a mesma engrenagem de
+    // "ocultar testes" das telas de Sites & Tráfego.
+    const [hideTests] = useLocalStorage<boolean>("avantis_analytics_hide_tests", true);
+    const { data } = useAnalyticsOverview(null, { days: 7, hideTests });
 
     const totalSubs = channels.reduce((s, c) => s + c.currentSubscribers, 0);
     const t = data?.totals;

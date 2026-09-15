@@ -119,11 +119,35 @@ minutos depois continua atribuída ao canal e ao conteúdo certos.
 | Rota | Acesso | Uso |
 | --- | --- | --- |
 | `POST /api/track` (e `GET` como beacon) | público | ingestão de eventos do pixel |
-| `GET /api/analytics/overview?site=&days=` | logado | totais, série diária, origens, campanhas, páginas, aparelhos, rolagem, vídeo e eventos personalizados |
-| `GET /api/analytics/funnel?site=&days=` | logado | etapas do funil com conversão |
+| `GET /api/analytics/overview?site=&days=&hideTests=1` | logado | totais, série, origens, campanhas, páginas, aparelhos, rolagem, vídeo e eventos personalizados |
+| `GET /api/analytics/funnel?site=&days=&hideTests=1` | logado | etapas do funil com conversão |
 | `POST /api/analytics/funnel-steps` | logado | salva as etapas de um site |
-| `GET /api/analytics/events?site=&limit=` | logado | eventos recentes |
+| `GET /api/analytics/sessions?site=&limit=` | logado | visitas agrupadas por sessão, cada uma com seus eventos (tela Eventos ao Vivo) |
+| `GET /api/analytics/events?site=&limit=` | logado | eventos soltos (API; a tela usa `sessions`) |
 | `GET/POST/PUT/DELETE /api/analytics/sites` | logado | cadastro de sites |
+
+## Ocultar testes
+
+A engrenagem no topo da **Visão geral** e do **Funil** esconde tráfego de teste
+das contas (`?hideTests=1` na API). Começa ligada e fica salva no navegador; o
+cartão da Home segue a mesma escolha.
+
+- É teste a visita que teve evento ou UTM com `teste`, `validacao`, `debug`,
+  `demo` ou `homolog` (como palavra, não pedaço: `protesto` não conta), ou id
+  de checagem de deploy (`deploy-check`, `prod-check`, `demo-`).
+- Some a **sessão inteira**, não só o evento marcado — senão o pageview e a
+  rolagem da visita de validação continuariam contando.
+- Nada é apagado: a ingestão grava tudo e **Eventos ao Vivo mostra tudo**, com a
+  etiqueta "teste" na visita.
+
+Por isso o guia do pixel manda testar sempre com `utm_campaign=validacao`.
+
+## Eventos ao Vivo
+
+Cada linha é uma **visita** (sessão): última atividade, visitante, página de
+entrada, origem, aparelho, quantos eventos e valor comprado. Clicando, abre a
+lista de tudo o que aquela pessoa fez, em ordem. Assim uma visita rolando a
+página vira uma linha só, e não dezenas.
 
 ## Funil
 

@@ -3,7 +3,7 @@
  * cabeçalho com filtro de site/período, cartões de métrica e blocos de seção.
  */
 import { useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Settings } from "lucide-react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useTrackingSites, type DateRange, type TrackingSite } from "@/hooks/use-analytics";
 import { DateRangePicker } from "@/components/analytics/DateRangePicker";
@@ -11,9 +11,12 @@ import { RouteFilter, type RouteOption } from "@/components/analytics/RouteFilte
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 
 export const PERIODS = [
-  { label: "24h", days: 1 },
+  // Um dia = hoje, das 00h às 23h no fuso de quem olha.
+  { label: "Hoje", days: 1 },
   { label: "7 dias", days: 7 },
   { label: "30 dias", days: 30 },
   { label: "90 dias", days: 90 },
@@ -30,6 +33,9 @@ export function useAnalyticsFilters({ startAt24Hours = false } = {}) {
   const [storedFrom, setStoredFrom] = useLocalStorage<string>("avantis_analytics_from", "");
   const [storedTo, setStoredTo] = useLocalStorage<string>("avantis_analytics_to", "");
   const [paths, setPaths] = useLocalStorage<string[]>("avantis_analytics_paths", []);
+  // Esconde tráfego de teste na visão geral e no funil. Começa ligado: o que
+  // interessa ver é visita de verdade.
+  const [hideTests, setHideTests] = useLocalStorage<boolean>("avantis_analytics_hide_tests", true);
   // A Visão geral sempre começa em 24h, independentemente do último período
   // usado nela ou nas telas de Funil/Eventos. Dentro da tela o usuário ainda
   // pode trocar o período normalmente.
@@ -45,7 +51,9 @@ export function useAnalyticsFilters({ startAt24Hours = false } = {}) {
   const setFrom = startAt24Hours ? setOverviewFrom : setStoredFrom;
   const setTo = startAt24Hours ? setOverviewTo : setStoredTo;
 
-  const range: DateRange = from && to ? { days, from, to, paths } : { days, paths };
+  const range: DateRange = from && to
+    ? { days, from, to, paths, hideTests }
+    : { days, paths, hideTests };
 
   // Trocar de site zera o recorte: as rotas de um site não existem no outro.
   const trocarSite = (v: string) => {
@@ -64,6 +72,8 @@ export function useAnalyticsFilters({ startAt24Hours = false } = {}) {
     setSiteKey: trocarSite,
     paths,
     setPaths,
+    hideTests,
+    setHideTests,
     days,
     setDays: setDaysPreset,
     from,
@@ -107,6 +117,7 @@ export function AnalyticsHeader({
   onRefresh,
   loading,
   actions,
+  testsToggle,
 }: {
   title: string;
   subtitle?: string;
@@ -125,6 +136,8 @@ export function AnalyticsHeader({
   onRefresh?: () => void;
   loading?: boolean;
   actions?: React.ReactNode;
+  /** Engrenagem para esconder tráfego de teste (visão geral e funil). */
+  testsToggle?: { value: boolean; onChange: (v: boolean) => void; hiddenCount?: number };
 }) {
   const periodoCustomizado = Boolean(from && to);
 
@@ -143,6 +156,7 @@ export function AnalyticsHeader({
         </div>
         <div className="flex items-center gap-2">
           {actions}
+          {testsToggle && <TestsSettings {...testsToggle} />}
           {onRefresh && (
             <button
               onClick={onRefresh}
@@ -215,6 +229,59 @@ export function AnalyticsHeader({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Engrenagem do cabeçalho: liga/desliga o tráfego de teste nas contas.
+ * O backend continua gravando tudo — é só a leitura que muda.
+ */
+function TestsSettings({ value, onChange, hiddenCount = 0 }: {
+  value: boolean;
+  onChange: (v: boolean) => void;
+  hiddenCount?: number;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          title="Configurações de exibição"
+          className="relative flex items-center justify-center h-[30px] w-[30px] rounded-lg bg-white/[0.04] border border-white/[0.08] text-white/60 hover:text-white hover:bg-white/[0.08] transition-colors"
+        >
+          <Settings className="h-3.5 w-3.5" />
+          {value && hiddenCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-1 rounded-full bg-emerald-500 text-[9px] font-bold text-white flex items-center justify-center">
+              {hiddenCount}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-0 bg-[#101014] border-white/10 text-white">
+        <div className="p-3 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-white">Ocultar testes e validações</p>
+              <p className="text-[10px] text-white/40 mt-0.5 leading-relaxed">
+                Tira da conta a visita inteira que teve evento ou UTM com
+                <span className="text-white/60"> teste</span>,
+                <span className="text-white/60"> validacao</span>,
+                <span className="text-white/60"> debug</span> ou
+                <span className="text-white/60"> demo</span>.
+              </p>
+            </div>
+            <Switch checked={value} onCheckedChange={onChange} />
+          </div>
+          <p className="text-[10px] text-white/35 border-t border-white/10 pt-2">
+            {value
+              ? hiddenCount > 0
+                ? `${hiddenCount} visita(s) de teste escondida(s) neste período.`
+                : "Nenhuma visita de teste neste período."
+              : "Mostrando tudo, testes inclusive."}
+            {" "}Eventos ao Vivo sempre mostra tudo.
+          </p>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

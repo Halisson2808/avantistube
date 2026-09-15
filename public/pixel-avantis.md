@@ -222,37 +222,99 @@ player.on("progress", (pct) => {
 - o clique que sai da página é o mais próximo de venda que dá para medir aqui —
   marque com `data-avantis` e `data-avantis-value`;
 - venda confirmada só entra se a página de obrigado tiver o pixel e disparar
-  `avantis.track("purchase", { value: 47.9 })`.
+  `avantis.track("purchase", { value: 47.9 })` — ver seção 8.
 
-**Página de obrigado — obrigatória em toda oferta**
+**Página de obrigado**
+- obrigatória em toda oferta com checkout — tem seção própria, a **8**, com o
+  passo a passo completo. Não pule.
 
-Sem ela o funil termina no clique do checkout e a receita nunca aparece: o
-checkout é de terceiro (Cakto, Hotmart, Kiwify) e não avisa o painel sozinho.
+## 8. Página de obrigado (obrigatória em toda oferta)
 
-Se a oferta ainda não tiver página de obrigado, **crie uma** (`/obrigado`) e
-configure-a como página de redirecionamento pós-compra na plataforma. Regras:
+**Se a oferta tem checkout, ela tem página de obrigado. Se não existir, crie —
+não pergunte se deve criar.**
 
-- mesma chave do site (`data-site` idêntico ao das outras páginas);
-- dispara `purchase` assim que carrega, com o valor real da venda;
-- se a plataforma mandar o valor na URL, use-o em vez do preço fixo;
-- nada de disparar `purchase` em página que a pessoa possa abrir sem ter
-  comprado (não vale colocar num popup ou na própria página de vendas).
+### Por que é obrigatória
+
+O checkout é de terceiro (Cakto, Hotmart, Kiwify…) e não avisa o painel quando
+alguém compra. A única forma de a venda chegar é a pessoa ser redirecionada,
+depois de pagar, para uma página **do próprio site** que dispara `purchase`.
+Sem ela:
+
+- o funil termina em "Foi pro checkout" e "Comprou" fica sempre zerado;
+- a receita do painel fica em R$ 0,00;
+- não dá para saber qual campanha, criativo ou CTA realmente vendeu.
+
+### Passo a passo
+
+1. **Crie a rota** `/obrigado`. Se o site vende mais de uma oferta, uma por
+   oferta: `/obrigado-caderno`, `/obrigado-sono`.
+2. **Mesma tag do pixel** das outras páginas — mesma `data-site`, mesmo
+   `data-site-name`. Página de obrigado não é site novo.
+3. **Dispare `purchase` ao carregar**, com o valor da venda (snippet abaixo).
+4. **Não conte a mesma venda duas vezes**: um F5 na página não pode gerar outra
+   compra. O snippet guarda uma marca na `sessionStorage`.
+5. **Tire do Google**: `<meta name="robots" content="noindex, nofollow">`.
+   Página de obrigado indexada é aberta por quem não comprou e dispara venda
+   falsa.
+6. **Não linke** a página a partir da página de vendas, do menu ou do rodapé.
+7. **Configure o redirecionamento pós-compra** na plataforma, apontando para a
+   URL completa (`https://dominio.com/obrigado`). O nome do campo muda de uma
+   para outra — algo como "URL de obrigado", "página de obrigado" ou "URL de
+   redirecionamento", nas configurações da oferta/produto ou do checkout. Se
+   você não tem acesso à plataforma, **escreva no relatório de entrega a URL
+   exata e onde o dono precisa colar**.
+8. **Conteúdo** é livre: confirmação da compra, próximo passo (acesso ao
+   produto, e-mail), upsell se houver. O pixel não depende do conteúdo.
+
+### Código
 
 ```html
+<meta name="robots" content="noindex, nofollow">
+
 <script defer src="https://avantisstudio.vercel.app/avantis-pixel.js"
         data-site="avo-yuki" data-site-name="Avó Yuki"></script>
 <script>
   window.addEventListener("load", function () {
+    if (!window.avantis) return;
     var p = new URLSearchParams(location.search);
-    var valor = parseFloat(p.get("valor") || p.get("amount") || "47.90");
-    if (window.avantis) window.avantis.track("purchase", { value: valor });
+
+    // Valor: o que a plataforma mandar na URL; senão, o preço da oferta.
+    var valor = parseFloat(
+      p.get("valor") || p.get("value") || p.get("amount") || p.get("price") || "47.90"
+    );
+
+    // Uma venda por pedido (ou por página, se a plataforma não mandar id).
+    var pedido = p.get("order_id") || p.get("transaction") || p.get("pedido") || location.pathname;
+    var marca = "avantis_purchase_" + pedido;
+    if (sessionStorage.getItem(marca)) return;
+
+    window.avantis.track("purchase", { value: valor, meta: { pedido: pedido } });
+    sessionStorage.setItem(marca, "1");
   });
 </script>
 ```
 
-Entregue sempre dizendo se a página de obrigado foi criada e qual o valor usado.
+- Troque `47.90` pelo preço real da oferta (ponto decimal).
+- Se houver order bump/upsell e a plataforma mandar o total na URL, o total
+  entra sozinho pelo `valor`/`amount`; se não mandar, use o preço principal.
 
-## 8. Localhost não conta
+### Testar sem sujar as métricas
+
+Toda visita de teste precisa de marcador, senão vira venda "de verdade" no
+painel. Abra assim:
+
+```
+https://dominio.com/obrigado?valor=0.01&utm_campaign=validacao
+```
+
+O painel reconhece `validacao`, `teste`, `debug` e `demo` em UTM ou nome de
+evento e **esconde a visita inteira** na Visão geral e no Funil (engrenagem no
+topo). Em Eventos ao Vivo ela continua aparecendo, marcada como teste — é lá
+que você confere que o `purchase` chegou com o valor certo.
+
+Nunca teste `purchase` sem marcador.
+
+## 9. Localhost não conta
 
 O pixel se desliga sozinho em ambiente de desenvolvimento — `localhost`,
 `127.0.0.1`, `192.168.x`, `10.x`, `172.16-31.x`, domínios `.local`/`.test` e
@@ -271,7 +333,7 @@ constrói, e isso inflaria visitas, rolagem e funil com tráfego que não existe
   `[avantis-pixel] ambiente local ... nada será enviado`. Isso é sinal de que
   carregou certo.
 
-## 9. Regras que não podem ser quebradas
+## 10. Regras que não podem ser quebradas
 
 1. Um `data-avantis` por elemento clicável importante — sem exceção.
 2. `data-avantis-value` sempre com **ponto** decimal (`47.90`, nunca `47,90`).
@@ -287,26 +349,34 @@ constrói, e isso inflaria visitas, rolagem e funil com tráfego que não existe
    se você criar eventos próprios repetitivos, garanta você mesmo que não vão
    disparar em looping de scroll.
 
-## 10. Como testar antes de entregar
+## 11. Como testar antes de entregar
 
 1. Suba a página e abra com `?utm_source=teste&utm_medium=conteudo&utm_campaign=validacao`.
+   O marcador `validacao` faz o painel esconder essa visita das métricas — sem
+   ele o teste vira tráfego de verdade na Visão geral e no Funil.
 2. Troque `data-debug="0"` por `data-debug="1"` e abra o console: cada evento
    aparece como `[avantis-pixel] nome {…}`.
 3. Role a página inteira, clique em cada CTA (volte depois), abra o pop de saída.
 4. Confirme no console: `pageview`, os `rolagem_*`, os `cta_*` com o valor certo,
    e `saida_pagina` ao trocar de aba.
 5. Volte `data-debug` para `0` antes de publicar.
-6. O dono confere em `/analytics/eventos` no painel, que mostra os eventos ao vivo.
+6. Teste a página de obrigado do jeito da seção 8 (`?valor=0.01&utm_campaign=validacao`).
+7. O dono confere em `/analytics/eventos` no painel, que mostra as visitas ao vivo
+   (cada linha é uma visita; abra para ver os eventos dela).
    O site aparece sozinho em `/analytics/sites`, marcado como "automático",
    assim que o primeiro evento chegar.
 
-## 11. Modelo de entrega
+## 12. Modelo de entrega
 
 Termine a tarefa listando assim:
 
 ```
 Pixel instalado — chave: <CHAVE-DO-SITE>   nome no painel: <NOME DO SITE>
 Páginas: /, /vsl, /obrigado   (todas com a MESMA chave)
+
+Página de obrigado: /obrigado — criada agora (sim/não) — noindex: sim
+  purchase com valor: <valor usado ou parâmetro da URL>
+  redirecionamento na plataforma: <feito por mim | FALTA: colar https://dominio.com/obrigado em ...>
 
 Automático: pageview, rolagem 25/50/75/90, tempo 30/60/180s, saida_intencao, saida_pagina
 Marcados a mão:
