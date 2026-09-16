@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Bot, Copy } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Bot, ChevronDown, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 import type {
@@ -178,6 +178,7 @@ function SummaryStat({ label, value, hint }: { label: string; value: string; hin
 }
 
 export function AiAnalysisSummary(props: AiAnalysisSummaryProps) {
+  const [open, setOpen] = useState(false);
   const siteName = props.siteKey
     ? props.sites.find((site) => site.site_key === props.siteKey)?.name || props.siteKey
     : "Todos os sites";
@@ -217,61 +218,76 @@ export function AiAnalysisSummary(props: AiAnalysisSummaryProps) {
       right={
         <button
           type="button"
-          onClick={copy}
-          disabled={!props.data || props.loading}
-          className="flex items-center gap-1.5 rounded-lg border border-emerald-500/25 bg-emerald-500/15 px-3 py-1.5 text-xs text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={() => setOpen((current) => !current)}
+          aria-expanded={open}
+          className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs text-white/65 transition-colors hover:bg-white/[0.08] hover:text-white"
         >
-          <Copy className="h-3.5 w-3.5" />
-          Copiar tudo
+          {open ? "Fechar" : "Abrir"}
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
         </button>
       }
     >
-      <p className="text-xs text-white/40">
-        Resumo agregado de <span className="text-white/70">{siteName}</span>, pronto para colar em qualquer IA e pedir uma análise do funil.
-      </p>
-
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        <SummaryStat label="Pessoas" value={fmtInt(t?.visitors || 0)} hint="IDs anônimos" />
-        <SummaryStat label="Sessões" value={fmtInt(t?.sessions || 0)} />
-        <SummaryStat label="Páginas abertas" value={fmtInt(t?.pageviews || 0)} />
-        <SummaryStat label="Cliques" value={fmtInt(t?.clicks || 0)} />
-        <SummaryStat label="Leads" value={fmtInt(t?.leads || 0)} />
-        <SummaryStat label="Compras" value={fmtInt(t?.purchases || 0)} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-          <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-white/40">Rolagem</p>
-          <div className="space-y-1.5">
-            {props.data?.scroll.length ? props.data.scroll.map((item) => (
-              <div key={item.percent} className="flex items-center justify-between gap-3 text-xs">
-                <span className="text-white/60">Chegaram a {item.percent}%</span>
-                <span className="whitespace-nowrap text-white">
-                  {fmtInt(item.sessions)} <span className="text-white/35">({fmtShare(item.sessions, t?.sessions || 0)})</span>
-                </span>
-              </div>
-            )) : <p className="text-xs text-white/30">Nenhuma rolagem registrada.</p>}
+      {open && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-white/40">
+              Resumo agregado de <span className="text-white/70">{siteName}</span>, pronto para colar em qualquer IA e pedir uma análise do funil.
+            </p>
+            <button
+              type="button"
+              onClick={copy}
+              disabled={!props.data || props.loading}
+              className="flex items-center gap-1.5 rounded-lg border border-emerald-500/25 bg-emerald-500/15 px-3 py-1.5 text-xs text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Copiar tudo
+            </button>
           </div>
-        </div>
 
-        <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-          <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-white/40">Ações e etapas</p>
-          <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
-            {journey.length ? journey.map((item) => (
-              <div key={item.name} className="flex items-start justify-between gap-3 text-xs">
-                <span className="text-white/60" title={item.name}>{humanizeEvent(item.name)}</span>
-                <span className="whitespace-nowrap text-white">
-                  {fmtInt(item.sessions)} <span className="text-white/35">({fmtShare(item.sessions, t?.sessions || 0)})</span>
-                </span>
-              </div>
-            )) : <p className="text-xs text-white/30">Nenhuma ação personalizada registrada.</p>}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            <SummaryStat label="Pessoas" value={fmtInt(t?.visitors || 0)} hint="IDs anônimos" />
+            <SummaryStat label="Sessões" value={fmtInt(t?.sessions || 0)} />
+            <SummaryStat label="Páginas abertas" value={fmtInt(t?.pageviews || 0)} />
+            <SummaryStat label="Cliques" value={fmtInt(t?.clicks || 0)} />
+            <SummaryStat label="Leads" value={fmtInt(t?.leads || 0)} />
+            <SummaryStat label="Compras" value={fmtInt(t?.purchases || 0)} />
           </div>
-        </div>
-      </div>
 
-      <p className="text-[10px] text-white/30">
-        O texto copiado também inclui todos os eventos técnicos, funil, páginas, origens, aparelhos, período e filtros ativos.
-      </p>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+              <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-white/40">Rolagem</p>
+              <div className="space-y-1.5">
+                {props.data?.scroll.length ? props.data.scroll.map((item) => (
+                  <div key={item.percent} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="text-white/60">Chegaram a {item.percent}%</span>
+                    <span className="whitespace-nowrap text-white">
+                      {fmtInt(item.sessions)} <span className="text-white/35">({fmtShare(item.sessions, t?.sessions || 0)})</span>
+                    </span>
+                  </div>
+                )) : <p className="text-xs text-white/30">Nenhuma rolagem registrada.</p>}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+              <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-white/40">Ações e etapas</p>
+              <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
+                {journey.length ? journey.map((item) => (
+                  <div key={item.name} className="flex items-start justify-between gap-3 text-xs">
+                    <span className="text-white/60" title={item.name}>{humanizeEvent(item.name)}</span>
+                    <span className="whitespace-nowrap text-white">
+                      {fmtInt(item.sessions)} <span className="text-white/35">({fmtShare(item.sessions, t?.sessions || 0)})</span>
+                    </span>
+                  </div>
+                )) : <p className="text-xs text-white/30">Nenhuma ação personalizada registrada.</p>}
+              </div>
+            </div>
+          </div>
+
+          <p className="text-[10px] text-white/30">
+            O texto copiado também inclui todos os eventos técnicos, funil, páginas, origens, aparelhos, período e filtros ativos.
+          </p>
+        </div>
+      )}
     </Panel>
   );
 }
