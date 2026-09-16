@@ -14,6 +14,7 @@ import {
 
 import { useAnalyticsOverview, useAnalyticsFunnel } from "@/hooks/use-analytics";
 import { FunnelChart } from "@/components/analytics/FunnelChart";
+import { AiAnalysisSummary } from "@/components/analytics/AiAnalysisSummary";
 import {
     AnalyticsHeader, MetricCard, Panel, RankedList, EmptyState, MilestoneBars,
     useAnalyticsFilters, rotasDoOverview, fmtNum, fmtMoney, fmtPct, fmtDuration,
@@ -111,6 +112,16 @@ export default function AnalyticsDashboard() {
                             hint={t ? `${fmtPct(t.conversionRate)} por sessão` : undefined} loading={isLoading} accent="text-violet-400" />
                         <MetricCard icon={DollarSign} label="Receita" value={fmtMoney(t?.revenue ?? 0)} loading={isLoading} />
                     </div>
+
+                    <AiAnalysisSummary
+                        data={data}
+                        funnel={funil}
+                        sites={sites}
+                        siteKey={siteKey}
+                        selectedPaths={paths}
+                        hideTests={hideTests}
+                        loading={isLoading}
+                    />
 
                     {/* Funil — o mesmo de /analytics/funil */}
                     {funil.some((e) => e.sessions > 0) && (

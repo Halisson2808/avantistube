@@ -675,7 +675,9 @@ function buildOverview(rows, range, paths) {
     scroll: milestones(rows, "rolagem"),
     video: milestones(rows, "video"),
     customEvents: topBy(custom, (r) => r.event_name, 15),
-    allEvents: topBy(rows, (r) => r.event_name, 20),
+    // O resumo copiável para IA inclui também eventos menos frequentes, como
+    // CTA final, pop-up e chegada à oferta — não apenas o top 20.
+    allEvents: topBy(rows, (r) => r.event_name, 100),
   };
 }
 
