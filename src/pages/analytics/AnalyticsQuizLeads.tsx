@@ -1,5 +1,5 @@
 /**
- * AnalyticsQuizLeads.tsx — leads e respostas dos quizzes, separados por nicho.
+ * AnalyticsQuizLeads.tsx — leads e respostas separados por site e quiz.
  * A tela é somente leitura; a integração de cada quiz será feita depois.
  */
 import { useMemo, useState } from "react";
@@ -26,22 +26,21 @@ const whatsappHref = (phone: string, name: string, result?: string | null) => {
 };
 
 export default function AnalyticsQuizLeads() {
-  const [niche, setNiche] = useState("");
-  const [funnel, setFunnel] = useState("");
+  const [site, setSite] = useState("");
+  const [quiz, setQuiz] = useState("");
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [openLead, setOpenLead] = useState<string | null>(null);
-  const { niches, funnels, leads, isLoading, reload } = useQuizLeads({
-    niche: niche || undefined,
-    funnel: funnel || undefined,
+  const { sites, funnels, leads, isLoading, reload } = useQuizLeads({
+    site: site || undefined,
+    quiz: quiz ? Number(quiz) : undefined,
     search: appliedSearch || undefined,
   });
 
   const visibleFunnels = useMemo(() => {
-    if (!niche) return funnels;
-    const nicheId = niches.find((item) => item.key === niche)?.id;
-    return funnels.filter((item) => item.nicheId === nicheId);
-  }, [funnels, niche, niches]);
+    if (!site) return funnels;
+    return funnels.filter((item) => item.siteKey === site);
+  }, [funnels, site]);
 
   const completed = leads.filter((lead) => lead.attempts.some((attempt) => attempt.completedAt)).length;
   const consented = leads.filter((lead) => lead.consentWhatsapp).length;
@@ -52,7 +51,7 @@ export default function AnalyticsQuizLeads() {
         <div>
           <h1 className="text-xl font-bold text-white tracking-tight">Leads dos Quizzes</h1>
           <p className="text-white/40 text-xs mt-0.5">
-            Nome, telefone, resultado e respostas separados por nicho e funil.
+            Nome, telefone, resultado e respostas separados por site e quiz.
           </p>
         </div>
         <button
@@ -67,21 +66,21 @@ export default function AnalyticsQuizLeads() {
       <Panel title="Filtros da operação" icon={ClipboardList}>
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1.4fr] gap-2">
           <select
-            value={niche}
-            onChange={(event) => { setNiche(event.target.value); setFunnel(""); }}
+            value={site}
+            onChange={(event) => { setSite(event.target.value); setQuiz(""); }}
             className="h-9 rounded-lg bg-[#101014] border border-white/[0.08] text-white text-xs px-3 outline-none focus:border-emerald-500/40"
           >
-            <option value="">Todos os nichos</option>
-            {niches.map((item) => <option key={item.id} value={item.key}>{item.name}</option>)}
+            <option value="">Todos os sites</option>
+            {sites.map((item) => <option key={item.id} value={item.key}>{item.name}</option>)}
           </select>
           <select
-            value={funnel}
-            onChange={(event) => setFunnel(event.target.value)}
+            value={quiz}
+            onChange={(event) => setQuiz(event.target.value)}
             className="h-9 rounded-lg bg-[#101014] border border-white/[0.08] text-white text-xs px-3 outline-none focus:border-emerald-500/40"
           >
-            <option value="">Todos os funis</option>
+            <option value="">Todos os quizzes</option>
             {visibleFunnels.map((item) => (
-              <option key={item.id} value={item.key}>{item.name} · v{item.version}</option>
+              <option key={item.id} value={item.quizNumber}>Quiz {String(item.quizNumber).padStart(2, "0")} · {item.route}</option>
             ))}
           </select>
           <form
@@ -139,10 +138,10 @@ export default function AnalyticsQuizLeads() {
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <p className="text-white text-sm font-medium">{lead.name}</p>
                         <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.05] border border-white/[0.08] text-white/50">
-                          {lead.niche.name}
+                          {lead.site.name}
                         </span>
                         <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-                          {lead.funnel.name}
+                          Quiz {String(lead.funnel.quizNumber).padStart(2, "0")} · {lead.funnel.route}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-[11px] text-white/40">
@@ -172,7 +171,6 @@ export default function AnalyticsQuizLeads() {
                   <div className="border-t border-white/[0.06] p-4 bg-black/20 space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
                       <Info label="Telefone" value={lead.phone} />
-                      <Info label="E-mail" value={lead.email || "Não informado"} />
                       <Info label="WhatsApp" value={lead.consentWhatsapp ? "Consentimento registrado" : "Sem consentimento"} />
                       <Info label="Origem" value={lead.source || "Não informada"} />
                       <Info label="Status" value={lead.status} />

@@ -475,6 +475,20 @@ function rotasDisponiveis(rows) {
 const MARCADOR_TESTE = /(^|[^a-z])(teste?s?|testing|validacao|validação|debug|demo|homolog)([^a-z]|$)/i;
 const SESSAO_TESTE = /^(deploy-check|prod-check|demo-)/i;
 
+// IDs pessoais usados pelo dono para testar os sites. A interface exibe apenas
+// os 6 últimos caracteres do visitante, por isso a comparação aceita o sufixo.
+// Os eventos continuam armazenados; só deixam de aparecer e de contar no painel.
+const VISITANTES_IGNORADOS = ["fvodcy"];
+
+function ehVisitanteIgnorado(r) {
+  const ids = [r.visitor_id, r.session_id]
+    .filter(Boolean)
+    .map((id) => String(id).toLowerCase());
+  return VISITANTES_IGNORADOS.some((ignorado) =>
+    ids.some((id) => id === ignorado || id.endsWith(ignorado))
+  );
+}
+
 function ehTeste(r) {
   if (SESSAO_TESTE.test(r.session_id || "") || SESSAO_TESTE.test(r.visitor_id || "")) return true;
   return [r.event_name, r.utm_source, r.utm_medium, r.utm_campaign, r.utm_content]
@@ -509,7 +523,7 @@ async function fetchEvents({ siteKey, range }) {
   if (siteKey) q = q.eq("site_key", siteKey);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
-  return data || [];
+  return (data || []).filter((r) => !ehVisitanteIgnorado(r));
 }
 
 function topBy(rows, keyFn, limit = 8) {
@@ -1263,43 +1277,39 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     return { status: 200, json: { ok: true, attemptId: attempt.id, leadId } };
   }
 
-  // Leads identificados e respostas dos quizzes. A leitura é separada do
-  // pixel: um mesmo site pode ter vários funis e cada funil pertence a um
-  // nicho, impedindo que operações diferentes sejam misturadas no painel.
+  // Leads identificados e respostas dos quizzes. A organização acompanha o
+  // pixel: site -> quiz numerado. A rota é apenas metadado e pode mudar.
   if (path === "/analytics/quiz-leads" && method === "GET") {
     const db = getSupabase();
-    const nicheKey = String(searchParams.get("niche") || "").trim();
-    const funnelKey = String(searchParams.get("funnel") || "").trim();
+    const siteKey = String(searchParams.get("site") || "").trim();
+    const quizNumber = Number(searchParams.get("quiz")) || null;
     const search = String(searchParams.get("search") || "").trim().slice(0, 80);
     const limit = Math.min(Math.max(Number(searchParams.get("limit")) || 200, 1), 500);
 
-    const { data: niches, error: nichesError } = await db
-      .from("quiz_niches")
-      .select("id, niche_key, name")
+    const { data: sites, error: sitesError } = await db
+      .from("tracking_sites")
+      .select("id, site_key, name")
       .order("name");
-    if (nichesError) throw new Error(nichesError.message);
+    if (sitesError) throw new Error(sitesError.message);
 
     const { data: funnels, error: funnelsError } = await db
       .from("quiz_funnels")
-      .select("id, niche_id, funnel_key, name, version")
-      .order("name");
+      .select("id, site_key, funnel_key, name, version, quiz_number, route")
+      .order("quiz_number");
     if (funnelsError) throw new Error(funnelsError.message);
 
-    const nicheById = new Map((niches || []).map((n) => [n.id, n]));
+    const siteByKey = new Map((sites || []).map((site) => [site.site_key, site]));
     const funnelById = new Map((funnels || []).map((f) => [f.id, f]));
     let allowedFunnels = funnels || [];
-    if (nicheKey) {
-      const nicheIds = new Set((niches || []).filter((n) => n.niche_key === nicheKey).map((n) => n.id));
-      allowedFunnels = allowedFunnels.filter((f) => nicheIds.has(f.niche_id));
-    }
-    if (funnelKey) allowedFunnels = allowedFunnels.filter((f) => f.funnel_key === funnelKey);
+    if (siteKey) allowedFunnels = allowedFunnels.filter((f) => f.site_key === siteKey);
+    if (quizNumber) allowedFunnels = allowedFunnels.filter((f) => f.quiz_number === quizNumber);
 
-    if ((nicheKey || funnelKey) && !allowedFunnels.length) {
+    if ((siteKey || quizNumber) && !allowedFunnels.length) {
       return {
         status: 200,
         json: {
-          niches: (niches || []).map((n) => ({ id: n.id, key: n.niche_key, name: n.name })),
-          funnels: (funnels || []).map((f) => ({ id: f.id, key: f.funnel_key, name: f.name, version: f.version, nicheId: f.niche_id })),
+          sites: (sites || []).map((site) => ({ id: site.id, key: site.site_key, name: site.name })),
+          funnels: (funnels || []).map((f) => ({ id: f.id, key: f.funnel_key, name: f.name, version: f.version, siteKey: f.site_key, quizNumber: f.quiz_number, route: f.route })),
           leads: [],
         },
       };
@@ -1310,7 +1320,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
       .select("id, funnel_id, name, phone, email, consent_whatsapp, source, origin, status, last_stage, last_stage_at, created_at, updated_at")
       .order("created_at", { ascending: false })
       .limit(limit);
-    if (nicheKey || funnelKey) leadsQuery = leadsQuery.in("funnel_id", allowedFunnels.map((f) => f.id));
+    if (siteKey || quizNumber) leadsQuery = leadsQuery.in("funnel_id", allowedFunnels.map((f) => f.id));
     if (search) {
       const safe = search.replace(/[%_,]/g, " ");
       leadsQuery = leadsQuery.or(`name.ilike.%${safe}%,phone.ilike.%${safe}%,email.ilike.%${safe}%`);
@@ -1371,7 +1381,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
 
     const result = (leads || []).map((lead) => {
       const funnel = funnelById.get(lead.funnel_id);
-      const niche = funnel ? nicheById.get(funnel.niche_id) : null;
+      const site = funnel ? siteByKey.get(funnel.site_key) : null;
       return {
         id: lead.id,
         name: lead.name,
@@ -1385,12 +1395,12 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
         lastStageAt: lead.last_stage_at,
         createdAt: lead.created_at,
         updatedAt: lead.updated_at,
-        niche: niche
-          ? { id: niche.id, key: niche.niche_key, name: niche.name }
-          : { id: "", key: "sem-nicho", name: "Sem nicho" },
+        site: site
+          ? { id: site.id, key: site.site_key, name: site.name }
+          : { id: "", key: funnel?.site_key || "sem-site", name: funnel?.site_key || "Sem site" },
         funnel: funnel
-          ? { id: funnel.id, key: funnel.funnel_key, name: funnel.name, version: funnel.version }
-          : { id: "", key: "sem-funil", name: "Sem funil", version: "" },
+          ? { id: funnel.id, key: funnel.funnel_key, name: funnel.name, version: funnel.version, quizNumber: funnel.quiz_number, route: funnel.route }
+          : { id: "", key: "sem-quiz", name: "Sem quiz", version: "", quizNumber: 0, route: "" },
         attempts: attemptsByLead.get(lead.id) || [],
       };
     });
@@ -1398,8 +1408,8 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     return {
       status: 200,
       json: {
-        niches: (niches || []).map((n) => ({ id: n.id, key: n.niche_key, name: n.name })),
-        funnels: (funnels || []).map((f) => ({ id: f.id, key: f.funnel_key, name: f.name, version: f.version, nicheId: f.niche_id })),
+        sites: (sites || []).map((site) => ({ id: site.id, key: site.site_key, name: site.name })),
+        funnels: (funnels || []).map((f) => ({ id: f.id, key: f.funnel_key, name: f.name, version: f.version, siteKey: f.site_key, quizNumber: f.quiz_number, route: f.route })),
         leads: result,
       },
     };
@@ -1523,7 +1533,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     if (error) throw new Error(error.message);
 
     const porSessao = new Map();
-    for (const ev of data || []) {
+    for (const ev of (data || []).filter((r) => !ehVisitanteIgnorado(r))) {
       const id = ev.session_id || ev.visitor_id || ev.id;
       if (!porSessao.has(id)) porSessao.set(id, []);
       porSessao.get(id).push(ev);
@@ -1590,7 +1600,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
 
     const { data, error } = await q;
     if (error) throw new Error(error.message);
-    return { status: 200, json: data || [] };
+    return { status: 200, json: (data || []).filter((r) => !ehVisitanteIgnorado(r)) };
   }
 
   // ── Ingestão pública do pixel ────────────────────────────────────────────────

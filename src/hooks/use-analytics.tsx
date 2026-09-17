@@ -174,21 +174,21 @@ export interface QuizLead {
   lastStageAt?: string | null;
   createdAt: string;
   updatedAt: string;
-  niche: { id: string; key: string; name: string };
-  funnel: { id: string; key: string; name: string; version: string };
+  site: { id: string; key: string; name: string };
+  funnel: { id: string; key: string; name: string; version: string; quizNumber: number; route: string };
   attempts: QuizAttempt[];
 }
 
 export interface QuizLeadFilters {
-  niche?: string;
-  funnel?: string;
+  site?: string;
+  quiz?: number;
   search?: string;
   limit?: number;
 }
 
 export interface QuizLeadsResponse {
-  niches: Array<{ id: string; key: string; name: string }>;
-  funnels: Array<{ id: string; key: string; name: string; version: string; nicheId: string }>;
+  sites: Array<{ id: string; key: string; name: string }>;
+  funnels: Array<{ id: string; key: string; name: string; version: string; siteKey: string; quizNumber: number; route: string }>;
   leads: QuizLead[];
 }
 
@@ -391,15 +391,15 @@ export function useTrackingSessions(siteKey: string | null, range: DateRange, li
 
 /* ── Leads e respostas dos quizzes ───────────────────────────────────────── */
 export function useQuizLeads(filters: QuizLeadFilters = {}) {
-  const [data, setData] = useState<QuizLeadsResponse>({ niches: [], funnels: [], leads: [] });
+  const [data, setData] = useState<QuizLeadsResponse>({ sites: [], funnels: [], leads: [] });
   const [isLoading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const qs = new URLSearchParams();
-      if (filters.niche) qs.set("niche", filters.niche);
-      if (filters.funnel) qs.set("funnel", filters.funnel);
+      if (filters.site) qs.set("site", filters.site);
+      if (filters.quiz) qs.set("quiz", String(filters.quiz));
       if (filters.search?.trim()) qs.set("search", filters.search.trim());
       qs.set("limit", String(filters.limit || 200));
       setData(await getJson<QuizLeadsResponse>(`${API}/analytics/quiz-leads?${qs}`));
@@ -408,7 +408,7 @@ export function useQuizLeads(filters: QuizLeadFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }, [filters.niche, filters.funnel, filters.search, filters.limit]);
+  }, [filters.site, filters.quiz, filters.search, filters.limit]);
 
   useEffect(() => { load(); }, [load]);
 
