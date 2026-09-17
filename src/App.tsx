@@ -27,6 +27,7 @@ import AnalyticsSites from "./pages/analytics/AnalyticsSites";
 import AnalyticsFunnel from "./pages/analytics/AnalyticsFunnel";
 import AnalyticsEvents from "./pages/analytics/AnalyticsEvents";
 import AnalyticsUtm from "./pages/analytics/AnalyticsUtm";
+import AnalyticsQuizLeads from "./pages/analytics/AnalyticsQuizLeads";
 
 // Módulo Gerador de PDF — carregado sob demanda (bundle próprio, ~30 ebooks)
 const PdfModule = lazy(() => import("./pages/PdfGenerator/PdfModule"));
@@ -72,6 +73,7 @@ function ProtectedApp() {
       <Route path="/analytics/eventos" element={wrap(<AnalyticsEvents />)} />
       <Route path="/analytics/sites" element={wrap(<AnalyticsSites />)} />
       <Route path="/analytics/utm" element={wrap(<AnalyticsUtm />)} />
+      <Route path="/analytics/quiz-leads" element={wrap(<AnalyticsQuizLeads />)} />
 
       {/* Módulo Gerador de PDF (tema claro próprio, fora do StudioLayout) */}
       <Route

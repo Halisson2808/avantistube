@@ -1,0 +1,2 @@
+-- Migração já aplicada remotamente antes de o histórico local ser sincronizado.
+-- Mantida vazia para preservar a ordem sem repetir alterações no banco.

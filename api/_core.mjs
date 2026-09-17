@@ -1120,6 +1120,145 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     return { status: 200, json: { ok: true } };
   }
 
+  // Leads identificados e respostas dos quizzes. A leitura é separada do
+  // pixel: um mesmo site pode ter vários funis e cada funil pertence a um
+  // nicho, impedindo que operações diferentes sejam misturadas no painel.
+  if (path === "/analytics/quiz-leads" && method === "GET") {
+    const db = getSupabase();
+    const nicheKey = String(searchParams.get("niche") || "").trim();
+    const funnelKey = String(searchParams.get("funnel") || "").trim();
+    const search = String(searchParams.get("search") || "").trim().slice(0, 80);
+    const limit = Math.min(Math.max(Number(searchParams.get("limit")) || 200, 1), 500);
+
+    const { data: niches, error: nichesError } = await db
+      .from("quiz_niches")
+      .select("id, niche_key, name")
+      .order("name");
+    if (nichesError) throw new Error(nichesError.message);
+
+    const { data: funnels, error: funnelsError } = await db
+      .from("quiz_funnels")
+      .select("id, niche_id, funnel_key, name, version")
+      .order("name");
+    if (funnelsError) throw new Error(funnelsError.message);
+
+    const nicheById = new Map((niches || []).map((n) => [n.id, n]));
+    const funnelById = new Map((funnels || []).map((f) => [f.id, f]));
+    let allowedFunnels = funnels || [];
+    if (nicheKey) {
+      const nicheIds = new Set((niches || []).filter((n) => n.niche_key === nicheKey).map((n) => n.id));
+      allowedFunnels = allowedFunnels.filter((f) => nicheIds.has(f.niche_id));
+    }
+    if (funnelKey) allowedFunnels = allowedFunnels.filter((f) => f.funnel_key === funnelKey);
+
+    if ((nicheKey || funnelKey) && !allowedFunnels.length) {
+      return {
+        status: 200,
+        json: {
+          niches: (niches || []).map((n) => ({ id: n.id, key: n.niche_key, name: n.name })),
+          funnels: (funnels || []).map((f) => ({ id: f.id, key: f.funnel_key, name: f.name, version: f.version, nicheId: f.niche_id })),
+          leads: [],
+        },
+      };
+    }
+
+    let leadsQuery = db
+      .from("quiz_leads")
+      .select("id, funnel_id, name, phone, email, consent_whatsapp, source, status, created_at, updated_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (nicheKey || funnelKey) leadsQuery = leadsQuery.in("funnel_id", allowedFunnels.map((f) => f.id));
+    if (search) {
+      const safe = search.replace(/[%_,]/g, " ");
+      leadsQuery = leadsQuery.or(`name.ilike.%${safe}%,phone.ilike.%${safe}%,email.ilike.%${safe}%`);
+    }
+    const { data: leads, error: leadsError } = await leadsQuery;
+    if (leadsError) throw new Error(leadsError.message);
+
+    const leadIds = (leads || []).map((lead) => lead.id);
+    let attempts = [];
+    if (leadIds.length) {
+      const { data, error } = await db
+        .from("quiz_attempts")
+        .select("id, lead_id, funnel_id, result_key, result_label, started_at, completed_at")
+        .in("lead_id", leadIds)
+        .order("started_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      attempts = data || [];
+    }
+
+    const attemptIds = attempts.map((attempt) => attempt.id);
+    let answers = [];
+    if (attemptIds.length) {
+      const { data, error } = await db
+        .from("quiz_answers")
+        .select("id, attempt_id, question_key, question_label, answer_key, answer_label, answer_value, position")
+        .in("attempt_id", attemptIds)
+        .order("position", { ascending: true });
+      if (error) throw new Error(error.message);
+      answers = data || [];
+    }
+
+    const answersByAttempt = new Map();
+    for (const answer of answers) {
+      if (!answersByAttempt.has(answer.attempt_id)) answersByAttempt.set(answer.attempt_id, []);
+      answersByAttempt.get(answer.attempt_id).push({
+        id: answer.id,
+        questionKey: answer.question_key,
+        questionLabel: answer.question_label,
+        answerKey: answer.answer_key,
+        answerLabel: answer.answer_label,
+        answerValue: answer.answer_value,
+        position: answer.position,
+      });
+    }
+
+    const attemptsByLead = new Map();
+    for (const attempt of attempts) {
+      if (!attemptsByLead.has(attempt.lead_id)) attemptsByLead.set(attempt.lead_id, []);
+      attemptsByLead.get(attempt.lead_id).push({
+        id: attempt.id,
+        resultKey: attempt.result_key,
+        resultLabel: attempt.result_label,
+        startedAt: attempt.started_at,
+        completedAt: attempt.completed_at,
+        answers: answersByAttempt.get(attempt.id) || [],
+      });
+    }
+
+    const result = (leads || []).map((lead) => {
+      const funnel = funnelById.get(lead.funnel_id);
+      const niche = funnel ? nicheById.get(funnel.niche_id) : null;
+      return {
+        id: lead.id,
+        name: lead.name,
+        phone: lead.phone,
+        email: lead.email,
+        consentWhatsapp: lead.consent_whatsapp,
+        source: lead.source,
+        status: lead.status,
+        createdAt: lead.created_at,
+        updatedAt: lead.updated_at,
+        niche: niche
+          ? { id: niche.id, key: niche.niche_key, name: niche.name }
+          : { id: "", key: "sem-nicho", name: "Sem nicho" },
+        funnel: funnel
+          ? { id: funnel.id, key: funnel.funnel_key, name: funnel.name, version: funnel.version }
+          : { id: "", key: "sem-funil", name: "Sem funil", version: "" },
+        attempts: attemptsByLead.get(lead.id) || [],
+      };
+    });
+
+    return {
+      status: 200,
+      json: {
+        niches: (niches || []).map((n) => ({ id: n.id, key: n.niche_key, name: n.name })),
+        funnels: (funnels || []).map((f) => ({ id: f.id, key: f.funnel_key, name: f.name, version: f.version, nicheId: f.niche_id })),
+        leads: result,
+      },
+    };
+  }
+
   // Visão geral: totais, série temporal, origens, campanhas, páginas, aparelhos.
   if (path === "/analytics/overview" && method === "GET") {
     const range = resolveRange(searchParams);

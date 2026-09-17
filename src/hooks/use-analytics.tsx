@@ -142,6 +142,53 @@ export interface FunnelStep {
   value: number;
 }
 
+export interface QuizAnswer {
+  id: string;
+  questionKey: string;
+  questionLabel: string;
+  answerKey?: string | null;
+  answerLabel: string;
+  answerValue?: unknown;
+  position: number;
+}
+
+export interface QuizAttempt {
+  id: string;
+  resultKey?: string | null;
+  resultLabel?: string | null;
+  startedAt: string;
+  completedAt?: string | null;
+  answers: QuizAnswer[];
+}
+
+export interface QuizLead {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string | null;
+  consentWhatsapp: boolean;
+  source?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  niche: { id: string; key: string; name: string };
+  funnel: { id: string; key: string; name: string; version: string };
+  attempts: QuizAttempt[];
+}
+
+export interface QuizLeadFilters {
+  niche?: string;
+  funnel?: string;
+  search?: string;
+  limit?: number;
+}
+
+export interface QuizLeadsResponse {
+  niches: Array<{ id: string; key: string; name: string }>;
+  funnels: Array<{ id: string; key: string; name: string; version: string; nicheId: string }>;
+  leads: QuizLead[];
+}
+
 /** Traduz o filtro de período para a query string da API. */
 function rangeParams(range: DateRange): URLSearchParams {
   const qs = new URLSearchParams();
@@ -337,4 +384,30 @@ export function useTrackingSessions(siteKey: string | null, range: DateRange, li
   useEffect(() => { load(); }, [load]);
 
   return { sessions, isLoading, reload: load };
+}
+
+/* ── Leads e respostas dos quizzes ───────────────────────────────────────── */
+export function useQuizLeads(filters: QuizLeadFilters = {}) {
+  const [data, setData] = useState<QuizLeadsResponse>({ niches: [], funnels: [], leads: [] });
+  const [isLoading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const qs = new URLSearchParams();
+      if (filters.niche) qs.set("niche", filters.niche);
+      if (filters.funnel) qs.set("funnel", filters.funnel);
+      if (filters.search?.trim()) qs.set("search", filters.search.trim());
+      qs.set("limit", String(filters.limit || 200));
+      setData(await getJson<QuizLeadsResponse>(`${API}/analytics/quiz-leads?${qs}`));
+    } catch (err) {
+      toast.error(`Erro ao carregar leads dos quizzes: ${(err as Error).message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [filters.niche, filters.funnel, filters.search, filters.limit]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return { ...data, isLoading, reload: load };
 }

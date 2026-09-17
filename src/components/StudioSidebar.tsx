@@ -4,7 +4,7 @@ import {
     X, Download,
     Search, TrendingUp, ChevronDown, ChevronRight,
     ExternalLink, LogOut, Link2, Video,
-    BarChart3, Globe, Filter, Activity, Youtube, FileText,
+    BarChart3, Globe, Filter, Activity, Youtube, FileText, ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -27,6 +27,7 @@ const analyticsItems = [
     { title: "Visão Geral", url: "/analytics", icon: BarChart3, end: true },
     { title: "Funil", url: "/analytics/funil", icon: Filter },
     { title: "Eventos ao Vivo", url: "/analytics/eventos", icon: Activity },
+    { title: "Leads dos Quizzes", url: "/analytics/quiz-leads", icon: ClipboardList },
     { title: "Meus Sites", url: "/analytics/sites", icon: Globe },
     { title: "Gerador de UTM", url: "/analytics/utm", icon: Link2 },
 ];
