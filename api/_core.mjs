@@ -73,7 +73,7 @@ async function verifyUser(token) {
 }
 
 // Rotas liberadas sem login: status e a ingestão do pixel, que roda em sites externos.
-const PUBLIC_PATHS = ["/status", "/track"];
+const PUBLIC_PATHS = ["/status", "/track", "/quiz/capture"];
 
 // ─── YouTube helpers ───────────────────────────────────────────────────────────
 async function ytFetch(path) {
@@ -710,7 +710,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
         supabase: true,
         // Marcadores do que este backend implementa. Servem para conferir de
         // fora (sem login) se o deploy realmente subiu.
-        features: ["analytics", "track", "route-filter", "auto-site", "date-range"],
+        features: ["analytics", "track", "route-filter", "auto-site", "date-range", "quiz-capture"],
       },
     };
   }
@@ -1120,6 +1120,149 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     return { status: 200, json: { ok: true } };
   }
 
+  // Ingestão pública e limitada dos quizzes externos. O navegador nunca fala
+  // diretamente com o Supabase; este endpoint valida tamanhos, funil e etapas.
+  if (path === "/quiz/capture" && method === "POST") {
+    const db = getSupabase();
+    const funnelKey = String(body.funnelKey || "").trim().slice(0, 80);
+    const stage = String(body.stage || "").trim().slice(0, 50);
+    const allowedStages = new Set([
+      "quiz_started", "quiz_question_answered", "lead_captured", "quiz_completed",
+      "result_viewed", "offer_viewed", "checkout_started",
+    ]);
+    if (!funnelKey || !allowedStages.has(stage)) {
+      return { status: 400, json: { error: "Funil ou etapa inválida." } };
+    }
+
+    const { data: funnel, error: funnelError } = await db
+      .from("quiz_funnels")
+      .select("id, version, status")
+      .eq("funnel_key", funnelKey)
+      .eq("status", "active")
+      .maybeSingle();
+    if (funnelError) throw new Error(funnelError.message);
+    if (!funnel) return { status: 404, json: { error: "Funil não encontrado ou inativo." } };
+
+    const now = new Date().toISOString();
+    const cleanObject = (value, maxKeys = 20) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+      return Object.fromEntries(Object.entries(value).slice(0, maxKeys).map(([key, item]) => [
+        String(key).slice(0, 60),
+        typeof item === "string" ? item.slice(0, 300) : item,
+      ]));
+    };
+    const origin = cleanObject(body.origin, 25);
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    let attempt = null;
+    const requestedAttemptId = String(body.attemptId || "");
+    if (uuidPattern.test(requestedAttemptId)) {
+      const { data } = await db
+        .from("quiz_attempts")
+        .select("id, lead_id")
+        .eq("id", requestedAttemptId)
+        .eq("funnel_id", funnel.id)
+        .maybeSingle();
+      attempt = data || null;
+    }
+
+    if (!attempt) {
+      const { data, error } = await db
+        .from("quiz_attempts")
+        .insert({
+          funnel_id: funnel.id,
+          visitor_id: String(body.visitorId || "").slice(0, 120) || null,
+          session_id: String(body.sessionId || "").slice(0, 120) || null,
+          quiz_version: String(body.quizVersion || funnel.version || "1").slice(0, 60),
+          origin,
+          last_stage: stage,
+          last_stage_at: now,
+        })
+        .select("id, lead_id")
+        .single();
+      if (error) throw new Error(error.message);
+      attempt = data;
+    }
+
+    let leadId = attempt.lead_id || null;
+    if (body.lead && typeof body.lead === "object") {
+      const name = String(body.lead.name || "").trim().slice(0, 80);
+      const phone = String(body.lead.phone || "").replace(/\D/g, "").slice(0, 13);
+      if (name.length < 2 || phone.length < 10) {
+        return { status: 400, json: { error: "Nome ou telefone inválido." } };
+      }
+      const source = String(origin.origem || origin.utm_source || "quiz").slice(0, 120);
+      const { data: lead, error } = await db
+        .from("quiz_leads")
+        .upsert({
+          funnel_id: funnel.id,
+          name,
+          phone,
+          email: String(body.lead.email || "").trim().slice(0, 160) || null,
+          consent_whatsapp: body.lead.consentWhatsapp === true,
+          consent_at: body.lead.consentWhatsapp === true ? now : null,
+          source,
+          origin,
+          last_stage: stage,
+          last_stage_at: now,
+          updated_at: now,
+        }, { onConflict: "funnel_id,phone" })
+        .select("id")
+        .single();
+      if (error) throw new Error(error.message);
+      leadId = lead.id;
+    }
+
+    const result = body.result && typeof body.result === "object" ? body.result : {};
+    const attemptPatch = {
+      lead_id: leadId,
+      last_stage: stage,
+      last_stage_at: now,
+      origin,
+    };
+    if (result.key) attemptPatch.result_key = String(result.key).slice(0, 80);
+    if (result.label) attemptPatch.result_label = String(result.label).slice(0, 240);
+    if (["quiz_completed", "result_viewed", "offer_viewed", "checkout_started"].includes(stage)) {
+      attemptPatch.completed_at = now;
+    }
+    const { error: attemptError } = await db
+      .from("quiz_attempts")
+      .update(attemptPatch)
+      .eq("id", attempt.id)
+      .eq("funnel_id", funnel.id);
+    if (attemptError) throw new Error(attemptError.message);
+
+    if (leadId) {
+      const { error: leadStageError } = await db
+        .from("quiz_leads")
+        .update({ last_stage: stage, last_stage_at: now, updated_at: now })
+        .eq("id", leadId);
+      if (leadStageError) throw new Error(leadStageError.message);
+    }
+
+    const answers = Array.isArray(body.answers) ? body.answers.slice(0, 20) : [];
+    if (answers.length) {
+      const rows = answers
+        .map((answer, index) => ({
+          attempt_id: attempt.id,
+          question_key: String(answer.questionKey || "").trim().slice(0, 80),
+          question_label: String(answer.questionLabel || "").trim().slice(0, 300),
+          answer_key: String(answer.answerKey || "").trim().slice(0, 160) || null,
+          answer_label: String(answer.answerLabel || "").trim().slice(0, 500),
+          answer_value: answer.answerValue === undefined ? null : answer.answerValue,
+          position: Number.isFinite(Number(answer.position)) ? Number(answer.position) : index,
+        }))
+        .filter((answer) => answer.question_key && answer.question_label && answer.answer_label);
+      if (rows.length) {
+        const { error } = await db
+          .from("quiz_answers")
+          .upsert(rows, { onConflict: "attempt_id,question_key" });
+        if (error) throw new Error(error.message);
+      }
+    }
+
+    return { status: 200, json: { ok: true, attemptId: attempt.id, leadId } };
+  }
+
   // Leads identificados e respostas dos quizzes. A leitura é separada do
   // pixel: um mesmo site pode ter vários funis e cada funil pertence a um
   // nicho, impedindo que operações diferentes sejam misturadas no painel.
@@ -1164,7 +1307,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
 
     let leadsQuery = db
       .from("quiz_leads")
-      .select("id, funnel_id, name, phone, email, consent_whatsapp, source, status, created_at, updated_at")
+      .select("id, funnel_id, name, phone, email, consent_whatsapp, source, origin, status, last_stage, last_stage_at, created_at, updated_at")
       .order("created_at", { ascending: false })
       .limit(limit);
     if (nicheKey || funnelKey) leadsQuery = leadsQuery.in("funnel_id", allowedFunnels.map((f) => f.id));
@@ -1236,7 +1379,10 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
         email: lead.email,
         consentWhatsapp: lead.consent_whatsapp,
         source: lead.source,
+        origin: lead.origin || {},
         status: lead.status,
+        lastStage: lead.last_stage,
+        lastStageAt: lead.last_stage_at,
         createdAt: lead.created_at,
         updatedAt: lead.updated_at,
         niche: niche

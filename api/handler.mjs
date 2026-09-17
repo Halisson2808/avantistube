@@ -24,13 +24,23 @@ function readBody(req) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  // req.url preserva o caminho original solicitado mesmo após o rewrite.
+  const url = new URL(req.url, `https://${req.headers.host || "localhost"}`);
+  const requestOrigin = String(req.headers.origin || "");
+  const quizCapture = url.pathname.replace(/^\/api/, "") === "/quiz/capture";
+  const quizOriginAllowed = !requestOrigin
+    || requestOrigin === "https://yukinakamura.vercel.app"
+    || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(requestOrigin);
+  if (quizCapture && !quizOriginAllowed) {
+    res.status(403).json({ error: "Origem não autorizada." });
+    return;
+  }
+  res.setHeader("Access-Control-Allow-Origin", quizCapture && requestOrigin ? requestOrigin : "*");
+  if (quizCapture) res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") { res.status(204).end(); return; }
 
-  // req.url preserva o caminho original solicitado mesmo após o rewrite.
-  const url = new URL(req.url, `https://${req.headers.host || "localhost"}`);
   const body = req.method === "POST" || req.method === "PUT" ? await readBody(req) : {};
   const authToken = (req.headers.authorization || "").replace(/^Bearer\s+/i, "") || null;
 

@@ -15,6 +15,16 @@ const fmtDate = (value: string) => new Date(value).toLocaleString("pt-BR", {
   day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
 });
 
+// Texto provisório: será substituído quando a régua de remarketing for fechada.
+const whatsappHref = (phone: string, name: string, result?: string | null) => {
+  const digits = phone.replace(/\D/g, "");
+  const international = digits.length === 10 || digits.length === 11 ? `55${digits}` : digits;
+  const firstName = name.trim().split(/\s+/)[0] || name;
+  const resultText = result ? ` e recebeu o resultado “${result}”` : "";
+  const message = `Olá, ${firstName}! Vi que você concluiu a avaliação da Avó Yuki${resultText}. Posso te ajudar a entender por onde começar?`;
+  return `https://wa.me/${international}?text=${encodeURIComponent(message)}`;
+};
+
 export default function AnalyticsQuizLeads() {
   const [niche, setNiche] = useState("");
   const [funnel, setFunnel] = useState("");
@@ -107,7 +117,7 @@ export default function AnalyticsQuizLeads() {
       ) : leads.length === 0 ? (
         <EmptyState
           title="Nenhum lead capturado ainda"
-          description="A estrutura do banco e do painel está pronta. O quiz da Avó Yuki ainda não foi conectado, conforme planejado."
+          description="O quiz já está conectado. Os primeiros contatos aparecerão aqui assim que concluírem a identificação."
         />
       ) : (
         <div className="space-y-2">
@@ -116,10 +126,11 @@ export default function AnalyticsQuizLeads() {
             const latest = lead.attempts[0];
             return (
               <div key={lead.id} className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
-                <button
-                  onClick={() => setOpenLead(isOpen ? null : lead.id)}
-                  className="w-full p-4 text-left hover:bg-white/[0.025] transition-colors"
-                >
+                <div className="flex items-stretch">
+                  <button
+                    onClick={() => setOpenLead(isOpen ? null : lead.id)}
+                    className="flex-1 min-w-0 p-4 text-left hover:bg-white/[0.025] transition-colors"
+                  >
                   <div className="flex items-start gap-3">
                     <div className="w-9 h-9 rounded-lg bg-emerald-500/12 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
                       <UserRound className="h-4 w-4 text-emerald-300" />
@@ -137,6 +148,7 @@ export default function AnalyticsQuizLeads() {
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-[11px] text-white/40">
                         <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</span>
                         <span>{latest?.resultLabel || "Resultado ainda não registrado"}</span>
+                        <span>{lead.lastStage || "Etapa não informada"}</span>
                         <span>{fmtDate(lead.createdAt)}</span>
                       </div>
                     </div>
@@ -144,7 +156,17 @@ export default function AnalyticsQuizLeads() {
                       ? <ChevronDown className="h-4 w-4 text-white/40" />
                       : <ChevronRight className="h-4 w-4 text-white/40" />}
                   </div>
-                </button>
+                  </button>
+                  <a
+                    href={whatsappHref(lead.phone, lead.name, latest?.resultLabel)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Abrir WhatsApp com mensagem provisória"
+                    className="w-14 border-l border-white/[0.06] flex items-center justify-center text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200 transition-colors"
+                  >
+                    <MessageCircle className="h-5 w-5" />
+                  </a>
+                </div>
 
                 {isOpen && (
                   <div className="border-t border-white/[0.06] p-4 bg-black/20 space-y-4">
@@ -154,6 +176,7 @@ export default function AnalyticsQuizLeads() {
                       <Info label="WhatsApp" value={lead.consentWhatsapp ? "Consentimento registrado" : "Sem consentimento"} />
                       <Info label="Origem" value={lead.source || "Não informada"} />
                       <Info label="Status" value={lead.status} />
+                      <Info label="Última etapa" value={lead.lastStage || "Não informada"} />
                       <Info label="Tentativas" value={String(lead.attempts.length)} />
                     </div>
 

@@ -168,7 +168,10 @@ export interface QuizLead {
   email?: string | null;
   consentWhatsapp: boolean;
   source?: string | null;
+  origin?: Record<string, unknown>;
   status: string;
+  lastStage?: string | null;
+  lastStageAt?: string | null;
   createdAt: string;
   updatedAt: string;
   niche: { id: string; key: string; name: string };
