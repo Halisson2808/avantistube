@@ -72,7 +72,7 @@ export default function AnalyticsQuizLeads() {
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [openLead, setOpenLead] = useState<string | null>(null);
-  const [copiedLead, setCopiedLead] = useState<string | null>(null);
+  const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
   const { sites, funnels, leads, isLoading, reload } = useQuizLeads({
     site: site || undefined,
     quiz: quiz ? Number(quiz) : undefined,
@@ -228,19 +228,33 @@ export default function AnalyticsQuizLeads() {
                           className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400 transition-colors"
                         >
                           <MessageCircle className="h-3.5 w-3.5" />
-                          1. Abrir conversa
+                          Abrir conversa
                         </a>
                         <button
                           type="button"
                           onClick={async () => {
-                            await navigator.clipboard.writeText(offerMessage);
-                            setCopiedLead(lead.id);
-                            window.setTimeout(() => setCopiedLead((current) => current === lead.id ? null : current), 2000);
+                            const copyKey = `${lead.id}:opening`;
+                            await navigator.clipboard.writeText(openingMessage);
+                            setCopiedMessage(copyKey);
+                            window.setTimeout(() => setCopiedMessage((current) => current === copyKey ? null : current), 2000);
                           }}
                           className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/[0.10] bg-white/[0.05] px-3 text-xs font-semibold text-white/80 hover:bg-white/[0.09] hover:text-white transition-colors"
                         >
-                          {copiedLead === lead.id ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Clipboard className="h-3.5 w-3.5" />}
-                          {copiedLead === lead.id ? "Oferta copiada" : "2. Copiar oferta"}
+                          {copiedMessage === `${lead.id}:opening` ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Clipboard className="h-3.5 w-3.5" />}
+                          {copiedMessage === `${lead.id}:opening` ? "Mensagem 1 copiada" : "Copiar mensagem 1"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const copyKey = `${lead.id}:offer`;
+                            await navigator.clipboard.writeText(offerMessage);
+                            setCopiedMessage(copyKey);
+                            window.setTimeout(() => setCopiedMessage((current) => current === copyKey ? null : current), 2000);
+                          }}
+                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/[0.10] bg-white/[0.05] px-3 text-xs font-semibold text-white/80 hover:bg-white/[0.09] hover:text-white transition-colors"
+                        >
+                          {copiedMessage === `${lead.id}:offer` ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Clipboard className="h-3.5 w-3.5" />}
+                          {copiedMessage === `${lead.id}:offer` ? "Mensagem 2 copiada" : "Copiar mensagem 2"}
                         </button>
                       </div>
                       <details className="text-[11px] text-white/45">
