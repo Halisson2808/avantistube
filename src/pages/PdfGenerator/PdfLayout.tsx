@@ -1,6 +1,6 @@
-import { Download, ChevronRight, ChevronDown, ArrowLeft } from 'lucide-react';
+import { Download, ChevronRight, ArrowLeft, Menu, X } from 'lucide-react';
 import { Outlet, useLocation, NavLink } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
 
 type PdfRoute = {
@@ -114,19 +114,23 @@ export default function PdfLayout() {
   const currentSlug = location.pathname.split('/').pop() ?? '';
   const activeCategory = categoryOfSlug(currentSlug);
   const isPdfRoute = currentSlug in filenameMap;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [previewScale, setPreviewScale] = useState(1);
 
-  // Apenas o nicho em que você está trabalhando fica aberto.
-  const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
-    activeCategory ? { [activeCategory]: true } : {},
-  );
-
-  // Ao navegar para outro nicho, abre o nicho de destino.
+  // Encaixa a largura A4 na tela pequena sem alterar o PDF impresso.
   useEffect(() => {
-    if (activeCategory) setExpanded((prev) => ({ ...prev, [activeCategory]: true }));
-  }, [activeCategory]);
+    const updatePreviewScale = () => {
+      const a4WidthInPixels = (210 * 96) / 25.4;
+      const availableWidth = window.innerWidth - 16;
+      setPreviewScale(window.innerWidth < 768 ? Math.min(1, availableWidth / a4WidthInPixels) : 1);
+    };
 
-  const toggle = (name: string) =>
-    setExpanded((prev) => ({ ...prev, [name]: !prev[name] }));
+    updatePreviewScale();
+    window.addEventListener('resize', updatePreviewScale);
+    return () => window.removeEventListener('resize', updatePreviewScale);
+  }, []);
+
+  useEffect(() => setMenuOpen(false), [location.pathname]);
 
   const handleDownload = () => {
     const prevTitle = document.title;
@@ -137,75 +141,112 @@ export default function PdfLayout() {
 
   return (
     <div className="pdf-scope flex min-h-screen print:block">
-      {/* ── Sidebar ─────────────────────────────────────────────────── */}
-      <aside className="no-print fixed left-0 top-0 z-40 flex h-screen w-56 flex-col border-r border-border bg-white shadow-sm">
-        <div className="border-b border-border px-4 py-4">
-          <NavLink
-            to="/"
-            className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+      {/* Barra móvel: as opções ficam disponíveis sem ocupar a prévia. */}
+      <header className="no-print fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-white/95 px-3 shadow-sm backdrop-blur md:hidden">
+        <button
+          type="button"
+          onClick={() => setMenuOpen(true)}
+          className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm font-semibold text-foreground shadow-sm"
+          aria-label="Abrir opções de ebook"
+        >
+          <Menu className="h-4 w-4" />
+          Opções de ebook
+        </button>
+        {isPdfRoute && (
+          <button
+            type="button"
+            onClick={handleDownload}
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm"
+            aria-label="Baixar PDF"
           >
-            <ArrowLeft className="h-3 w-3" />
-            Avantis Studio
-          </NavLink>
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-            Gerador de PDF
-          </p>
+            <Download className="h-4 w-4" />
+          </button>
+        )}
+      </header>
+
+      {menuOpen && (
+        <button
+          type="button"
+          className="no-print fixed inset-0 z-40 bg-black/40 backdrop-blur-[1px] md:hidden"
+          onClick={() => setMenuOpen(false)}
+          aria-label="Fechar opções de ebook"
+        />
+      )}
+
+      {/* ── Sidebar ─────────────────────────────────────────────────── */}
+      <aside className={cn(
+        'no-print fixed left-0 top-0 z-50 flex h-screen w-[min(20rem,88vw)] flex-col border-r border-border bg-white shadow-xl transition-transform duration-200 md:z-40 md:w-56 md:translate-x-0 md:shadow-sm',
+        menuOpen ? 'translate-x-0' : '-translate-x-full',
+      )}>
+        <div className="border-b border-border px-4 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <NavLink
+                to="/"
+                className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ArrowLeft className="h-3 w-3" />
+                Avantis Studio
+              </NavLink>
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                Gerador de Ebook
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMenuOpen(false)}
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
+              aria-label="Fechar opções"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-4">
           {ALL_GROUPS.map((cat, groupIndex) => {
-            const isOpen = expanded[cat.name] ?? false;
             const hasActive = cat.name === activeCategory;
             return (
               <div key={cat.name}>
-                <button
-                  type="button"
-                  onClick={() => toggle(cat.name)}
+                <div
                   className={cn(
                     'flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors',
                     hasActive
-                      ? 'text-primary hover:bg-primary/5'
-                      : 'text-muted-foreground/60 hover:bg-muted hover:text-foreground/70',
+                      ? 'bg-primary/5 text-primary'
+                      : 'text-muted-foreground/60',
                   )}
                 >
-                  {isOpen ? (
-                    <ChevronDown className="h-3 w-3 shrink-0" />
-                  ) : (
-                    <ChevronRight className="h-3 w-3 shrink-0" />
-                  )}
                   <span className="flex-1 text-left">{cat.name}</span>
                   <span className="text-[10px] font-semibold tracking-normal opacity-50">
                     {cat.routes.length}
                   </span>
-                </button>
+                </div>
 
-                {isOpen && (
-                  <div className="mt-0.5 space-y-0.5 pb-1">
-                    {cat.routes.map(({ slug, label }) => (
-                      <NavLink
-                        key={slug}
-                        to={`/pdf/${slug}`}
-                        className={({ isActive }) =>
-                          cn(
-                            'flex items-center gap-1.5 rounded-md py-2 pl-4 pr-2 text-[13px] font-medium transition-colors',
-                            isActive
-                              ? 'bg-primary/10 text-primary'
-                              : 'text-foreground/70 hover:bg-muted hover:text-foreground',
-                          )
-                        }
-                      >
-                        {({ isActive }) => (
-                          <>
-                            <ChevronRight
-                              className={cn('h-3 w-3 shrink-0 transition-transform', isActive ? 'opacity-100' : 'opacity-0')}
-                            />
-                            {label}
-                          </>
-                        )}
-                      </NavLink>
-                    ))}
-                  </div>
-                )}
+                <div className="mt-0.5 space-y-0.5 pb-1">
+                  {cat.routes.map(({ slug, label }) => (
+                    <NavLink
+                      key={slug}
+                      to={`/pdf/${slug}`}
+                      className={({ isActive }) =>
+                        cn(
+                          'flex items-center gap-1.5 rounded-md py-2 pl-4 pr-2 text-[13px] font-medium transition-colors',
+                          isActive
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-foreground/70 hover:bg-muted hover:text-foreground',
+                        )
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <ChevronRight
+                            className={cn('h-3 w-3 shrink-0 transition-transform', isActive ? 'opacity-100' : 'opacity-0')}
+                          />
+                          {label}
+                        </>
+                      )}
+                    </NavLink>
+                  ))}
+                </div>
 
                 {groupIndex === DOCS.length - 1 && (
                   <div className="my-2 border-t border-border" />
@@ -234,10 +275,17 @@ export default function PdfLayout() {
       </aside>
 
       {/* ── Conteúdo ────────────────────────────────────────────────── */}
-      <main className="ml-56 flex-1 bg-gradient-to-b from-[hsl(28_42%_97%)] via-muted to-[hsl(345_35%_96%)] py-10 print:ml-0 print:bg-white print:py-0">
+      <main
+        className="ml-0 flex-1 overflow-x-hidden bg-gradient-to-b from-[hsl(28_42%_97%)] via-muted to-[hsl(345_35%_96%)] px-2 pb-8 pt-[4.5rem] md:ml-56 md:px-0 md:py-10 print:ml-0 print:bg-white print:p-0"
+        style={{ touchAction: 'pan-x pan-y pinch-zoom' }}
+      >
         <div
           id="pdf-content"
-          className="mx-auto flex w-[210mm] flex-col gap-8 print:gap-0"
+          className={cn(
+            'mx-auto flex flex-col gap-8 print:gap-0',
+            isPdfRoute ? 'w-[210mm]' : 'w-full max-w-4xl px-2 md:px-0',
+          )}
+          style={isPdfRoute ? ({ zoom: previewScale } as CSSProperties) : undefined}
         >
           <Outlet />
         </div>

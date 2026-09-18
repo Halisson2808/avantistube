@@ -1,10 +1,10 @@
 /**
  * AnalyticsQuizLeads.tsx — leads e respostas separados por site e quiz.
- * A tela é somente leitura; a integração de cada quiz será feita depois.
+ * A tela agrupa cada pessoa por telefone e oferece a recuperação manual em duas mensagens.
  */
 import { useMemo, useState } from "react";
 import {
-  ChevronDown, ChevronRight, ClipboardList, MessageCircle, Phone, RefreshCw,
+  Check, ChevronDown, ChevronRight, Clipboard, ClipboardList, MessageCircle, Phone, RefreshCw,
   Search, UserRound, UsersRound,
 } from "lucide-react";
 
@@ -15,13 +15,54 @@ const fmtDate = (value: string) => new Date(value).toLocaleString("pt-BR", {
   day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
 });
 
-// Texto provisório: será substituído quando a régua de remarketing for fechada.
-const whatsappHref = (phone: string, name: string, result?: string | null) => {
+const firstName = (name: string) => name.trim().split(/\s+/)[0] || name;
+
+const resultFocus = (result?: string | null) => {
+  if (!result) return "o cuidado indicado nas suas respostas";
+  return result
+    .replace(/^Seu foco principal (?:hoje )?está em\s*/i, "")
+    .replace(/^Seu incômodo pede\s*/i, "")
+    .replace(/^Sua atenção está em\s*/i, "")
+    .replace(/[.!]$/, "")
+    .toLocaleLowerCase("pt-BR");
+};
+
+const recommendedBlock = (resultKey?: string | null, resultLabel?: string | null) => {
+  const key = (resultKey || resultLabel || "").toLocaleLowerCase("pt-BR");
+  if (/articula|mobilidade|osso|dor/.test(key)) return "Dor e articulação";
+  if (/circula|perna|variz/.test(key)) return "Circulação e pernas";
+  if (/digest|barriga|fígado|figado|incha/.test(key)) return "Digestão e inchaço";
+  if (/respira|pulmão|pulmao|tosse|imunidade/.test(key)) return "Pulmão, tosse e imunidade";
+  if (/pele/.test(key)) return "Pele";
+  if (/sono|descanso|ansiedade|cansaço|cansaco|energia/.test(key)) return "Sono, ansiedade e cansaço";
+  return null;
+};
+
+const answerByQuestion = (attempt: { answers: Array<{ questionLabel: string; answerLabel: string }> } | undefined, term: RegExp) =>
+  attempt?.answers.find((answer) => term.test(answer.questionLabel))?.answerLabel;
+
+const firstRecoveryMessage = (name: string, attempt?: { resultLabel?: string | null; answers: Array<{ questionLabel: string; answerLabel: string }> }) => {
+  const situation = answerByQuestion(attempt, /situação|situacao/i);
+  const frequency = answerByQuestion(attempt, /frequência|frequencia/i);
+  const details = situation && frequency
+    ? ` Você marcou que ${situation.toLocaleLowerCase("pt-BR")} e que isso aparece ${frequency.toLocaleLowerCase("pt-BR")}.`
+    : "";
+
+  return `Oi, ${firstName(name)}. Revisei sua avaliação da Avó Yuki.\n\nSeu resultado mostrou que o ponto que mais merece atenção hoje é ${resultFocus(attempt?.resultLabel)}.${details}\n\nJá deixei separado o bloco por onde você deve começar. Responda SIM que eu te envio o acesso agora.`;
+};
+
+const offerRecoveryMessage = (name: string, attempt?: { resultKey?: string | null; resultLabel?: string | null }) => {
+  const block = recommendedBlock(attempt?.resultKey, attempt?.resultLabel);
+  const direction = block
+    ? `Para o resultado da sua avaliação, comece pelo bloco ${block} do Caderno da Avó Yuki.`
+    : "Para o resultado da sua avaliação, confira os nove blocos do Caderno da Avó Yuki e comece pelo que corresponde ao incômodo descrito no material.";
+
+  return `Perfeito, ${firstName(name)}.\n\nO seu próximo passo não é continuar salvando dicas soltas e tentando lembrar o que usar quando o incômodo aparece.\n\n${direction}\n\nNele você encontra preparos organizados, com quantidade, modo de preparo, frequência e cuidados importantes — para não continuar escolhendo receitas no escuro.\n\nO acesso completo inclui mais de 70 receitas separadas por sintomas e está por R$ 37,90.\n\nVocê tem 7 dias para abrir e conferir o material.\n\nPegue seu acesso aqui:\nhttps://yukinakamura.vercel.app/acesso`;
+};
+
+const whatsappHref = (phone: string, message: string) => {
   const digits = phone.replace(/\D/g, "");
   const international = digits.length === 10 || digits.length === 11 ? `55${digits}` : digits;
-  const firstName = name.trim().split(/\s+/)[0] || name;
-  const resultText = result ? ` e recebeu o resultado “${result}”` : "";
-  const message = `Olá, ${firstName}! Vi que você concluiu a avaliação da Avó Yuki${resultText}. Posso te ajudar a entender por onde começar?`;
   return `https://wa.me/${international}?text=${encodeURIComponent(message)}`;
 };
 
@@ -31,6 +72,7 @@ export default function AnalyticsQuizLeads() {
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [openLead, setOpenLead] = useState<string | null>(null);
+  const [copiedLead, setCopiedLead] = useState<string | null>(null);
   const { sites, funnels, leads, isLoading, reload } = useQuizLeads({
     site: site || undefined,
     quiz: quiz ? Number(quiz) : undefined,
@@ -123,6 +165,8 @@ export default function AnalyticsQuizLeads() {
           {leads.map((lead) => {
             const isOpen = openLead === lead.id;
             const latest = lead.attempts[0];
+            const openingMessage = firstRecoveryMessage(lead.name, latest);
+            const offerMessage = offerRecoveryMessage(lead.name, latest);
             return (
               <div key={lead.id} className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
                 <div className="flex items-stretch">
@@ -157,10 +201,10 @@ export default function AnalyticsQuizLeads() {
                   </div>
                   </button>
                   <a
-                    href={whatsappHref(lead.phone, lead.name, latest?.resultLabel)}
+                    href={whatsappHref(lead.phone, openingMessage)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    title="Abrir WhatsApp com mensagem provisória"
+                    title="Abrir WhatsApp com a primeira mensagem de recuperação"
                     className="w-14 border-l border-white/[0.06] flex items-center justify-center text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200 transition-colors"
                   >
                     <MessageCircle className="h-5 w-5" />
@@ -169,6 +213,45 @@ export default function AnalyticsQuizLeads() {
 
                 {isOpen && (
                   <div className="border-t border-white/[0.06] p-4 bg-black/20 space-y-4">
+                    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] p-3 space-y-3">
+                      <div>
+                        <p className="text-emerald-200 text-xs font-semibold">Recuperação pelo WhatsApp</p>
+                        <p className="text-white/45 text-[11px] mt-1">
+                          Abra a conversa com a mensagem curta. Quando a pessoa responder SIM, copie e envie a oferta.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <a
+                          href={whatsappHref(lead.phone, openingMessage)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-500 px-3 text-xs font-semibold text-emerald-950 hover:bg-emerald-400 transition-colors"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          1. Abrir conversa
+                        </a>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await navigator.clipboard.writeText(offerMessage);
+                            setCopiedLead(lead.id);
+                            window.setTimeout(() => setCopiedLead((current) => current === lead.id ? null : current), 2000);
+                          }}
+                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/[0.10] bg-white/[0.05] px-3 text-xs font-semibold text-white/80 hover:bg-white/[0.09] hover:text-white transition-colors"
+                        >
+                          {copiedLead === lead.id ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Clipboard className="h-3.5 w-3.5" />}
+                          {copiedLead === lead.id ? "Oferta copiada" : "2. Copiar oferta"}
+                        </button>
+                      </div>
+                      <details className="text-[11px] text-white/45">
+                        <summary className="cursor-pointer hover:text-white/70">Conferir as duas mensagens</summary>
+                        <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2">
+                          <pre className="whitespace-pre-wrap font-sans rounded-lg border border-white/[0.06] bg-black/20 p-3 text-white/65">{openingMessage}</pre>
+                          <pre className="whitespace-pre-wrap font-sans rounded-lg border border-white/[0.06] bg-black/20 p-3 text-white/65">{offerMessage}</pre>
+                        </div>
+                      </details>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
                       <Info label="Telefone" value={lead.phone} />
                       <Info label="WhatsApp" value={lead.consentWhatsapp ? "Consentimento registrado" : "Sem consentimento"} />

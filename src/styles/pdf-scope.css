@@ -103,6 +103,11 @@
     display: none !important;
   }
 
+  /* A escala serve só para a prévia no celular; a impressão permanece em A4. */
+  #pdf-content {
+    zoom: 1 !important;
+  }
+
   .page-break-before {
     page-break-before: always;
     break-before: page;

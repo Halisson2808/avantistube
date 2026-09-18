@@ -1,13 +1,12 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import {
     Home,
     X, Download,
-    Search, TrendingUp, ChevronDown, ChevronRight,
+    Search, TrendingUp,
     ExternalLink, LogOut, Link2, Video,
     BarChart3, Globe, Filter, Activity, Youtube, FileText, ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 import { useMonitoredChannels } from "@/hooks/use-monitored-channels";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,47 +39,33 @@ interface StudioSidebarProps {
 function SectionLabel({
     label,
     dot,
-    expanded,
-    onToggle,
 }: {
     label: string;
     dot: string;
-    expanded: boolean;
-    onToggle: () => void;
 }) {
     return (
-        <button
-            onClick={onToggle}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08] group mb-1"
-        >
+        <div className="mb-1 flex w-full items-center px-3 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08]">
             <div className="flex items-center gap-2">
                 <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-white group-hover:text-white/80 transition-colors">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-white">
                     {label}
                 </span>
             </div>
-            {expanded
-                ? <ChevronDown className="h-2.5 w-2.5 text-white/50" />
-                : <ChevronRight className="h-2.5 w-2.5 text-white/50" />}
-        </button>
+        </div>
     );
 }
 
 export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
-    const { pathname } = useLocation();
-    const [youtubeOpen, setYoutubeOpen] = useState(!pathname.startsWith("/analytics"));
-    // Sites & Tráfego fica visível desde a abertura da aplicação, mesmo quando
-    // o usuário estiver navegando pelo módulo do YouTube.
-    const [analyticsOpen, setAnalyticsOpen] = useState(true);
-    const [channelsOpen, setChannelsOpen] = useState(true);
     const { channels } = useMonitoredChannels();
     const { signOut } = useAuth();
 
-    const linkClass = (accent: "red" | "emerald") => ({ isActive }: { isActive: boolean }) =>
+    const linkClass = (accent: "red" | "emerald" | "amber") => ({ isActive }: { isActive: boolean }) =>
         `flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-all duration-200 group text-xs ${isActive
             ? accent === "red"
                 ? "bg-red-500/15 text-white font-medium ring-1 ring-red-500/25"
-                : "bg-emerald-500/15 text-white font-medium ring-1 ring-emerald-500/25"
+                : accent === "amber"
+                    ? "bg-amber-500/15 text-white font-medium ring-1 ring-amber-500/25"
+                    : "bg-emerald-500/15 text-white font-medium ring-1 ring-emerald-500/25"
             : "text-white hover:bg-white/6"
         }`;
 
@@ -137,57 +122,52 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
                         <SectionLabel
                             label="YouTube"
                             dot="bg-red-400"
-                            expanded={youtubeOpen}
-                            onToggle={() => setYoutubeOpen(v => !v)}
                         />
-                        {youtubeOpen && (
-                            <nav className="space-y-0.5">
-                                {youtubeItems.map((item) => (
-                                    <NavLink
-                                        key={item.url}
-                                        to={item.url}
-                                        end={item.end}
-                                        onClick={onClose}
-                                        className={linkClass("red")}
-                                    >
-                                        <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
-                                        <span>{item.title}</span>
-                                    </NavLink>
-                                ))}
-                            </nav>
-                        )}
+                        <nav className="space-y-0.5">
+                            {youtubeItems.map((item) => (
+                                <NavLink
+                                    key={item.url}
+                                    to={item.url}
+                                    end={item.end}
+                                    onClick={onClose}
+                                    className={linkClass("red")}
+                                >
+                                    <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                                    <span>{item.title}</span>
+                                </NavLink>
+                            ))}
+                        </nav>
                     </div>
 
-                    {/* Gerador de PDF — layout próprio, tema claro */}
-                    <NavLink to="/pdf" onClick={onClose} className={linkClass("red")}>
-                        <FileText className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span>Gerador de PDF</span>
-                    </NavLink>
+                    {/* Módulo de ebooks — separado do YouTube */}
+                    <div>
+                        <SectionLabel label="Gerador de Ebook" dot="bg-amber-400" />
+                        <NavLink to="/pdf" onClick={onClose} className={linkClass("amber")}>
+                            <FileText className="h-3.5 w-3.5 flex-shrink-0" />
+                            <span>Ebooks em PDF</span>
+                        </NavLink>
+                    </div>
 
                     {/* Módulo Sites & Tráfego */}
                     <div>
                         <SectionLabel
                             label="Sites & Tráfego"
                             dot="bg-emerald-400"
-                            expanded={analyticsOpen}
-                            onToggle={() => setAnalyticsOpen(v => !v)}
                         />
-                        {analyticsOpen && (
-                            <nav className="space-y-0.5">
-                                {analyticsItems.map((item) => (
-                                    <NavLink
-                                        key={item.url}
-                                        to={item.url}
-                                        end={item.end}
-                                        onClick={onClose}
-                                        className={linkClass("emerald")}
-                                    >
-                                        <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
-                                        <span>{item.title}</span>
-                                    </NavLink>
-                                ))}
-                            </nav>
-                        )}
+                        <nav className="space-y-0.5">
+                            {analyticsItems.map((item) => (
+                                <NavLink
+                                    key={item.url}
+                                    to={item.url}
+                                    end={item.end}
+                                    onClick={onClose}
+                                    className={linkClass("emerald")}
+                                >
+                                    <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                                    <span>{item.title}</span>
+                                </NavLink>
+                            ))}
+                        </nav>
                     </div>
 
                     {/* CANAIS (Mais novos adicionados primeiro) */}
@@ -196,11 +176,8 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
                             <SectionLabel
                                 label={`Canais (${channels.length})`}
                                 dot="bg-red-400"
-                                expanded={channelsOpen}
-                                onToggle={() => setChannelsOpen(v => !v)}
                             />
-                            {channelsOpen && (
-                                <div className="max-h-52 overflow-y-auto space-y-0.5 scrollbar-hidden">
+                            <div className="max-h-52 overflow-y-auto space-y-0.5 scrollbar-hidden">
                                     {channels.slice(0, 15).map((channel) => (
                                         <a
                                             key={channel.channelId}
@@ -231,8 +208,7 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
                                             <ExternalLink className="w-2.5 h-2.5 text-white/30 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                                         </a>
                                     ))}
-                                </div>
-                            )}
+                            </div>
                         </div>
                     )}
                 </div>
