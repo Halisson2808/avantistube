@@ -17,16 +17,6 @@ const fmtDate = (value: string) => new Date(value).toLocaleString("pt-BR", {
 
 const firstName = (name: string) => name.trim().split(/\s+/)[0] || name;
 
-const resultFocus = (result?: string | null) => {
-  if (!result) return "o cuidado indicado nas suas respostas";
-  return result
-    .replace(/^Seu foco principal (?:hoje )?está em\s*/i, "")
-    .replace(/^Seu incômodo pede\s*/i, "")
-    .replace(/^Sua atenção está em\s*/i, "")
-    .replace(/[.!]$/, "")
-    .toLocaleLowerCase("pt-BR");
-};
-
 const recommendedBlock = (resultKey?: string | null, resultLabel?: string | null) => {
   const key = (resultKey || resultLabel || "").toLocaleLowerCase("pt-BR");
   if (/articula|mobilidade|osso|dor/.test(key)) return "Dor e articulação";
@@ -38,18 +28,8 @@ const recommendedBlock = (resultKey?: string | null, resultLabel?: string | null
   return null;
 };
 
-const answerByQuestion = (attempt: { answers: Array<{ questionLabel: string; answerLabel: string }> } | undefined, term: RegExp) =>
-  attempt?.answers.find((answer) => term.test(answer.questionLabel))?.answerLabel;
-
-const firstRecoveryMessage = (name: string, attempt?: { resultLabel?: string | null; answers: Array<{ questionLabel: string; answerLabel: string }> }) => {
-  const situation = answerByQuestion(attempt, /situação|situacao/i);
-  const frequency = answerByQuestion(attempt, /frequência|frequencia/i);
-  const details = situation && frequency
-    ? ` Você marcou que ${situation.toLocaleLowerCase("pt-BR")} e que isso aparece ${frequency.toLocaleLowerCase("pt-BR")}.`
-    : "";
-
-  return `Oi, ${firstName(name)}. Revisei sua avaliação da Avó Yuki.\n\nSeu resultado mostrou que o ponto que mais merece atenção hoje é ${resultFocus(attempt?.resultLabel)}.${details}\n\nJá deixei separado o bloco por onde você deve começar. Responda SIM que eu te envio o acesso agora.`;
-};
+const firstRecoveryMessage = (name: string) =>
+  `Oi, ${firstName(name)}. Vi que você concluiu a avaliação da Avó Yuki e que esse incômodo tem atrapalhado sua rotina.\n\nIsso ainda está acontecendo hoje? Me responde “SIM”.`;
 
 const offerRecoveryMessage = (name: string, attempt?: { resultKey?: string | null; resultLabel?: string | null }) => {
   const block = recommendedBlock(attempt?.resultKey, attempt?.resultLabel);
@@ -165,7 +145,7 @@ export default function AnalyticsQuizLeads() {
           {leads.map((lead) => {
             const isOpen = openLead === lead.id;
             const latest = lead.attempts[0];
-            const openingMessage = firstRecoveryMessage(lead.name, latest);
+            const openingMessage = firstRecoveryMessage(lead.name);
             const offerMessage = offerRecoveryMessage(lead.name, latest);
             return (
               <div key={lead.id} className="rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
