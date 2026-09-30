@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { useMonitoredChannels, ChannelMonitorData } from '@/hooks/use-monitored-channels';
 import { useVideoStorage, CachedVideo } from '@/hooks/use-video-storage';
 import { getLatestChannelVideos, LatestVideo, calculateTimeAgo } from '@/lib/youtube-api';
+import { fetchChannelFeed, fetchJsonWithDeadline } from '@/lib/youtube-feed';
 
 export interface RecentVideo extends LatestVideo {
   channelId: string;
@@ -84,7 +85,7 @@ const mapRawChannelToMonitorData = (raw: ApiChannelRow): ChannelMonitorData => (
  * canais marcados como próprios (is_own_channel). Mesma tabela/pipeline —
  * a diferença é só qual fatia de `channels` cada tela enxerga.
  */
-export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
+export const useRecentVideos = (scope: 'monitoring' | 'own' | 'all' = 'monitoring') => {
   const {
     channels: allChannels,
     loadChannels,
@@ -94,16 +95,18 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
     removeChannel,
     updateChannelStats,
     moveChannelToOwn,
-    isLoading: isLoadingChannels
+    isLoading: isLoadingChannels,
+    serverOnline,
   } = useMonitoredChannels();
 
   const channels = useMemo(
-    () => allChannels.filter(ch => !!ch.isOwnChannel === (scope === 'own')),
+    () => allChannels.filter(ch => scope === 'all' || !!ch.isOwnChannel === (scope === 'own')),
     [allChannels, scope]
   );
 
   const {
     isLoaded: isLocalStorageLoaded,
+    loadError: videoStorageError,
     saveChannelVideos,
     getChannelVideos: getCachedVideos,
     isCacheValid,
@@ -129,6 +132,8 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
     channelName: '',
   });
   const [isUpdating, setIsUpdating] = useState(false);
+  const quotaStopped = useRef(false);
+  const updateRunning = useRef(false);
 
   // Sempre manter todos os canais selecionados
   useEffect(() => {
@@ -160,13 +165,6 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
       return next;
     });
   }, [channels]);
-
-  // Carregar vídeos do localStorage na inicialização
-  useEffect(() => {
-    if (isLocalStorageLoaded && channels.length > 0) {
-      loadVideosFromLocalStorage();
-    }
-  }, [isLocalStorageLoaded, channels.length]);
 
   // Função para carregar vídeos do localStorage
   const loadVideosFromLocalStorage = useCallback(() => {
@@ -219,6 +217,11 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
     });
   }, [channels, getAllCachedChannels]);
 
+  // Reage às leituras e gravações no banco compartilhado; não chama o YouTube.
+  useEffect(() => {
+    if (isLocalStorageLoaded) loadVideosFromLocalStorage();
+  }, [isLocalStorageLoaded, loadVideosFromLocalStorage]);
+
   // Verificar se canal precisa ser atualizado (cache expirado)
   const needsUpdate = useCallback((channelId: string): boolean => {
     return !isCacheValid(channelId, CACHE_HOURS);
@@ -251,8 +254,15 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
     if (!channel) return;
 
     try {
-      const results = await getLatestChannelVideos([channelId], 7);
-      const result = results[0];
+      const since = new Date();
+      since.setHours(0, 0, 0, 0);
+      since.setDate(since.getDate() - 29);
+      const periodVideos = await fetchChannelFeed(channelId, since.toISOString());
+      // Somente canais sem publicações no período precisam da verificação de status antiga.
+      const result = periodVideos.length ? {
+        success: true, videos: periodVideos, channelDeleted: false, channelExists: true, error: undefined,
+      } : (await getLatestChannelVideos([channelId], 7))[0];
+      if (!result?.success) throw new Error(result?.error || 'Não foi possível atualizar os vídeos deste canal.');
 
       if (result.success && result.videos) {
         // Calcular vídeos com dados completos
@@ -310,7 +320,7 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
             duration: v.duration,
           }));
         }
-        saveChannelVideos(channelId, cachedVideos, { channelDeleted: result.channelDeleted, channelExists: result.channelExists });
+        await saveChannelVideos(channelId, cachedVideos, { channelDeleted: result.channelDeleted, channelExists: result.channelExists });
 
         // Atualizar estado
         setChannelVideosData(prev => {
@@ -327,17 +337,26 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
         });
       }
     } catch (error) {
+      if (error instanceof Error && /YOUTUBE_QUOTA_EXCEEDED|quotaExceeded|cota diária do YouTube acabou/.test(error.message + String((error as Error & {code?: string}).code || ''))) quotaStopped.current = true;
       console.error(`Erro ao atualizar canal ${channelId}:`, error);
+      setChannelVideosData(prev => {
+        const next = new Map(prev);
+        const old = next.get(channelId);
+        next.set(channelId, { ...old, channel, videos: old?.videos || [], isLoading: false,
+          error: error instanceof Error ? error.message : 'Falha na atualização' });
+        return next;
+      });
       throw error;
     }
-  }, [channels, needsUpdate, saveChannelVideos]);
+  }, [channels, needsUpdate, saveChannelVideos, getCachedVideos]);
 
   // Atualiza stats do canal via API local (grava no JSON)
   const updateChannelHistory = useCallback(async (channelId: string) => {
     try {
-      await fetch(`${API}/youtube/channel?channelId=${encodeURIComponent(channelId)}`);
+      await fetchJsonWithDeadline(`${API}/youtube/channel?channelId=${encodeURIComponent(channelId)}`);
     } catch (error) {
-      console.error(`Erro ao atualizar histórico do canal ${channelId}:`, error);
+      if (error instanceof Error && /YOUTUBE_QUOTA_EXCEEDED|quotaExceeded|cota diária do YouTube acabou/.test(error.message + String((error as Error & {code?: string}).code || ''))) quotaStopped.current = true;
+      throw error;
     }
   }, []);
 
@@ -363,6 +382,9 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
       return;
     }
 
+    if (updateRunning.current) return;
+    updateRunning.current = true;
+    quotaStopped.current = false;
     setIsUpdating(true);
     setIsLoadingAll(true);
 
@@ -375,8 +397,9 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
     };
 
     // Processar em lotes de 10
-    const batchSize = 10;
+    const batchSize = 4;
     for (let i = 0; i < channelsToUpdate.length; i += batchSize) {
+      if (quotaStopped.current) break;
       const batch = channelsToUpdate.slice(i, i + batchSize);
 
       await Promise.all(
@@ -402,10 +425,8 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
             }
 
             // Atualizar vídeos (localStorage) + histórico (Supabase)
-            await Promise.all([
-              updateChannelVideos(channelId, true),
-              updateChannelHistory(channelId),
-            ]);
+            await updateChannelVideos(channelId, true);
+            if (!quotaStopped.current) await updateChannelHistory(channelId);
 
             results.success++;
 
@@ -423,8 +444,10 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
       );
     }
 
+    updateRunning.current = false;
     setIsUpdating(false);
     setIsLoadingAll(false);
+    if (quotaStopped.current) { toast.error("A cota do YouTube acabou. Atualização interrompida; os dados salvos foram mantidos."); return; }
 
     toast.success(
       `✅ Atualização concluída!\nSucesso: ${results.success} | Cache: ${results.cached} | Falhas: ${results.failed}`,
@@ -604,10 +627,8 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
   // Atualizar um único canal (vídeos + histórico)
   const updateSingleChannel = useCallback(async (channelId: string) => {
     try {
-      await Promise.all([
-        updateChannelVideos(channelId, true),
-        updateChannelHistory(channelId),
-      ]);
+      await updateChannelVideos(channelId, true);
+      await updateChannelHistory(channelId);
       // Recarrega a lista de canais para mostrar os dados atualizados
       await loadChannels();
       toast.success('Dados do canal atualizados!');
@@ -635,13 +656,17 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
       return;
     }
 
+    if (updateRunning.current) return;
+    updateRunning.current = true;
+    quotaStopped.current = false;
     setIsUpdating(true);
     setIsLoadingAll(true);
 
     const results = { success: 0, failed: 0 };
-    const batchSize = 10;
+    const batchSize = 4;
 
     for (let i = 0; i < channels.length; i += batchSize) {
+      if (quotaStopped.current) break;
       const batch = channels.slice(i, i + batchSize);
 
       await Promise.all(
@@ -655,10 +680,8 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
           });
 
           try {
-            await Promise.all([
-              updateChannelVideos(channel.channelId, true),
-              updateChannelHistory(channel.channelId),
-            ]);
+            await updateChannelVideos(channel.channelId, true);
+            if (!quotaStopped.current) await updateChannelHistory(channel.channelId);
             results.success++;
             await new Promise(r => setTimeout(r, 150));
           } catch {
@@ -668,8 +691,10 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
       );
     }
 
+    updateRunning.current = false;
     setIsUpdating(false);
     setIsLoadingAll(false);
+    if (quotaStopped.current) { toast.error("A cota do YouTube acabou. Atualização interrompida; os dados salvos foram mantidos."); return; }
     await loadChannels();
     toast.success(`✅ Todos atualizados! Sucesso: ${results.success} | Falhas: ${results.failed}`);
   }, [channels, updateChannelVideos, updateChannelHistory, loadChannels]);
@@ -681,6 +706,9 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' = 'monitoring') => {
     channelVideosData,
     isLoadingAll,
     isLoadingChannels,
+    isStorageLoaded: isLocalStorageLoaded,
+    videoStorageError,
+    serverOnline,
     filters,
     setFilters,
     updateProgress,

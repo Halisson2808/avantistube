@@ -67,6 +67,8 @@ export function installApiAuthFetch() {
 
     const method = (init?.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
     const canRetry = method === "GET" || method === "HEAD";
+    // Consultas ao YouTube não são repetidas automaticamente: cada tentativa pode gastar cota.
+    const canRetryTransient = canRetry && !new URL(url, window.location.origin).pathname.startsWith('/api/youtube/');
     const originalHeaders = new Headers(
       init?.headers || (input instanceof Request ? input.headers : undefined),
     );
@@ -95,7 +97,7 @@ export function installApiAuthFetch() {
       try {
         response = await origFetch(input, { ...init, headers });
       } catch (error) {
-        if (!canRetry || attempt >= RETRY_DELAYS_MS.length) throw error;
+        if (!canRetryTransient || init?.signal?.aborted || (input instanceof Request && input.signal.aborted) || attempt >= RETRY_DELAYS_MS.length) throw error;
         await wait(RETRY_DELAYS_MS[attempt]);
         continue;
       }
@@ -111,7 +113,7 @@ export function installApiAuthFetch() {
       }
 
       if (
-        canRetry &&
+        canRetryTransient &&
         RETRYABLE_API_STATUSES.has(response.status) &&
         attempt < RETRY_DELAYS_MS.length
       ) {

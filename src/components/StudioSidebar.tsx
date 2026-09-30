@@ -13,7 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 /** Módulo YouTube — tudo que trata de canais e vídeos. */
 const youtubeItems = [
-    { title: "Painel do YouTube", url: "/youtube", icon: Youtube, end: true },
+    { title: "Feed Youtube", url: "/youtube", icon: Youtube, end: true },
     { title: "Buscar Vídeos", url: "/youtube/buscar", icon: Search },
     { title: "Monitoramento", url: "/youtube/monitoramento", icon: TrendingUp },
     { title: "Meus Canais", url: "/youtube/meus-canais", icon: Video },

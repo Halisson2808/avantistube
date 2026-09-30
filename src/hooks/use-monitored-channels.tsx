@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
+import { fetchJsonWithDeadline } from '@/lib/youtube-feed';
 
 const API = '/api';
 const CHANNELS_CACHE_KEY = 'avantistube_cached_channels_v2';
@@ -104,9 +105,7 @@ export const useMonitoredChannels = () => {
 
   const loadChannels = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/channels`);
-      if (!res.ok) throw new Error(`Erro ${res.status}`);
-      const data: ApiChannelRaw[] = await res.json();
+      const data = await fetchJsonWithDeadline<ApiChannelRaw[]>(`${API}/channels`, 20_000);
       const mapped = sortNewestFirst(data.map(mapChannel));
       
       setChannels(mapped);

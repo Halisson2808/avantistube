@@ -65,6 +65,6 @@ export default async function handler(req, res) {
     res.status(result.status).json(result.json);
   } catch (err) {
     console.error(`[api] ${req.method} ${url.pathname} →`, err.message);
-    res.status(500).json({ error: err.message });
+    res.status(err.code === "YOUTUBE_QUOTA_EXCEEDED" ? 429 : 500).json({ error: err.message, code: err.code });
   }
 }

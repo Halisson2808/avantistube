@@ -1,0 +1,27 @@
+.youtube-feed-scroll {
+  color-scheme: dark;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(0 0% 28%) hsl(0 0% 6%);
+}
+
+.youtube-feed-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.youtube-feed-scroll::-webkit-scrollbar-track {
+  background: hsl(0 0% 6%);
+  border-radius: 999px;
+}
+
+.youtube-feed-scroll::-webkit-scrollbar-thumb {
+  background: hsl(0 0% 28%);
+  border-radius: 999px;
+}
+
+.youtube-feed-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(0 0% 38%);
+}
+
+.youtube-feed-scroll::-webkit-scrollbar-corner {
+  background: hsl(0 0% 6%);
+}

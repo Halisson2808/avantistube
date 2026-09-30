@@ -137,7 +137,6 @@ const MeusCanais = () => {
     setFilters,
     isUpdating,
     updateChannelVideos,
-    updateSingleChannel,
     getVideosByChannel,
     loadVideosFromCache,
     updateChannelStats,
@@ -199,11 +198,10 @@ const MeusCanais = () => {
     setIsAdding(true);
     const settled = await Promise.allSettled(lines.map(url => addOneChannel(url)));
     let added = 0, duplicated = 0, failed = 0;
-    const newIds: string[] = [];
     settled.forEach(r => {
       if (r.status === 'fulfilled') {
         if (r.value.status === 'duplicate') duplicated++;
-        else { added++; if (r.value.channelId) newIds.push(r.value.channelId); }
+        else { added++; }
       } else failed++;
     });
     const parts = [`${added} canal(is) adicionado(s)`];
@@ -213,7 +211,6 @@ const MeusCanais = () => {
     setIsAddOpen(false);
     resetAddForm();
     setIsAdding(false);
-    newIds.forEach(id => updateSingleChannel(id).catch(() => {}));
   };
 
   const handleAdd = async () => {
@@ -240,8 +237,7 @@ const MeusCanais = () => {
       if (result.status === 'duplicate') {
         toast.info('Este canal já está salvo');
       } else {
-        toast.success('Canal salvo! Buscando dados em segundo plano...');
-        if (result.channelId) updateSingleChannel(result.channelId).catch(() => {});
+        toast.success('Canal salvo! Use Atualizar quando quiser capturar os vídeos.');
       }
       setIsAddOpen(false);
       resetAddForm();

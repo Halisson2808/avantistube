@@ -15,6 +15,9 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { getFeedVideoPage } from "./_youtube-feed.mjs";
+import { createYouTubeQuotaGuard } from "./_youtube-quota.mjs";
+const guardedYouTubeRequest = createYouTubeQuotaGuard();
 
 const YT_BASE = "https://www.googleapis.com/youtube/v3";
 
@@ -79,9 +82,7 @@ const PUBLIC_PATHS = ["/status", "/track", "/quiz/capture"];
 async function ytFetch(path) {
   const apiKey = getYtKey();
   const sep = path.includes("?") ? "&" : "?";
-  const res = await fetch(`${YT_BASE}${path}${sep}key=${apiKey}`);
-  if (!res.ok) throw new Error(`YouTube API error ${res.status}: ${await res.text()}`);
-  return res.json();
+  return guardedYouTubeRequest(() => fetch(`${YT_BASE}${path}${sep}key=${apiKey}`, { signal: AbortSignal.timeout(15_000) }));
 }
 
 async function resolveChannelId(input) {
@@ -724,7 +725,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
         supabase: true,
         // Marcadores do que este backend implementa. Servem para conferir de
         // fora (sem login) se o deploy realmente subiu.
-        features: ["analytics", "track", "route-filter", "auto-site", "date-range", "quiz-capture"],
+        features: ["analytics", "track", "route-filter", "auto-site", "date-range", "quiz-capture", "youtube-feed-channel-format"],
       },
     };
   }
@@ -961,6 +962,16 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     return { status: 200, json: info };
   }
 
+  if (path === "/youtube/feed-videos" && method === "GET") {
+    const channelId = searchParams.get("channelId") || "";
+    const since = searchParams.get("since") || "";
+    const pageToken = searchParams.get("pageToken") || "";
+    if (!/^UC[\w-]{22}$/.test(channelId) || !Number.isFinite(Date.parse(since))) {
+      return { status: 400, json: { error: "Canal ou período inválido." } };
+    }
+    const page = await getFeedVideoPage(ytFetch, channelId, since, pageToken);
+    return { status: 200, json: page };
+  }
   if (path === "/youtube/videos" && method === "GET") {
     const channelId = searchParams.get("channelId");
     const max = parseInt(searchParams.get("max") || "7");
@@ -1050,7 +1061,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const { error: upErr } = await db.from("channel_video_cache").upsert(
       {
         channel_id: channelId,
-        videos: videos.slice(0, 7),
+        videos,
         channel_deleted: channelDeleted,
         channel_exists: channelExists,
         error,

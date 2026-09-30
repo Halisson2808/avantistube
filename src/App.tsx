@@ -19,7 +19,7 @@ import Monitoramento from "./pages/Monitoramento";
 import MeusCanais from "./pages/MeusCanais";
 import Exportar from "./pages/Exportar";
 import PerfisSociais from "./pages/PerfisSociais";
-import StudioDashboard from "./pages/studio/StudioDashboard";
+import FeedYoutube from "./pages/studio/FeedYoutube";
 
 // Módulo Sites & Tráfego — visitas, cliques e funil (rotas em /analytics)
 import AnalyticsDashboard from "./pages/analytics/AnalyticsDashboard";
@@ -60,7 +60,7 @@ function ProtectedApp() {
       <Route path="/" element={wrap(<Home />)} />
 
       {/* Módulo YouTube */}
-      <Route path="/youtube" element={wrap(<StudioDashboard />)} />
+      <Route path="/youtube" element={wrap(<FeedYoutube />)} />
       <Route path="/youtube/buscar" element={wrap(<Search />)} />
       <Route path="/youtube/monitoramento" element={wrap(<Monitoramento />)} />
       <Route path="/youtube/meus-canais" element={wrap(<MeusCanais />)} />

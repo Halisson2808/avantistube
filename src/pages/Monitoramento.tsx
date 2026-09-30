@@ -316,7 +316,6 @@ const RecentVideos = () => {
     isUpdating,
     updateChannelVideos,
     updateChannelsByNiches,
-    updateSingleChannel,
     getAvailableNiches,
     getChannelCountByNiche,
     clearFilters,
@@ -539,8 +538,7 @@ const RecentVideos = () => {
       if (result.status === 'duplicate') {
         toast.info('Este canal já está sendo monitorado');
       } else {
-        toast.success('Canal adicionado! Buscando dados em segundo plano...');
-        if (result.channelId) updateSingleChannel(result.channelId).catch(() => {});
+        toast.success('Canal adicionado! Use Atualizar quando quiser capturar os vídeos.');
       }
       setIsAddDialogOpen(false);
       resetAddForm();
@@ -554,9 +552,8 @@ const RecentVideos = () => {
     }
   };
 
-  // Adiciona vários canais de uma vez, todos com o mesmo nicho/formato. Os
-  // cadastros saem em paralelo e não esperam a busca de vídeos/stats de cada
-  // um — isso roda depois, em segundo plano. Aceita uma lista pronta (vinda
+  // Adiciona vários canais de uma vez, todos com o mesmo nicho/formato.
+  // A captura de vídeos depende de um clique separado em Atualizar. Aceita uma lista pronta (vinda
   // do campo único com múltiplos links) ou usa o textarea de modo em massa.
   const handleBulkAddChannels = async (urlsOverride?: string[]) => {
     const lines = urlsOverride ?? Array.from(new Set(bulkUrls.split(/[\s,]+/).map(l => l.trim()).filter(Boolean)));
@@ -575,13 +572,11 @@ const RecentVideos = () => {
     );
 
     let added = 0, duplicated = 0, failed = 0;
-    const newChannelIds: string[] = [];
     settled.forEach((r) => {
       if (r.status === 'fulfilled') {
         if (r.value.status === 'duplicate') duplicated++;
         else {
           added++;
-          if (r.value.channelId) newChannelIds.push(r.value.channelId);
         }
       } else {
         failed++;
@@ -598,8 +593,6 @@ const RecentVideos = () => {
     setIsAddingChannel(false);
     loadNiches();
 
-    // Busca vídeos/stats de cada canal novo em segundo plano, sem travar a UI.
-    newChannelIds.forEach(id => { updateSingleChannel(id).catch(() => {}); });
   };
 
   const resetAddForm = () => {
