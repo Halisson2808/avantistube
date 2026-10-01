@@ -697,6 +697,52 @@ function buildOverview(rows, range, paths) {
 }
 
 // ─── Handler principal ───────────────────────────────────────────────────────────
+/** Resolve, valida duplicidade e grava um canal. Lança YOUTUBE_QUOTA_EXCEEDED se a cota acabou. */
+async function addChannelFromInput(db, body) {
+  const channelId = await resolveChannelId(body.channelInput || body.channelId);
+
+  const { data: dup } = await db.from("channels").select("*").eq("channel_id", channelId).limit(1);
+  if (dup && dup.length) {
+    // "Meus Canais" e "Monitoramento" compartilham a mesma tabela. Se o
+    // canal já estiver no monitoramento, salvá-lo como próprio deve movê-lo
+    // para a outra lista — não acusar duplicidade e deixá-lo invisível.
+    if (body.isOwnChannel) {
+      const { data: moved, error } = await db
+        .from("channels")
+        .update({ is_own_channel: true, niche: null, last_updated: new Date().toISOString() })
+        .eq("channel_id", channelId)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return { status: 200, json: { channel: moved, moved: true } };
+    }
+    return { status: 409, json: { error: "already being monitored" } };
+  }
+
+  const info = await getChannelInfo(channelId);
+  const nowIso = new Date().toISOString();
+  const row = {
+    channel_id: channelId,
+    channel_name: info.title,
+    channel_thumbnail: info.thumbnail,
+    subscriber_count: info.subscriberCount,
+    view_count: info.viewCount,
+    video_count: info.videoCount,
+    niche: body.niche || null,
+    notes: body.notes || null,
+    content_type: body.contentType || "longform",
+    is_own_channel: !!body.isOwnChannel,
+    added_at: nowIso,
+    last_updated: nowIso,
+  };
+  const { data: inserted, error } = await db.from("channels").insert(row).select().single();
+  if (error) throw new Error(error.message);
+
+  await recordHistory(channelId, info.subscriberCount, info.viewCount, info.videoCount);
+  return { status: 201, json: { channel: inserted } };
+
+}
+
 /**
  * @returns {Promise<{status:number, json?:any, buffer?:Buffer, contentType?:string, cacheControl?:string}>}
  */
@@ -790,47 +836,62 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
 
   if (path === "/channels" && method === "POST") {
     const db = getSupabase();
-    const channelId = await resolveChannelId(body.channelInput || body.channelId);
-
-    const { data: dup } = await db.from("channels").select("*").eq("channel_id", channelId).limit(1);
-    if (dup && dup.length) {
-      // "Meus Canais" e "Monitoramento" compartilham a mesma tabela. Se o
-      // canal já estiver no monitoramento, salvá-lo como próprio deve movê-lo
-      // para a outra lista — não acusar duplicidade e deixá-lo invisível.
-      if (body.isOwnChannel) {
-        const { data: moved, error } = await db
-          .from("channels")
-          .update({ is_own_channel: true, niche: null, last_updated: new Date().toISOString() })
-          .eq("channel_id", channelId)
-          .select()
-          .single();
+    try {
+      return await addChannelFromInput(db, body);
+    } catch (err) {
+      // Cota do YouTube esgotada: guarda na fila para adicionar depois, em vez de perder o link.
+      if (err.code === "YOUTUBE_QUOTA_EXCEEDED" && !body.isOwnChannel) {
+        const input = String(body.channelInput || body.channelId || "").trim();
+        const { error } = await db.from("channel_queue").upsert({
+          input,
+          niche: body.niche || null,
+          notes: body.notes || null,
+          content_type: body.contentType || "longform",
+          last_error: null,
+        }, { onConflict: "input" });
         if (error) throw new Error(error.message);
-        return { status: 200, json: { channel: moved, moved: true } };
+        return { status: 202, json: { queued: true } };
       }
-      return { status: 409, json: { error: "already being monitored" } };
+      throw err;
     }
+  }
 
-    const info = await getChannelInfo(channelId);
-    const nowIso = new Date().toISOString();
-    const row = {
-      channel_id: channelId,
-      channel_name: info.title,
-      channel_thumbnail: info.thumbnail,
-      subscriber_count: info.subscriberCount,
-      view_count: info.viewCount,
-      video_count: info.videoCount,
-      niche: body.niche || null,
-      notes: body.notes || null,
-      content_type: body.contentType || "longform",
-      is_own_channel: !!body.isOwnChannel,
-      added_at: nowIso,
-      last_updated: nowIso,
-    };
-    const { data: inserted, error } = await db.from("channels").insert(row).select().single();
+  // ── Fila de canais aguardando a cota do YouTube ─────────────────────────────
+  if (path === "/channel-queue" && method === "GET") {
+    const db = getSupabase();
+    const { data, error } = await db.from("channel_queue").select("*").order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
+    return { status: 200, json: data || [] };
+  }
 
-    await recordHistory(channelId, info.subscriberCount, info.viewCount, info.videoCount);
-    return { status: 201, json: { channel: inserted } };
+  if (path === "/channel-queue/process" && method === "POST") {
+    const db = getSupabase();
+    const { data: items, error } = await db.from("channel_queue").select("*").order("created_at", { ascending: true });
+    if (error) throw new Error(error.message);
+    let added = 0, duplicated = 0, failed = 0, quotaExceeded = false;
+    for (const item of items || []) {
+      try {
+        const r = await addChannelFromInput(db, {
+          channelInput: item.input, niche: item.niche, notes: item.notes, contentType: item.content_type,
+        });
+        if (r.status === 201) added++; else duplicated++;
+        await db.from("channel_queue").delete().eq("id", item.id);
+      } catch (err) {
+        if (err.code === "YOUTUBE_QUOTA_EXCEEDED") { quotaExceeded = true; break; }
+        failed++;
+        await db.from("channel_queue").update({ last_error: err.message }).eq("id", item.id);
+      }
+    }
+    const { count } = await db.from("channel_queue").select("id", { count: "exact", head: true });
+    return { status: 200, json: { added, duplicated, failed, quotaExceeded, remaining: count ?? 0 } };
+  }
+
+  if (path.startsWith("/channel-queue/") && method === "DELETE") {
+    const db = getSupabase();
+    const id = decodeURIComponent(path.split("/")[2]);
+    const { error } = await db.from("channel_queue").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return { status: 200, json: { ok: true } };
   }
 
   if (path.startsWith("/channels/") && path.endsWith("/move-to-own") && method === "POST") {

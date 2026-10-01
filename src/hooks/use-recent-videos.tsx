@@ -734,5 +734,6 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' | 'all' = 'monitorin
     removeChannel: removeChannelSafely,
     updateChannelStats,
     moveChannelToOwn,
+    loadChannels,
   };
 };

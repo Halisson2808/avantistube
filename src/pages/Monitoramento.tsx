@@ -329,6 +329,7 @@ const RecentVideos = () => {
     removeChannel,
     updateChannelStats,
     moveChannelToOwn,
+    loadChannels,
   } = useRecentVideos();
 
   const { niches, renameNiche, loadNiches } = useNiches();
@@ -338,6 +339,46 @@ const RecentVideos = () => {
 
   // Dialog de adicionar canal
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  // Fila de canais que esperam a cota do YouTube voltar
+  const [queue, setQueue] = useState<{ id: string; input: string; last_error?: string | null }[]>([]);
+  const [isProcessingQueue, setIsProcessingQueue] = useState(false);
+  const loadQueue = async () => {
+    try {
+      const res = await fetch(`${LOCAL_API}/channel-queue`);
+      if (res.ok) setQueue(await res.json());
+    } catch {}
+  };
+  useEffect(() => { loadQueue(); }, []);
+
+  const handleProcessQueue = async () => {
+    setIsProcessingQueue(true);
+    try {
+      const res = await fetch(`${LOCAL_API}/channel-queue/process`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Erro ${res.status}`);
+      const parts = [`${data.added} adicionado(s)`];
+      if (data.duplicated) parts.push(`${data.duplicated} já existia(m)`);
+      if (data.failed) parts.push(`${data.failed} com erro`);
+      if (data.quotaExceeded) {
+        toast.error(`Cota do YouTube ainda esgotada. ${parts.join(' • ')} • ${data.remaining} continuam na fila`);
+      } else {
+        toast.success(parts.join(' • '));
+      }
+      await loadChannels();
+      loadNiches();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao processar fila');
+    } finally {
+      setIsProcessingQueue(false);
+      loadQueue();
+    }
+  };
+
+  const handleRemoveFromQueue = async (id: string) => {
+    await fetch(`${LOCAL_API}/channel-queue/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    loadQueue();
+  };
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [channelUrl, setChannelUrl] = useState("");
   const [bulkUrls, setBulkUrls] = useState("");
@@ -494,7 +535,7 @@ const RecentVideos = () => {
     niche: string,
     ct: "longform" | "shorts",
     notes: string,
-  ): Promise<{ status: "added" | "duplicate"; channelId?: string }> => {
+  ): Promise<{ status: "added" | "duplicate" | "queued"; channelId?: string }> => {
     const res = await fetch(`${LOCAL_API}/channels`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -505,6 +546,7 @@ const RecentVideos = () => {
     if (res.status === 409 || data.error?.includes('already being monitored')) {
       return { status: 'duplicate' };
     }
+    if (res.status === 202 && data.queued) return { status: 'queued' };
     if (!res.ok) throw new Error(data.error || `Erro ao adicionar "${url}"`);
     return { status: 'added', channelId: data.channel?.channel_id };
   };
@@ -537,12 +579,15 @@ const RecentVideos = () => {
       const result = await addOneChannel(channelUrl.trim(), finalNiche, contentType, newNotes);
       if (result.status === 'duplicate') {
         toast.info('Este canal já está sendo monitorado');
+      } else if (result.status === 'queued') {
+        toast.info('Cota do YouTube esgotada: canal colocado na fila de espera.');
       } else {
         toast.success('Canal adicionado! Use Atualizar quando quiser capturar os vídeos.');
       }
       setIsAddDialogOpen(false);
       resetAddForm();
       loadNiches();
+      loadQueue();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao adicionar canal';
       toast.error(errorMessage);
@@ -571,10 +616,11 @@ const RecentVideos = () => {
       lines.map(url => addOneChannel(url, finalNiche, contentType, newNotes))
     );
 
-    let added = 0, duplicated = 0, failed = 0;
+    let added = 0, duplicated = 0, failed = 0, queued = 0;
     settled.forEach((r) => {
       if (r.status === 'fulfilled') {
         if (r.value.status === 'duplicate') duplicated++;
+        else if (r.value.status === 'queued') queued++;
         else {
           added++;
         }
@@ -584,9 +630,11 @@ const RecentVideos = () => {
     });
 
     const parts = [`${added} canal(is) adicionado(s)`];
+    if (queued) parts.push(`${queued} na fila (cota esgotada)`);
     if (duplicated) parts.push(`${duplicated} já existia(m)`);
     if (failed) parts.push(`${failed} falharam`);
-    toast[failed > 0 && added === 0 ? 'error' : 'success'](parts.join(' • '));
+    toast[failed > 0 && added === 0 && queued === 0 ? 'error' : 'success'](parts.join(' • '));
+    loadQueue();
 
     setIsAddDialogOpen(false);
     resetAddForm();
@@ -777,6 +825,37 @@ const RecentVideos = () => {
                 </div>
               </DialogContent>
             </Dialog>
+
+          {/* Fila de espera (cota do YouTube) */}
+          {queue.length > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-xs h-8 px-3 bg-amber-500/15 border border-amber-500/25 text-amber-300 hover:bg-amber-500/25 transition-all">
+                  <Clock className="w-3.5 h-3.5 mr-1.5" />Fila ({queue.length})
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-4" align="end">
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm">{queue.length} canal(is) em espera</h4>
+                  <div className="max-h-48 overflow-y-auto space-y-1">
+                    {queue.map(item => (
+                      <div key={item.id} className="flex items-center gap-2 text-xs">
+                        <span className="flex-1 truncate" title={item.last_error || item.input}>{item.input}</span>
+                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => handleRemoveFromQueue(item.id)} title="Remover da fila">
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <Button onClick={handleProcessQueue} disabled={isProcessingQueue} className="w-full gradient-primary">
+                    {isProcessingQueue
+                      ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Adicionando...</>)
+                      : 'Adicionar canais da fila'}
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
 
           {/* Por Nicho */}
           <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
