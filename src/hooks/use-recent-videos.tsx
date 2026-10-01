@@ -663,33 +663,29 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' | 'all' = 'monitorin
     setIsLoadingAll(true);
 
     const results = { success: 0, failed: 0 };
-    const batchSize = 4;
-
-    for (let i = 0; i < channels.length; i += batchSize) {
-      if (quotaStopped.current) break;
-      const batch = channels.slice(i, i + batchSize);
-
-      await Promise.all(
-        batch.map(async (channel, batchIndex) => {
-          const currentIndex = i + batchIndex + 1;
-          setUpdateProgress({
-            current: currentIndex,
-            total: channels.length,
-            percentage: Math.round((currentIndex / channels.length) * 100),
-            channelName: channel.channelTitle,
-          });
-
-          try {
-            await updateChannelVideos(channel.channelId, true);
-            if (!quotaStopped.current) await updateChannelHistory(channel.channelId);
-            results.success++;
-            await new Promise(r => setTimeout(r, 150));
-          } catch {
-            results.failed++;
-          }
-        })
-      );
-    }
+    // Pool de workers: cada um pega o próximo canal assim que termina o seu,
+    // sem esperar o mais lento do lote.
+    let next = 0;
+    let done = 0;
+    const worker = async () => {
+      while (!quotaStopped.current && next < channels.length) {
+        const channel = channels[next++];
+        setUpdateProgress({
+          current: ++done,
+          total: channels.length,
+          percentage: Math.round((done / channels.length) * 100),
+          channelName: channel.channelTitle,
+        });
+        try {
+          await updateChannelVideos(channel.channelId, true);
+          if (!quotaStopped.current) await updateChannelHistory(channel.channelId);
+          results.success++;
+        } catch {
+          results.failed++;
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(8, channels.length) }, worker));
 
     updateRunning.current = false;
     setIsUpdating(false);
@@ -735,5 +731,6 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' | 'all' = 'monitorin
     updateChannelStats,
     moveChannelToOwn,
     loadChannels,
+    updateChannelHistory,
   };
 };

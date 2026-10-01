@@ -59,7 +59,7 @@ function abortable<T>(request: () => Promise<T>, signal: AbortSignal): Promise<T
 
 async function withFeedRequestSlot<T>(request: () => Promise<T>, signal: AbortSignal): Promise<T> {
   signal.throwIfAborted();
-  if (activeFeedRequests < 4) activeFeedRequests += 1;
+  if (activeFeedRequests < 8) activeFeedRequests += 1;
   else await new Promise<void>((resolve, reject) => {
     const start = () => { signal.removeEventListener("abort", cancel); resolve(); };
     const cancel = () => {

@@ -330,6 +330,7 @@ const RecentVideos = () => {
     updateChannelStats,
     moveChannelToOwn,
     loadChannels,
+    updateChannelHistory,
   } = useRecentVideos();
 
   const { niches, renameNiche, loadNiches } = useNiches();
@@ -367,6 +368,20 @@ const RecentVideos = () => {
       }
       await loadChannels();
       loadNiches();
+      // Canais recém-adicionados: já puxa vídeos e histórico, sem esperar clique em Atualizar.
+      const ids: string[] = data.addedIds || [];
+      if (ids.length) {
+        toast.info(`Buscando vídeos de ${ids.length} canal(is) novo(s)...`);
+        let next = 0;
+        const worker = async () => {
+          while (next < ids.length) {
+            const id = ids[next++];
+            try { await updateChannelVideos(id, true); await updateChannelHistory(id); } catch {}
+          }
+        };
+        await Promise.all(Array.from({ length: Math.min(8, ids.length) }, worker));
+        await loadChannels();
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao processar fila');
     } finally {

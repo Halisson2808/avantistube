@@ -869,12 +869,13 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const { data: items, error } = await db.from("channel_queue").select("*").order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
     let added = 0, duplicated = 0, failed = 0, quotaExceeded = false;
+    const addedIds = [];
     for (const item of items || []) {
       try {
         const r = await addChannelFromInput(db, {
           channelInput: item.input, niche: item.niche, notes: item.notes, contentType: item.content_type,
         });
-        if (r.status === 201) added++; else duplicated++;
+        if (r.status === 201) { added++; addedIds.push(r.json.channel.channel_id); } else duplicated++;
         await db.from("channel_queue").delete().eq("id", item.id);
       } catch (err) {
         if (err.code === "YOUTUBE_QUOTA_EXCEEDED") { quotaExceeded = true; break; }
@@ -883,7 +884,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
       }
     }
     const { count } = await db.from("channel_queue").select("id", { count: "exact", head: true });
-    return { status: 200, json: { added, duplicated, failed, quotaExceeded, remaining: count ?? 0 } };
+    return { status: 200, json: { added, addedIds, duplicated, failed, quotaExceeded, remaining: count ?? 0 } };
   }
 
   if (path.startsWith("/channel-queue/") && method === "DELETE") {
