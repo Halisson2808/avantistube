@@ -15,6 +15,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { fetchTrackingEvents, buildSequentialFunnel, quizFunnelSteps } from "./_analytics.mjs";
 import { getFeedVideoPage } from "./_youtube-feed.mjs";
 import { createYouTubeQuotaGuard } from "./_youtube-quota.mjs";
 const guardedYouTubeRequest = createYouTubeQuotaGuard();
@@ -312,7 +313,7 @@ function paraLocal(iso, tzMin) {
   return new Date(new Date(iso).getTime() - tzMin * 60000);
 }
 
-function resolveRange(searchParams) {
+export function resolveRange(searchParams) {
   const from = (searchParams.get("from") || "").trim();
   const to = (searchParams.get("to") || "").trim();
   const tzMin = resolveTz(searchParams);
@@ -511,20 +512,10 @@ function separarTestes(rows) {
   };
 }
 
-/** Lê os eventos do período (limite alto o bastante para uso pessoal). */
+/** Lê todo o período sem truncar no limite de linhas do banco. */
 async function fetchEvents({ siteKey, range }) {
-  const db = getSupabase();
-  let q = db
-    .from("tracking_events")
-    .select("*")
-    .gte("created_at", range.fromIso)
-    .lte("created_at", range.toIso)
-    .order("created_at", { ascending: true })
-    .limit(20000);
-  if (siteKey) q = q.eq("site_key", siteKey);
-  const { data, error } = await q;
-  if (error) throw new Error(error.message);
-  return (data || []).filter((r) => !ehVisitanteIgnorado(r));
+  const rows = await fetchTrackingEvents(getSupabase(), { siteKey, range });
+  return rows.filter((r) => !ehVisitanteIgnorado(r));
 }
 
 function topBy(rows, keyFn, limit = 8) {
@@ -584,7 +575,7 @@ function mediaMeta(rows, campo) {
 }
 
 /** Monta os números do painel a partir dos eventos brutos. */
-function buildOverview(rows, range, paths) {
+export function buildOverview(rows, range, paths) {
   const days = range.days;
   const pageviews = rows.filter((r) => r.event_type === "pageview");
   const clicks = rows.filter((r) => r.event_type === "click");
@@ -631,13 +622,14 @@ function buildOverview(rows, range, paths) {
       // Dia local do balde: o painel usa para marcar "ontem" / "hoje".
       day: k.slice(0, 10),
       label: rotulo(k),
-      pageviews: v, clicks: v, leads: v, purchases: v, revenue: v,
+      events: v, pageviews: v, clicks: v, leads: v, purchases: v, revenue: v,
     });
   }
   for (const r of rows) {
     const d = chave(r.created_at);
     const bucket = byDay.get(d);
     if (!bucket || futuros.has(d)) continue;
+    bucket.events += 1;
     if (r.event_type === "pageview") bucket.pageviews += 1;
     else if (r.event_type === "click") bucket.clicks += 1;
     else if (r.event_type === "lead") bucket.leads += 1;
@@ -1512,11 +1504,12 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
 
     let steps = [];
     if (siteKey) {
-      const { data } = await db
+      const { data, error } = await db
         .from("tracking_funnel_steps")
         .select("*")
         .eq("site_key", siteKey)
         .order("position", { ascending: true });
+      if (error) throw new Error(error.message);
       steps = data || [];
     }
 
@@ -1527,30 +1520,20 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const rows = filtrarPorRota(semTeste, resolvePaths(searchParams));
 
     if (!steps.length) {
-      // Funil padrão de página de oferta: entrou → leu → clicou no checkout →
-      // comprou. Vale para qualquer site com o pixel instalado, sem configurar
-      // nada; quem quiser detalhar troca as etapas no painel.
-      steps = [
-        { label: "Entrou", event_name: "pageview", position: 0 },
-        { label: "Rolou a página", event_name: "rolagem_50", position: 1 },
-        { label: "Foi pro checkout", event_name: "click", position: 2 },
-        { label: "Comprou", event_name: "purchase", position: 3 },
-      ];
+      if (siteKey && rows.some(row => row.event_name === "quiz_started")) {
+        steps = quizFunnelSteps(rows);
+      } else {
+        // Qualquer clique conta como clique; checkout exige seu próprio evento.
+        steps = [
+          { label: "Entrou", event_name: "pageview", position: 0 },
+          { label: "Rolou a página", event_name: "rolagem_50", position: 1 },
+          { label: "Clicou", event_name: "click", position: 2 },
+          { label: "Comprou", event_name: "purchase", position: 3 },
+        ];
+      }
     }
 
-    const result = steps.map((s) => {
-      const matched = rows.filter(
-        (r) => r.event_name === s.event_name || r.event_type === s.event_name
-      );
-      const sessions = new Set(matched.map((r) => r.session_id || r.id)).size;
-      return {
-        label: s.label,
-        eventName: s.event_name,
-        events: matched.length,
-        sessions,
-        value: matched.reduce((sum, r) => sum + (Number(r.value) || 0), 0),
-      };
-    });
+    const result = buildSequentialFunnel(rows, steps);
 
     return {
       status: 200,
@@ -1558,6 +1541,8 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
         days: range.days,
         range: { from: range.fromDate, to: range.toDate, custom: range.custom },
         steps: result,
+        availableEvents: topBy(rows, (r) => r.event_name === "quiz_question_answered" && r.meta?.step
+          ? `quiz_question_answered:${r.meta.step}` : r.event_name, 200),
         hiddenTestSessions: ocultas,
       },
     };
@@ -1592,22 +1577,11 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const range = resolveRange(searchParams);
     const paths = resolvePaths(searchParams);
 
-    let q = db
-      .from("tracking_events")
-      .select("id, site_key, event_type, event_name, path, referrer_host, utm_source, utm_medium, utm_campaign, utm_content, visitor_id, session_id, value, device, browser, os, created_at")
-      .gte("created_at", range.fromIso)
-      .lte("created_at", range.toIso)
-      .order("created_at", { ascending: false })
-      .limit(5000);
-    if (siteKey) q = q.eq("site_key", siteKey);
-    if (paths) q = q.in("path", paths);
-
-    const { data, error } = await q;
-    if (error) throw new Error(error.message);
+    const data = await fetchTrackingEvents(db, { siteKey, range, paths, ascending: false });
 
     const porSessao = new Map();
     for (const ev of (data || []).filter((r) => !ehVisitanteIgnorado(r))) {
-      const id = ev.session_id || ev.visitor_id || ev.id;
+      const id = JSON.stringify([ev.site_key, ev.session_id || ev.visitor_id || ev.id]);
       if (!porSessao.has(id)) porSessao.set(id, []);
       porSessao.get(id).push(ev);
     }
@@ -1621,7 +1595,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
         const tipos = {};
         for (const e of evs) tipos[e.event_type] = (tipos[e.event_type] || 0) + 1;
         return {
-          id,
+          id: primeiro.session_id || primeiro.visitor_id || primeiro.id,
           visitorId: primeiro.visitor_id || null,
           siteKey: primeiro.site_key,
           startedAt: primeiro.created_at,

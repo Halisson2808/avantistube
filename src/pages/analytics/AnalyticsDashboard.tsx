@@ -4,7 +4,7 @@
  */
 import { useNavigate } from "react-router-dom";
 import {
-    Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
+    Area, AreaChart, CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import {
     Eye, MousePointerClick, Users, ShoppingCart, DollarSign, Filter,
@@ -28,7 +28,7 @@ export default function AnalyticsDashboard() {
     } = useAnalyticsFilters({ startAt24Hours: true });
     const { data, isLoading, reload } = useAnalyticsOverview(siteKey, range);
     // O mesmo funil da tela dedicada, resumido aqui para ver de relance.
-    const { steps: funil } = useAnalyticsFunnel(siteKey, range);
+    const { steps: funil, reload: reloadFunnel } = useAnalyticsFunnel(siteKey, range);
 
     const t = data?.totals;
     const semSites = !sitesLoading && sites.length === 0;
@@ -69,7 +69,7 @@ export default function AnalyticsDashboard() {
                 routeOptions={rotasDoOverview(data)}
                 selectedPaths={paths}
                 onPathsChange={setPaths}
-                onRefresh={reload}
+                onRefresh={() => { void reload(); void reloadFunnel(); }}
                 loading={isLoading}
                 testsToggle={{
                     value: hideTests,
@@ -137,7 +137,7 @@ export default function AnalyticsDashboard() {
                                 </button>
                             }
                         >
-                            <FunnelChart steps={funil} />
+                            <div className="overflow-x-auto"><div style={{ minWidth: Math.max(600, funil.length * 115) }}><FunnelChart steps={funil} /></div></div>
                         </Panel>
                     )}
 
@@ -177,6 +177,7 @@ export default function AnalyticsDashboard() {
                                         tickLine={false}
                                     />
                                     <YAxis tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 10 }} axisLine={false} tickLine={false} width={32} />
+                                    <Legend wrapperStyle={{ fontSize: 11 }} />
                                     {viradaDoDia && (
                                         <ReferenceLine
                                             x={viradaDoDia}
@@ -199,6 +200,7 @@ export default function AnalyticsDashboard() {
                                     />
                                     <Area type="monotone" dataKey="pageviews" name="Visitas" stroke="#34d399" fill="url(#gPv)" strokeWidth={2} />
                                     <Area type="monotone" dataKey="clicks" name="Cliques" stroke="#38bdf8" fill="url(#gCk)" strokeWidth={2} />
+                                    <Area type="monotone" dataKey="events" name="Eventos" stroke="#a78bfa" fill="transparent" strokeWidth={2} />
                                 </AreaChart>
                             </ResponsiveContainer>
                         </div>

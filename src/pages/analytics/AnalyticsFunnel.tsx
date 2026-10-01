@@ -14,8 +14,17 @@ import {
 const PADRAO = [
     { label: "Entrou", eventName: "pageview" },
     { label: "Rolou a página", eventName: "rolagem_50" },
-    { label: "Foi pro checkout", eventName: "click" },
+    { label: "Clicou", eventName: "click" },
     { label: "Comprou", eventName: "purchase" },
+];
+
+const QUIZ = [
+    { label: "Iniciou o quiz", eventName: "quiz_started" },
+    { label: "Deixou o contato", eventName: "lead_captured" },
+    { label: "Concluiu o quiz", eventName: "quiz_completed" },
+    { label: "Viu o resultado", eventName: "result_viewed" },
+    { label: "Viu a oferta", eventName: "offer_viewed" },
+    { label: "Foi pro checkout", eventName: "checkout_started" },
 ];
 
 /** Sugestões de etapa para montar o funil de uma página de vendas. */
@@ -31,7 +40,7 @@ export default function AnalyticsFunnel() {
         siteKey, setSiteKey, days, setDays, from, to, setFrom, setTo,
         paths, setPaths, hideTests, setHideTests, range, sites,
     } = useAnalyticsFilters();
-    const { steps, hiddenTestSessions, isLoading, reload, saveSteps } = useAnalyticsFunnel(siteKey, range);
+    const { steps, availableEvents, hiddenTestSessions, isLoading, reload, saveSteps } = useAnalyticsFunnel(siteKey, range);
     // Só para saber quais rotas existem no período e alimentar o filtro.
     const { data: visaoGeral } = useAnalyticsOverview(siteKey, range);
     const [editing, setEditing] = useState(false);
@@ -45,6 +54,9 @@ export default function AnalyticsFunnel() {
 
     const topo = steps[0]?.sessions || 0;
     const receita = steps.reduce((s, e) => s + e.value, 0);
+    const quizQuestions = availableEvents.filter(event => /^quiz_question_answered:\d+$/.test(event.name))
+        .sort((a, b) => Number(a.name.split(":")[1]) - Number(b.name.split(":")[1]))
+        .map(event => ({ label: `Respondeu pergunta ${event.name.split(":")[1]}`, eventName: event.name }));
 
     return (
         <div className="space-y-6 pb-10">
@@ -88,12 +100,22 @@ export default function AnalyticsFunnel() {
                 </p>
             )}
 
+            <p className="text-white/45 text-xs">
+                Cada visita só conta na etapa seguinte se também tem as anteriores registradas na mesma sessão.
+                “Não avançaram” indica quem ainda não chegou à próxima etapa no período selecionado.
+            </p>
+
             {editing && siteKey && (
                 <Panel title="Etapas do funil" icon={Filter}>
                     <datalist id="eventos-sugeridos">
-                        {SUGESTOES.map((nome) => <option key={nome} value={nome} />)}
+                        {[...new Set([...SUGESTOES, ...availableEvents.map(event => event.name), ...(visaoGeral?.paths || []).map(route => `path:${route.path}`)])]
+                            .map((nome) => <option key={nome} value={nome} />)}
                     </datalist>
                     <div className="space-y-2">
+                        <div className="flex gap-2">
+                            <button className="text-xs text-emerald-300 px-3 py-2 rounded-lg bg-white/5" onClick={() => setDraft(PADRAO)}>Página de venda</button>
+                            <button className="text-xs text-emerald-300 px-3 py-2 rounded-lg bg-white/5" onClick={() => setDraft([QUIZ[0], ...quizQuestions, ...QUIZ.slice(1)])}>Quiz → oferta → checkout</button>
+                        </div>
                         {draft.map((step, i) => (
                             <div key={i} className="flex items-center gap-2">
                                 <span className="text-white/25 text-[11px] w-4 text-center">{i + 1}</span>
@@ -136,6 +158,7 @@ export default function AnalyticsFunnel() {
                         <p className="text-white/30 text-[10px] pt-1">
                             O “nome do evento” precisa ser igual ao que você envia no pixel:
                             <code className="text-emerald-300/80"> avantis.track("meu_evento")</code>.
+                            Para acompanhar páginas, use <code>path:/quiz</code>, <code>path:/oferta</code>, etc.
                         </p>
                     </div>
                 </Panel>
@@ -152,8 +175,8 @@ export default function AnalyticsFunnel() {
                 />
             ) : (
                 <div className="space-y-4">
-                    <Panel title="Do primeiro clique até a compra" icon={Filter}>
-                        <FunnelChart steps={steps} />
+                    <Panel title="Avanço pelas etapas do funil" icon={Filter}>
+                        <div className="overflow-x-auto"><div style={{ minWidth: Math.max(600, steps.length * 115) }}><FunnelChart steps={steps} /></div></div>
                     </Panel>
 
                     <div className="space-y-2">
@@ -191,7 +214,7 @@ export default function AnalyticsFunnel() {
                                     {i > 0 && (
                                         <span className={`flex items-center gap-1 ${taxaAnterior >= 50 ? "text-emerald-300/80" : "text-amber-300/80"}`}>
                                             <TrendingDown className="h-3 w-3" />
-                                            {taxaAnterior.toFixed(1)}% da etapa anterior · {fmtNum(perdidos)} saíram
+                                            {taxaAnterior.toFixed(1)}% da etapa anterior · {fmtNum(perdidos)} não avançaram
                                         </span>
                                     )}
                                     {step.value > 0 && (

@@ -93,6 +93,7 @@ export interface AnalyticsOverview {
     label: string;
     /** Dia local do ponto (AAAA-MM-DD). */
     day?: string;
+    events: number | null;
     // null = hora que ainda não chegou (a linha para no "agora").
     pageviews: number | null;
     clicks: number | null;
@@ -140,6 +141,8 @@ export interface FunnelStep {
   events: number;
   sessions: number;
   value: number;
+  dropped?: number;
+  completionRate?: number;
 }
 
 export interface QuizAnswer {
@@ -322,6 +325,7 @@ export function useAnalyticsOverview(siteKey: string | null, range: DateRange) {
 /* ── Funil ───────────────────────────────────────────────────────────────── */
 export function useAnalyticsFunnel(siteKey: string | null, range: DateRange) {
   const [steps, setSteps] = useState<FunnelStep[]>([]);
+  const [availableEvents, setAvailableEvents] = useState<TopItem[]>([]);
   const [hiddenTestSessions, setHidden] = useState(0);
   const [isLoading, setLoading] = useState(true);
 
@@ -330,10 +334,11 @@ export function useAnalyticsFunnel(siteKey: string | null, range: DateRange) {
     try {
       const qs = rangeParams(range);
       if (siteKey) qs.set("site", siteKey);
-      const res = await getJson<{ steps: FunnelStep[]; hiddenTestSessions?: number }>(
+      const res = await getJson<{ steps: FunnelStep[]; hiddenTestSessions?: number; availableEvents?: TopItem[] }>(
         `${API}/analytics/funnel?${qs}`,
       );
       setSteps(res.steps || []);
+      setAvailableEvents(res.availableEvents || []);
       setHidden(res.hiddenTestSessions || 0);
     } catch (err) {
       toast.error(`Erro ao carregar o funil: ${(err as Error).message}`);
@@ -361,7 +366,7 @@ export function useAnalyticsFunnel(siteKey: string | null, range: DateRange) {
     await load();
   }, [load]);
 
-  return { steps, hiddenTestSessions, isLoading, reload: load, saveSteps };
+  return { steps, availableEvents, hiddenTestSessions, isLoading, reload: load, saveSteps };
 }
 
 /* ── Visitas (Eventos ao Vivo agrupados por sessão) ─────────────────────── */

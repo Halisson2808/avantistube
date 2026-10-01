@@ -138,6 +138,7 @@ export function FunnelChart({ steps }: { steps: FunnelStep[] }) {
               <p className="text-white/30 text-[10px]">
                 {i === 0 ? "sessões" : `${pct(daEtapaAnterior / 100)} da anterior`}
               </p>
+              {i < steps.length - 1 && <p className="text-amber-300/80 text-[10px] mt-1">{fmt(s.dropped ?? Math.max(s.sessions - steps[i + 1].sessions, 0))} não avançaram</p>}
             </div>
           );
         })}

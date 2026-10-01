@@ -3,6 +3,35 @@
 Rastreio próprio de cliques e conversões dos sites e páginas de oferta — no estilo UTMify,
 só que dentro do painel e com os dados no seu Supabase.
 
+## Correção de métricas e funil (01/10/2026)
+
+As consultas de visão geral e visitas leem todo o período em páginas de até 1.000
+linhas, respeitando o limite real do PostgREST. Pedir `limit(20000)` em uma única
+consulta não ultrapassa o limite configurado no banco: a consulta antiga ordenava
+do mais antigo ao mais recente e excluía silenciosamente os dias finais.
+Na verificação de setembro havia 2.771 eventos; a consulta antiga retornava
+1.000 e terminava em 17/09. A nova consulta recuperou os dias 28, 29 e 30.
+O gráfico agora apresenta também todos os eventos, além de visitas e cliques.
+
+O funil conta sessões que têm todas as etapas anteriores registradas no mesmo
+site e período. Repetições não inflam a contagem. A hora de gravação dos beacons
+pode inverter a ordem de chegada, por isso ela não é usada para afirmar abandono.
+“Não avançaram” é a diferença de sessões entre etapas; inclui quem ainda não
+avançou no período, e não prova que a pessoa saiu definitivamente.
+
+Ao selecionar um site com eventos de quiz e sem etapas salvas, o painel monta
+automaticamente início → perguntas → contato → conclusão → resultado → oferta
+→ checkout. Os eventos `quiz_question_answered` são separados por `meta.step`;
+o seletor de etapa `quiz_question_answered:3` corresponde à terceira pergunta.
+O modelo corresponde aos eventos existentes da Avó Yuki. Outros quizzes podem
+ajustar as etapas em **Editar etapas**, escolhendo eventos encontrados no período.
+Para acompanhar rotas use `path:/quiz`, `path:/oferta`, etc. Checkout indica
+ida para o pagamento; uma venda depende do evento `purchase`.
+
+Não é necessário modificar o pixel nem migrar o banco para aproveitar esses
+eventos históricos. Etapas que nunca foram enviadas não podem ser reconstruídas.
+Validação local: `node scripts/verify-analytics.mjs` e `npm run build`.
+
 ## Estrutura de rotas do painel
 
 | Rota | O que é |
