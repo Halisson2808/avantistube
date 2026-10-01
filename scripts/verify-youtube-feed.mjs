@@ -27,9 +27,9 @@ const periods = getFeedPeriods([
   { ...video('deleted', '2026-09-30T12:00:00Z', 1000), isDeleted: true },
 ], now);
 assert.deepEqual(periods.map(row => row.map(item => item.videoId)), [
-  ['today-high', 'today-low'], ['week-start', 'yesterday'], ['month-start', 'rest'],
+  ['today-high', 'today-low'], ['yesterday'], ['week-start'], ['month-start', 'rest'],
 ]);
-assert.deepEqual(getFeedPeriods([], now), [[], [], []]);
+assert.deepEqual(getFeedPeriods([], now), [[], [], [], []]);
 
 const calls = [];
 const cutoff = '2026-09-01T04:00:00Z';

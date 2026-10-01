@@ -30,7 +30,7 @@ globalThis.fetch = async () => {
   return new Response(JSON.stringify({ videos: [] }));
 };
 await Promise.all(Array.from({ length: 12 }, (_, i) => fetchChannelFeed(`channel-${i}`, '2026-09-01')));
-assert.equal(peak, 4);
+assert.equal(peak, 8);
 
 // Even a transport that ignores AbortSignal must not leave the UI busy forever.
 globalThis.fetch = () => new Promise(() => {});

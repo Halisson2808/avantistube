@@ -12,7 +12,8 @@ const views = new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFract
 const publishedDate = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "medium" });
 const sections = [
   { title: "Hoje", description: "Publicados hoje", icon: Clock3 },
-  { title: "Últimos 7 dias", description: "Sem os vídeos de hoje", icon: TrendingUp },
+  { title: "Ontem", description: "Publicados ontem", icon: Clock3 },
+  { title: "Últimos 7 dias", description: "Sem os vídeos de hoje e ontem", icon: TrendingUp },
   { title: "Últimos 30 dias", description: "Restante do período", icon: CalendarDays },
 ];
 
