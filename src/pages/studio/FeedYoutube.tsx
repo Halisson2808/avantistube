@@ -1,3 +1,4 @@
+import { VideoFavoriteButton } from "@/components/VideoFavoriteButton";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarDays, Clock3, Film, RefreshCw, Smartphone, TrendingUp, Users, Video } from "lucide-react";
@@ -139,6 +140,7 @@ function FeedCard({ video, rank, shorts, showPublicationTime }: {
 }) {
   return (
     <article className={`shrink-0 ${shorts ? "w-[156px] md:w-[174px]" : "w-[260px] md:w-[288px]"}`}>
+      <div className="relative">
       <a href={`https://www.youtube.com/watch?v=${video.videoId}`} target="_blank" rel="noopener noreferrer"
         className="group block rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-400">
         <div className={`relative overflow-hidden rounded-lg bg-white/5 ${shorts ? "aspect-[9/16]" : "aspect-video"}`}>
@@ -149,6 +151,8 @@ function FeedCard({ video, rank, shorts, showPublicationTime }: {
         </div>
         <h3 title={video.title} className="mt-2 line-clamp-2 min-h-8 text-[11px] font-semibold leading-4 group-hover:text-red-300">{video.title}</h3>
       </a>
+      <VideoFavoriteButton video={video} className="absolute right-1.5 top-1.5" />
+      </div>
       <p className="mt-1 text-[10px] text-white/40">
         {views.format(video.viewCount)} views · {" "}
         <time dateTime={video.publishedAt} title={`Publicado em ${publishedDate.format(new Date(video.publishedAt))}`}>

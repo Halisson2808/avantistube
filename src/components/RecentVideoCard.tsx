@@ -1,3 +1,4 @@
+import { VideoFavoriteButton } from "@/components/VideoFavoriteButton";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Clock, AlertTriangle, Download } from "lucide-react";
@@ -120,6 +121,8 @@ export const RecentVideoCard = ({ video, onVideoClick, showExactTime = false }: 
             <Download style={{ width: 11, height: 11, color: 'white' }} />
           </button>
         )}
+
+        <VideoFavoriteButton video={video} className="absolute bottom-2 left-2" />
 
         {/* Duration Badge */}
         {video.duration && !isDeleted && (

@@ -20,6 +20,7 @@ import MeusCanais from "./pages/MeusCanais";
 import Exportar from "./pages/Exportar";
 import PerfisSociais from "./pages/PerfisSociais";
 import FeedYoutube from "./pages/studio/FeedYoutube";
+import FavoriteVideos from "./pages/studio/FavoriteVideos";
 
 // Módulo Sites & Tráfego — visitas, cliques e funil (rotas em /analytics)
 import AnalyticsDashboard from "./pages/analytics/AnalyticsDashboard";
@@ -62,6 +63,7 @@ function ProtectedApp() {
       {/* Módulo YouTube */}
       <Route path="/youtube" element={wrap(<FeedYoutube />)} />
       <Route path="/youtube/buscar" element={wrap(<Search />)} />
+      <Route path="/youtube/favoritos" element={wrap(<FavoriteVideos />)} />
       <Route path="/youtube/monitoramento" element={wrap(<Monitoramento />)} />
       <Route path="/youtube/meus-canais" element={wrap(<MeusCanais />)} />
       <Route path="/youtube/exportar" element={wrap(<Exportar />)} />

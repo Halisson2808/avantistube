@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import {
     Home,
     X, Download,
-    Search, TrendingUp,
+    Search, TrendingUp, Star,
     ExternalLink, LogOut, Link2, Video,
     BarChart3, Globe, Filter, Activity, Youtube, FileText, ClipboardList,
 } from "lucide-react";
@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const youtubeItems = [
     { title: "Feed Youtube", url: "/youtube", icon: Youtube, end: true },
     { title: "Buscar Vídeos", url: "/youtube/buscar", icon: Search },
+    { title: "Favoritos", url: "/youtube/favoritos", icon: Star },
     { title: "Monitoramento", url: "/youtube/monitoramento", icon: TrendingUp },
     { title: "Meus Canais", url: "/youtube/meus-canais", icon: Video },
     { title: "Exportar Dados", url: "/youtube/exportar", icon: Download },

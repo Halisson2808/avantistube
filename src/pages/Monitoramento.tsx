@@ -1,3 +1,4 @@
+import { VideoFavoriteButton } from "@/components/VideoFavoriteButton";
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -113,6 +114,7 @@ const CompactChannelCard = ({ channelData, isUpdating, isDeleted, channelExists,
               {top3Down.map(v => (
                 <div key={v.videoId} className="relative block aspect-video rounded overflow-hidden bg-white/[0.05]">
                   {v.thumbnailUrl && <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />}
+                  <VideoFavoriteButton video={{ ...v, channelId: channel.channelId, channelName: channel.channelTitle, channelThumbnail: channel.channelThumbnail }} className="absolute right-1 top-1 h-6 w-6" />
                 </div>
               ))}
             </div>
@@ -195,10 +197,13 @@ const CompactChannelCard = ({ channelData, isUpdating, isDeleted, channelExists,
         {/* 3 thumbnails */}
         <div className="grid grid-cols-3 gap-1">
           {top3.map(v => (
-            <a key={v.videoId} href={`https://youtube.com/watch?v=${v.videoId}`} target="_blank" rel="noopener noreferrer" className="relative block aspect-video rounded overflow-hidden bg-white/[0.05]">
+            <div key={v.videoId} className="relative aspect-video rounded overflow-hidden bg-white/[0.05]">
+            <a href={`https://youtube.com/watch?v=${v.videoId}`} target="_blank" rel="noopener noreferrer" className="block h-full">
               {v.thumbnailUrl && <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />}
               <span className="absolute bottom-0.5 right-0.5 bg-black/80 text-[8px] px-1 py-0.5 rounded font-medium leading-none">{formatNumber(v.viewCount)}</span>
             </a>
+            <VideoFavoriteButton video={{ ...v, channelId: channel.channelId, channelName: channel.channelTitle, channelThumbnail: channel.channelThumbnail }} className="absolute right-1 top-1 h-6 w-6" />
+            </div>
           ))}
           {Array.from({ length: Math.max(0, 3 - top3.length) }).map((_, i) => (
             <div key={i} className="aspect-video rounded bg-white/[0.03] border border-white/[0.05]" />
