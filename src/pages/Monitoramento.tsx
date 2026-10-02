@@ -373,26 +373,29 @@ const RecentVideos = () => {
       }
       await loadChannels();
       loadNiches();
-      // Canais recém-adicionados: já puxa vídeos e histórico, sem esperar clique em Atualizar.
-      const ids: string[] = data.addedIds || [];
-      if (ids.length) {
-        toast.info(`Buscando vídeos de ${ids.length} canal(is) novo(s)...`);
-        let next = 0;
-        const worker = async () => {
-          while (next < ids.length) {
-            const id = ids[next++];
-            try { await updateChannelVideos(id, true); await updateChannelHistory(id); } catch {}
-          }
-        };
-        await Promise.all(Array.from({ length: Math.min(8, ids.length) }, worker));
-        await loadChannels();
-      }
+      await fetchNewChannels(data.addedIds || []);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao processar fila');
     } finally {
       setIsProcessingQueue(false);
       loadQueue();
     }
+  };
+
+  // Canais recém-adicionados já puxam vídeos e histórico, sem precisar clicar em Atualizar.
+  const fetchNewChannels = async (ids: string[]) => {
+    if (!ids.length) return;
+    await loadChannels();
+    toast.info(`Buscando vídeos de ${ids.length} canal(is) novo(s)...`);
+    let next = 0;
+    const worker = async () => {
+      while (next < ids.length) {
+        const id = ids[next++];
+        try { await updateChannelVideos(id, true); await updateChannelHistory(id); } catch {}
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(8, ids.length) }, worker));
+    await loadChannels();
   };
 
   const handleRemoveFromQueue = async (id: string) => {
@@ -602,11 +605,12 @@ const RecentVideos = () => {
       } else if (result.status === 'queued') {
         toast.info('Cota do YouTube esgotada: canal colocado na fila de espera.');
       } else {
-        toast.success('Canal adicionado! Use Atualizar quando quiser capturar os vídeos.');
+        toast.success('Canal adicionado!');
       }
       setIsAddDialogOpen(false);
       resetAddForm();
       loadNiches();
+      if (result.status === 'added' && result.channelId) void fetchNewChannels([result.channelId]);
       loadQueue();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao adicionar canal';
@@ -637,12 +641,14 @@ const RecentVideos = () => {
     );
 
     let added = 0, duplicated = 0, failed = 0, queued = 0;
+    const newIds: string[] = [];
     settled.forEach((r) => {
       if (r.status === 'fulfilled') {
         if (r.value.status === 'duplicate') duplicated++;
         else if (r.value.status === 'queued') queued++;
         else {
           added++;
+          if (r.value.channelId) newIds.push(r.value.channelId);
         }
       } else {
         failed++;
@@ -660,7 +666,7 @@ const RecentVideos = () => {
     resetAddForm();
     setIsAddingChannel(false);
     loadNiches();
-
+    void fetchNewChannels(newIds);
   };
 
   const resetAddForm = () => {

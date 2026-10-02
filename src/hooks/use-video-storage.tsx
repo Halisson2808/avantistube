@@ -54,10 +54,17 @@ export function useVideoStorage() {
   useEffect(() => {
     const requests = requestRef;
     void reloadVideos();
-    const reload = () => { void reloadVideos(); };
+    // Debounce: numa atualização em massa cada canal salvo dispara este evento;
+    // recarregar a tabela inteira a cada um era quadrático (centenas de canais).
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const reload = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { void reloadVideos(); }, 4_000);
+    };
     window.addEventListener(CACHE_CHANGED, reload);
     window.addEventListener('focus', reload);
     return () => {
+      clearTimeout(timer);
       requests.current++;
       window.removeEventListener(CACHE_CHANGED, reload);
       window.removeEventListener('focus', reload);
