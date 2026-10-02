@@ -663,6 +663,24 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' | 'all' = 'monitorin
     setIsLoadingAll(true);
 
     const results = { success: 0, failed: 0 };
+    // Stats + histórico em lote: 50 canais por chamada ao YouTube (antes era 1 chamada por canal).
+    const statIds = channels.map(ch => ch.channelId);
+    const statChunks: string[][] = [];
+    for (let i = 0; i < statIds.length; i += 50) statChunks.push(statIds.slice(i, i + 50));
+    let nextChunk = 0;
+    const statsWorker = async () => {
+      while (!quotaStopped.current && nextChunk < statChunks.length) {
+        const channelIds = statChunks[nextChunk++];
+        try {
+          const res = await fetch(`${API}/youtube/channels-stats`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channelIds }),
+          });
+          if (res.status === 429) quotaStopped.current = true;
+        } catch { /* stats falharam: vídeos ainda são atualizados abaixo */ }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, statChunks.length) }, statsWorker));
+
     // Pool de workers: cada um pega o próximo canal assim que termina o seu,
     // sem esperar o mais lento do lote.
     let next = 0;
@@ -678,7 +696,6 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' | 'all' = 'monitorin
         });
         try {
           await updateChannelVideos(channel.channelId, true);
-          if (!quotaStopped.current) await updateChannelHistory(channel.channelId);
           results.success++;
         } catch {
           results.failed++;

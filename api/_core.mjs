@@ -56,8 +56,19 @@ function getSupabaseAnon() {
 }
 
 /** Retorna o usuário se o token for válido, senão null. */
+const _authCache = new Map(); // token -> { user, until }
 async function verifyUser(token) {
   if (!token) return null;
+  const hit = _authCache.get(token);
+  if (hit && hit.until > Date.now()) return hit.user;
+  const user = await verifyUserRemote(token);
+  if (user) {
+    if (_authCache.size > 200) _authCache.clear();
+    _authCache.set(token, { user, until: Date.now() + 60_000 });
+  }
+  return user;
+}
+async function verifyUserRemote(token) {
   let result;
   try {
     result = await getSupabaseAnon().auth.getUser(token);
@@ -204,6 +215,34 @@ async function recordHistory(channelId, subscriberCount, viewCount, videoCount) 
   } else {
     await sb.from("channel_history").insert(entry);
   }
+}
+
+/** Atualiza stats + histórico de vários canais (até 50) com UMA chamada ao YouTube. */
+async function refreshChannelStatsBatch(channelIds) {
+  const db = getSupabase();
+  const data = await ytFetch(`/channels?part=statistics&id=${channelIds.join(",")}&maxResults=50`);
+  const nowIso = new Date().toISOString();
+  const today = nowIso.split("T")[0];
+  const stats = new Map((data.items || []).map((item) => [item.id, {
+    subscriberCount: parseInt(item.statistics?.subscriberCount || "0"),
+    viewCount: parseInt(item.statistics?.viewCount || "0"),
+    videoCount: parseInt(item.statistics?.videoCount || "0"),
+  }]));
+  const found = [...stats.keys()];
+  if (!found.length) return { updated: 0 };
+  const { data: existing } = await db.from("channel_history").select("id, channel_id")
+    .in("channel_id", found).gte("recorded_at", `${today}T00:00:00.000Z`).lte("recorded_at", `${today}T23:59:59.999Z`);
+  const existingByChannel = new Map((existing || []).map((r) => [r.channel_id, r.id]));
+  await Promise.all(found.map(async (id) => {
+    const st = stats.get(id);
+    await db.from("channels").update({
+      subscriber_count: st.subscriberCount, view_count: st.viewCount, video_count: st.videoCount, last_updated: nowIso,
+    }).eq("channel_id", id);
+    const entry = { channel_id: id, recorded_at: nowIso, subscriber_count: st.subscriberCount, view_count: st.viewCount, video_count: st.videoCount };
+    if (existingByChannel.has(id)) await db.from("channel_history").update(entry).eq("id", existingByChannel.get(id));
+    else await db.from("channel_history").insert(entry);
+  }));
+  return { updated: found.length };
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1014,6 +1053,12 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
 
     await recordHistory(channelId, info.subscriberCount, info.viewCount, info.videoCount);
     return { status: 200, json: info };
+  }
+
+  if (path === "/youtube/channels-stats" && method === "POST") {
+    const ids = [...new Set((body.channelIds || []).filter((id) => /^UC[\w-]{22}$/.test(id)))].slice(0, 50);
+    if (!ids.length) return { status: 400, json: { error: "Informe channelIds." } };
+    return { status: 200, json: await refreshChannelStatsBatch(ids) };
   }
 
   if (path === "/youtube/feed-videos" && method === "GET") {
