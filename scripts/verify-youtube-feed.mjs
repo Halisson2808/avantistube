@@ -27,9 +27,9 @@ const periods = getFeedPeriods([
   { ...video('deleted', '2026-09-30T12:00:00Z', 1000), isDeleted: true },
 ], now);
 assert.deepEqual(periods.map(row => row.map(item => item.videoId)), [
-  ['today-high', 'today-low'], ['yesterday'], ['week-start'], ['month-start', 'rest'],
+  ['today-high', 'today-low'], ['yesterday'], ['week-start'],
 ]);
-assert.deepEqual(getFeedPeriods([], now), [[], [], [], []]);
+assert.deepEqual(getFeedPeriods([], now), [[], [], []]);
 
 const calls = [];
 const cutoff = '2026-09-01T04:00:00Z';
@@ -42,7 +42,8 @@ const page = await getFeedVideoPage(async path => {
 assert.equal(page.nextPageToken, 'second');
 assert.equal(page.videos[0].viewCount, 42);
 assert.equal(page.videos[0].thumbnailUrl, 'high.jpg');
-assert.ok(!calls[1].includes('old'));
+// Primeira página: os 7 mais recentes entram mesmo fora do período (Monitoramento).
+assert.ok(calls[1].includes('old'));
 const oldPage = await getFeedVideoPage(async () => ({ items: [makeItem('old', '2026-08-15T00:00:00Z')], nextPageToken: 'third' }), 'UC1234567890123456789012', cutoff, 'second');
 assert.equal(oldPage.nextPageToken, undefined);
 assert.deepEqual(oldPage.videos, []);

@@ -256,7 +256,7 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' | 'all' = 'monitorin
     try {
       const since = new Date();
       since.setHours(0, 0, 0, 0);
-      since.setDate(since.getDate() - 29);
+      since.setDate(since.getDate() - 6);
       const periodVideos = await fetchChannelFeed(channelId, since.toISOString());
       // Somente canais sem publicações no período precisam da verificação de status antiga.
       const result = periodVideos.length ? {

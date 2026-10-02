@@ -26,16 +26,14 @@ export function getFeedPeriods(videos: FeedVideo[], now = new Date()) {
   yesterday.setDate(yesterday.getDate() - 1);
   const week = new Date(today);
   week.setDate(week.getDate() - 6);
-  const month = new Date(today);
-  month.setDate(month.getDate() - 29);
-  const periods: FeedVideo[][] = [[], [], [], []];
+  const periods: FeedVideo[][] = [[], [], []];
   const seen = new Set<string>();
   for (const video of videos) {
     const published = Date.parse(video.publishedAt);
     if (seen.has(video.videoId) || video.isDeleted || !Number.isFinite(published)
-      || published > now.getTime() || published < month.getTime()) continue;
+      || published > now.getTime() || published < week.getTime()) continue;
     seen.add(video.videoId);
-    periods[published >= today.getTime() ? 0 : published >= yesterday.getTime() ? 1 : published >= week.getTime() ? 2 : 3].push(video);
+    periods[published >= today.getTime() ? 0 : published >= yesterday.getTime() ? 1 : 2].push(video);
   }
   return periods.map(period => period.sort((a, b) =>
     b.viewCount - a.viewCount || Date.parse(b.publishedAt) - Date.parse(a.publishedAt)

@@ -1,7 +1,7 @@
 import { VideoFavoriteButton } from "@/components/VideoFavoriteButton";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarDays, Clock3, Film, RefreshCw, Smartphone, TrendingUp, Users, Video } from "lucide-react";
+import { Clock3, Film, RefreshCw, Smartphone, TrendingUp, Users, Video } from "lucide-react";
 import { useRecentVideos } from "@/hooks/use-recent-videos";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { calculateTimeAgo, formatDuration } from "@/lib/youtube-api";
@@ -15,7 +15,6 @@ const sections = [
   { title: "Hoje", description: "Publicados hoje", icon: Clock3 },
   { title: "Ontem", description: "Publicados ontem", icon: Clock3 },
   { title: "Últimos 7 dias", description: "Sem os vídeos de hoje e ontem", icon: TrendingUp },
-  { title: "Últimos 30 dias", description: "Restante do período", icon: CalendarDays },
 ];
 
 export default function FeedYoutube() {
@@ -70,7 +69,7 @@ export default function FeedYoutube() {
             </span>
           </button>
           <button type="button" onClick={() => { void updateAllChannels(); }}
-            disabled={pending || fetching} aria-label="Atualizar todos os canais" title="Atualizar todos os canais cadastrados e salvar os vídeos dos últimos 30 dias no banco do monitoramento"
+            disabled={pending || fetching} aria-label="Atualizar todos os canais" title="Atualizar todos os canais cadastrados e salvar os vídeos dos últimos 7 dias no banco do monitoramento"
             className="rounded-lg border border-white/10 p-2 text-white/50 transition hover:bg-white/5 hover:text-white disabled:opacity-40">
             <RefreshCw className={`h-4 w-4 ${fetching || isLoading ? "animate-spin" : ""}`} />
           </button>

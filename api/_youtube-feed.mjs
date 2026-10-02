@@ -18,13 +18,17 @@ export async function getFeedVideoPage(ytFetch, channelId, since, pageToken = ""
   const cutoff = Date.parse(since);
   const items = page.items || [];
   const dates = items.map(item => Date.parse(item.contentDetails?.videoPublishedAt || item.snippet?.publishedAt));
-  const ids = items.filter((item, index) => !Number.isFinite(dates[index]) || dates[index] >= cutoff)
-    .map(item => item.contentDetails?.videoId || item.snippet?.resourceId?.videoId).filter(Boolean);
+  // Na primeira página os 7 mais recentes entram sempre, mesmo fora do período:
+  // o Monitoramento mostra os últimos vídeos do canal sem precisar de outra consulta.
+  const idOf = item => item.contentDetails?.videoId || item.snippet?.resourceId?.videoId;
+  const latest = new Set(pageToken ? [] : items.slice(0, 7).map(idOf).filter(Boolean));
+  const ids = items.filter((item, index) => !Number.isFinite(dates[index]) || dates[index] >= cutoff || latest.has(idOf(item)))
+    .map(idOf).filter(Boolean);
   const data = ids.length
     ? await ytFetch(`/videos?part=snippet,statistics,contentDetails&id=${encodeURIComponent(ids.join(","))}`)
     : { items: [] };
   const videos = (data.items || [])
-    .filter(video => Date.parse(video.snippet.publishedAt) >= cutoff)
+    .filter(video => Date.parse(video.snippet.publishedAt) >= cutoff || latest.has(video.id))
     .map(video => ({
       videoId: video.id,
       title: video.snippet.title,
