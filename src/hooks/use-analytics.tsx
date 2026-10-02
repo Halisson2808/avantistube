@@ -37,6 +37,7 @@ export interface TrackingEvent {
   device?: string | null;
   browser?: string | null;
   os?: string | null;
+  meta?: { src?: string; [key: string]: unknown } | null;
   created_at: string;
 }
 
@@ -102,6 +103,8 @@ export interface AnalyticsOverview {
     revenue: number | null;
   }>;
   sources: TopItem[];
+  /** Identificadores `?src=` usados para distinguir vídeos e peças. */
+  sourceCodes: TopItem[];
   campaigns: TopItem[];
   pages: TopItem[];
   devices: TopItem[];
@@ -123,6 +126,7 @@ export interface TrackingSession {
   entryPath: string;
   paths: string[];
   source: string | null;
+  sourceCode: string | null;
   campaign: string | null;
   device: string | null;
   browser: string | null;

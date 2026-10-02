@@ -573,6 +573,16 @@ function topBy(rows, keyFn, limit = 8) {
     .slice(0, limit);
 }
 
+/** Código `src` da peça/vídeo. Também lê a URL para recuperar eventos antigos. */
+function sourceCodeOf(row) {
+  if (row?.meta?.src) return String(row.meta.src);
+  try {
+    return row?.page_url ? new URL(row.page_url).searchParams.get("src") : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Marcos percentuais (rolagem, vídeo) reconstruídos a partir dos nomes de evento
  * — `rolagem_50`, `video_75`, `video_completo` — ou de `meta.percentual`.
@@ -711,6 +721,7 @@ export function buildOverview(rows, range, paths) {
     },
     timeseries: [...byDay.values()],
     sources: topBy(rows, (r) => r.utm_source || r.referrer_host),
+    sourceCodes: topBy(rows.filter((r) => sourceCodeOf(r)), sourceCodeOf, 20),
     campaigns: topBy(rows.filter((r) => r.utm_campaign), (r) => r.utm_campaign),
     pages: topBy(pageviews, (r) => r.path),
     devices: topBy(rows, (r) => r.device),
@@ -1648,6 +1659,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
           entryPath: primeiro.path || "/",
           paths: [...new Set(evs.map((e) => e.path || "/"))],
           source: comOrigem ? comOrigem.utm_source || comOrigem.referrer_host : null,
+          sourceCode: sourceCodeOf(evs.find((e) => sourceCodeOf(e))) || null,
           campaign: evs.find((e) => e.utm_campaign)?.utm_campaign || null,
           device: primeiro.device || null,
           browser: primeiro.browser || null,
@@ -1712,6 +1724,8 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const referrer = str(raw.referrer, 1000);
     const ua = str(raw.userAgent, 500);
 
+    const sourceCode = str(raw.sourceCode, 200);
+    const rawMeta = typeof raw.meta === "object" && raw.meta ? raw.meta : {};
     const row = {
       site_key: siteKey,
       event_type: eventType,
@@ -1735,7 +1749,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
       country: str(raw.country, 5),
       language: str(raw.language, 20),
       user_agent: ua,
-      meta: typeof raw.meta === "object" && raw.meta ? raw.meta : {},
+      meta: sourceCode ? { ...rawMeta, src: sourceCode } : rawMeta,
     };
 
     const { error } = await getSupabase().from("tracking_events").insert(row);

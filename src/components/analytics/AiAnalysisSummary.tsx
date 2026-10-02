@@ -156,6 +156,7 @@ function buildSummary({
 
   appendRanking("PÁGINAS", data.pages, "visualizações/eventos");
   appendRanking("ORIGENS", data.sources, "eventos");
+  appendRanking("VÍDEOS/PEÇAS (SRC)", data.sourceCodes || [], "eventos");
   appendRanking("APARELHOS", data.devices, "eventos");
 
   lines.push(

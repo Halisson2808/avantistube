@@ -169,6 +169,7 @@ function LinhaVisita({ sessao: s, site, aberta, onToggle }: {
             <Td className="text-white/50 max-w-[160px] truncate">
                 {s.source || "direto"}
                 {s.campaign && <span className="text-white/30"> · {s.campaign}</span>}
+                {s.sourceCode && <span className="text-amber-300/70"> · src:{s.sourceCode}</span>}
             </Td>
             <Td className="text-white/40">{s.device || "—"}</Td>
             <Td>

@@ -214,6 +214,9 @@ export default function AnalyticsDashboard() {
                         <Panel title="Campanhas (UTM)" icon={Megaphone}>
                             <RankedList items={data?.campaigns || []} emptyLabel="Nenhuma campanha marcada com UTM ainda." />
                         </Panel>
+                        <Panel title="Vídeos e peças (SRC)" icon={PlayCircle}>
+                            <RankedList items={data?.sourceCodes || []} emptyLabel="Nenhum link com ?src= identificado ainda." />
+                        </Panel>
                         <Panel title="Páginas mais vistas" icon={FileText}>
                             <RankedList items={data?.pages || []} unit="visitas" />
                         </Panel>

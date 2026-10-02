@@ -146,7 +146,9 @@
   var sessionId = store("session", "avantis_sid") || store("session", "avantis_sid", uid());
 
   // ── Origem do tráfego (persiste na sessão) ──────────────────────────────────
-  var UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"];
+  // `src` identifica a peça/vídeo específico (ex.: yt28-desc). Assim como as
+  // UTMs, ele permanece disponível em todos os eventos da mesma sessão.
+  var UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "src"];
 
   function readAttribution() {
     var params = new URLSearchParams(window.location.search);
@@ -225,6 +227,7 @@
       utmCampaign: attribution.utm_campaign || null,
       utmContent: attribution.utm_content || null,
       utmTerm: attribution.utm_term || null,
+      sourceCode: attribution.src || null,
       visitorId: visitorId,
       sessionId: sessionId,
       value: options.value,
