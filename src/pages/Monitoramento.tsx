@@ -322,6 +322,7 @@ const RecentVideos = () => {
     isUpdating,
     updateChannelVideos,
     updateChannelsByNiches,
+    updateAllChannels,
     getAvailableNiches,
     getChannelCountByNiche,
     clearFilters,
@@ -741,7 +742,7 @@ const RecentVideos = () => {
   const videosByChannel = useMemo(() => getVideosByChannel(), [getVideosByChannel]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -756,183 +757,6 @@ const RecentVideos = () => {
           </p>
         </div>
 
-        {/* Topo: Adicionar Canal + Por Nicho */}
-        <div className="flex gap-1.5 w-full sm:w-auto">
-
-          {/* Adicionar Canal */}
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-xs h-8 px-3 bg-red-500/15 border border-red-500/25 text-red-300 hover:bg-red-500/25 hover:text-red-200 transition-all">
-                  <Plus className="w-3.5 h-3.5 mr-1.5" />Adicionar Canal
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Adicionar Canal ao Monitoramento</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="mb-0">{isBulkMode ? "Vários Canais (1 por linha)" : "URL ou ID do Canal"}</Label>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
-                      onClick={() => setIsBulkMode(v => !v)}
-                    >
-                      {isBulkMode ? "Adicionar 1 canal" : "Adicionar vários"}
-                    </Button>
-                  </div>
-                  {isBulkMode ? (
-                    <div className="space-y-2">
-                      <Textarea
-                        value={bulkUrls}
-                        onChange={(e) => setBulkUrls(e.target.value)}
-                        placeholder={"youtube.com/@canal1\nyoutube.com/@canal2\nUCxxxxxxxxxxxxxxxxxxxxxx"}
-                        rows={6}
-                        className="font-mono text-xs"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Um canal por linha. O nicho/formato abaixo é aplicado a todos.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <Input
-                        value={channelUrl}
-                        onChange={(e) => setChannelUrl(e.target.value)}
-                        placeholder="UCxxxx, youtube.com/channel/UCxxxx ou youtube.com/@username"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Formatos aceitos: ID do canal, URL completa ou username (@)
-                      </p>
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <Label>Tipo de Conteúdo *</Label>
-                    <Select value={contentType} onValueChange={(value: "longform" | "shorts") => setContentType(value)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="longform">Vídeos Longos</SelectItem>
-                        <SelectItem value="shorts">Shorts</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {contentType !== "shorts" && (
-                    <div className="space-y-2">
-                      <Label>Nicho (opcional)</Label>
-                      <Select value={selectedNiche} onValueChange={setSelectedNiche}>
-                        <SelectTrigger><SelectValue placeholder="Selecione ou crie um nicho" /></SelectTrigger>
-                        <SelectContent>
-                          {niches.map((niche) => (
-                            <SelectItem key={niche} value={niche}>{niche}</SelectItem>
-                          ))}
-                          <SelectItem value="__new__">➕ Novo Nicho</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {selectedNiche === "__new__" && (
-                        <Input value={customNiche} onChange={(e) => setCustomNiche(e.target.value)} placeholder="Digite o nome do novo nicho" />
-                      )}
-                    </div>
-                  )}
-                  <Button onClick={handleAddChannel} disabled={isAddingChannel} className="w-full gradient-primary">
-                    {isAddingChannel
-                      ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Adicionando...</>)
-                      : (isBulkMode ? "Adicionar Canais" : "Adicionar Canal")}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-          {/* Fila de espera (cota do YouTube) */}
-          {queue.length > 0 && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-xs h-8 px-3 bg-amber-500/15 border border-amber-500/25 text-amber-300 hover:bg-amber-500/25 transition-all">
-                  <Clock className="w-3.5 h-3.5 mr-1.5" />Fila ({queue.length})
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-4" align="end">
-                <div className="space-y-3">
-                  <h4 className="font-medium text-sm">{queue.length} canal(is) em espera</h4>
-                  <div className="max-h-48 overflow-y-auto space-y-1">
-                    {queue.map(item => (
-                      <div key={item.id} className="flex items-center gap-2 text-xs">
-                        <span className="flex-1 truncate" title={item.last_error || item.input}>{item.input}</span>
-                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => handleRemoveFromQueue(item.id)} title="Remover da fila">
-                          <X className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                  <Button onClick={handleProcessQueue} disabled={isProcessingQueue} className="w-full gradient-primary">
-                    {isProcessingQueue
-                      ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Adicionando...</>)
-                      : 'Adicionar canais da fila'}
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
-
-          {/* Por Nicho */}
-          <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" disabled={isUpdating || channels.length === 0} className="text-xs h-8 px-3 bg-white/[0.04] border border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white transition-all disabled:opacity-40">
-                  <Filter className="w-3.5 h-3.5 mr-1.5" />Por Nicho<ChevronDown className="w-3 h-3 ml-1 opacity-60" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-72 p-4" align="end">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-sm">Selecionar Nichos</h4>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleSelectAllNiches}
-                      className="h-7 text-xs"
-                    >
-                      {selectedNiches.length === availableNiches.length ? 'Desmarcar' : 'Selecionar'} Todos
-                    </Button>
-                  </div>
-
-                  <div ref={nicheListRef} className="max-h-60 overflow-y-auto space-y-2">
-                    {availableNiches.map((niche) => (
-                      <label
-                        key={niche}
-                        ref={(el) => {
-                          nicheItemRefs.current.set(niche, el);
-                        }}
-                        tabIndex={-1}
-                        className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer"
-                      >
-                        <Checkbox
-                          checked={selectedNiches.includes(niche)}
-                          onCheckedChange={() => handleNicheToggle(niche)}
-                        />
-                        <span className="flex-1 text-sm">{niche}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {getChannelCountByNiche(niche)}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-
-                  <div className="pt-2 border-t border-border">
-                    <Button
-                      onClick={handleUpdateSelected}
-                      disabled={selectedNiches.length === 0}
-                      className="w-full gradient-primary"
-                      size="sm"
-                    >
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Atualizar {totalSelectedChannels} canal(is)
-                    </Button>
-                  </div>
-                </div>
-              </PopoverContent>
-          </Popover>
-        </div>
       </div>
 
       {/* Barra de Progresso */}
@@ -1031,92 +855,6 @@ const RecentVideos = () => {
             Limpar
           </button>
         )}
-      </div>
-
-      {/* Barra de ferramentas */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {/* Selecionar */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
-          className={`text-xs h-8 px-3 border transition-all ${selectionMode
-            ? "bg-white/10 border-white/20 text-white"
-            : "bg-white/[0.04] border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white"
-          }`}
-        >
-          {selectionMode
-            ? <><Square className="w-3.5 h-3.5 mr-1.5" />Cancelar</>
-            : <><CheckSquare className="w-3.5 h-3.5 mr-1.5" />Selecionar</>
-          }
-        </Button>
-
-        {/* Gerenciar Nichos */}
-        <Dialog open={isManageNichesOpen} onOpenChange={setIsManageNichesOpen}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" size="sm" className="text-xs h-8 px-3 bg-white/[0.04] border border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white transition-all">
-              <Tag className="w-3.5 h-3.5 mr-1.5" />Nichos
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Gerenciar Nichos</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3 max-h-[400px] overflow-y-auto">
-              {niches.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">Nenhum nicho cadastrado ainda.</p>
-              ) : (
-                niches.map((niche) => (
-                  <div key={niche} className="flex items-center gap-2">
-                    {editingNiche?.old === niche ? (
-                      <>
-                        <Input value={editingNiche.new} onChange={(e) => setEditingNiche({ old: niche, new: e.target.value })} className="flex-1" placeholder="Novo nome do nicho" />
-                        <Button size="sm" onClick={() => handleRenameNiche(editingNiche.old, editingNiche.new)}>Salvar</Button>
-                        <Button size="sm" variant="outline" onClick={() => setEditingNiche(null)}>Cancelar</Button>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex-1 px-3 py-2 rounded-md bg-muted text-sm">{niche}</div>
-                        <Button size="sm" variant="outline" onClick={() => setEditingNiche({ old: niche, new: niche })}>Renomear</Button>
-                      </>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Tempo Relativo / Hora Exata */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowExactTime(!showExactTime)}
-          className={`text-xs h-8 px-3 border transition-all ${showExactTime
-            ? "bg-white/10 border-white/20 text-white"
-            : "bg-white/[0.04] border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white"
-          }`}
-        >
-          <Clock className="w-3.5 h-3.5 mr-1.5" />{showExactTime ? "Hora Exata" : "Tempo Relativo"}
-        </Button>
-
-        {/* Toggle de layout */}
-        <div className="flex items-center border border-white/[0.08] rounded-lg overflow-hidden ml-auto">
-          <button
-            onClick={() => setViewMode('list')}
-            className={`h-8 px-2.5 flex items-center transition-colors ${viewMode === 'list' ? 'bg-white/[0.1] text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.05]'}`}
-            title="Modo lista"
-          >
-            <AlignJustify className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setViewMode('grid')}
-            className={`h-8 px-2.5 flex items-center border-l border-white/[0.08] transition-colors ${viewMode === 'grid' ? 'bg-white/[0.1] text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.05]'}`}
-            title="Modo grade compacto"
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-          </button>
-        </div>
       </div>
 
       {/* Barra de controle de seleção múltipla */}
@@ -1634,9 +1372,283 @@ const RecentVideos = () => {
         />
       )}
 
+      {/* ── Barra flutuante de ferramentas (centralizada sobre o conteúdo) ───── */}
+      <div className="fixed bottom-4 left-1/2 md:left-[calc(50%+9.75rem)] -translate-x-1/2 z-40 max-w-[calc(100vw-2rem)] md:max-w-[calc(100vw-21.5rem)]">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hidden px-2 py-2 rounded-2xl border border-white/[0.1] bg-[#0c0c0c]/95 backdrop-blur shadow-2xl shadow-black/60 [&>*]:shrink-0">
+          {/* Atualizar todos */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { void updateAllChannels(); }}
+            disabled={isUpdating || channels.length === 0}
+            className="text-xs h-8 px-3 bg-white/[0.06] border border-white/[0.1] text-white hover:bg-white/[0.12] transition-all disabled:opacity-40"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isUpdating ? 'animate-spin' : ''}`} />Atualizar
+          </Button>
+
+          {/* Adicionar Canal */}
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-xs h-8 px-3 bg-red-500/15 border border-red-500/25 text-red-300 hover:bg-red-500/25 hover:text-red-200 transition-all">
+                  <Plus className="w-3.5 h-3.5 mr-1.5" />Adicionar Canal
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Adicionar Canal ao Monitoramento</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="mb-0">{isBulkMode ? "Vários Canais (1 por linha)" : "URL ou ID do Canal"}</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setIsBulkMode(v => !v)}
+                    >
+                      {isBulkMode ? "Adicionar 1 canal" : "Adicionar vários"}
+                    </Button>
+                  </div>
+                  {isBulkMode ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={bulkUrls}
+                        onChange={(e) => setBulkUrls(e.target.value)}
+                        placeholder={"youtube.com/@canal1\nyoutube.com/@canal2\nUCxxxxxxxxxxxxxxxxxxxxxx"}
+                        rows={6}
+                        className="font-mono text-xs"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Um canal por linha. O nicho/formato abaixo é aplicado a todos.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Input
+                        value={channelUrl}
+                        onChange={(e) => setChannelUrl(e.target.value)}
+                        placeholder="UCxxxx, youtube.com/channel/UCxxxx ou youtube.com/@username"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Formatos aceitos: ID do canal, URL completa ou username (@)
+                      </p>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label>Tipo de Conteúdo *</Label>
+                    <Select value={contentType} onValueChange={(value: "longform" | "shorts") => setContentType(value)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="longform">Vídeos Longos</SelectItem>
+                        <SelectItem value="shorts">Shorts</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {contentType !== "shorts" && (
+                    <div className="space-y-2">
+                      <Label>Nicho (opcional)</Label>
+                      <Select value={selectedNiche} onValueChange={setSelectedNiche}>
+                        <SelectTrigger><SelectValue placeholder="Selecione ou crie um nicho" /></SelectTrigger>
+                        <SelectContent>
+                          {niches.map((niche) => (
+                            <SelectItem key={niche} value={niche}>{niche}</SelectItem>
+                          ))}
+                          <SelectItem value="__new__">➕ Novo Nicho</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {selectedNiche === "__new__" && (
+                        <Input value={customNiche} onChange={(e) => setCustomNiche(e.target.value)} placeholder="Digite o nome do novo nicho" />
+                      )}
+                    </div>
+                  )}
+                  <Button onClick={handleAddChannel} disabled={isAddingChannel} className="w-full gradient-primary">
+                    {isAddingChannel
+                      ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Adicionando...</>)
+                      : (isBulkMode ? "Adicionar Canais" : "Adicionar Canal")}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+          {/* Fila de espera (cota do YouTube) */}
+          {queue.length > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-xs h-8 px-3 bg-amber-500/15 border border-amber-500/25 text-amber-300 hover:bg-amber-500/25 transition-all">
+                  <Clock className="w-3.5 h-3.5 mr-1.5" />Fila ({queue.length})
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-4" side="top" align="center">
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm">{queue.length} canal(is) em espera</h4>
+                  <div className="max-h-48 overflow-y-auto space-y-1">
+                    {queue.map(item => (
+                      <div key={item.id} className="flex items-center gap-2 text-xs">
+                        <span className="flex-1 truncate" title={item.last_error || item.input}>{item.input}</span>
+                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => handleRemoveFromQueue(item.id)} title="Remover da fila">
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <Button onClick={handleProcessQueue} disabled={isProcessingQueue} className="w-full gradient-primary">
+                    {isProcessingQueue
+                      ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Adicionando...</>)
+                      : 'Adicionar canais da fila'}
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+
+          {/* Por Nicho */}
+          <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" disabled={isUpdating || channels.length === 0} className="text-xs h-8 px-3 bg-white/[0.04] border border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white transition-all disabled:opacity-40">
+                  <Filter className="w-3.5 h-3.5 mr-1.5" />Nichos p/ atualizar<ChevronDown className="w-3 h-3 ml-1 opacity-60" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-4" side="top" align="center">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium text-sm">Selecionar Nichos</h4>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleSelectAllNiches}
+                      className="h-7 text-xs"
+                    >
+                      {selectedNiches.length === availableNiches.length ? 'Desmarcar' : 'Selecionar'} Todos
+                    </Button>
+                  </div>
+
+                  <div ref={nicheListRef} className="max-h-60 overflow-y-auto space-y-2">
+                    {availableNiches.map((niche) => (
+                      <label
+                        key={niche}
+                        ref={(el) => {
+                          nicheItemRefs.current.set(niche, el);
+                        }}
+                        tabIndex={-1}
+                        className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer"
+                      >
+                        <Checkbox
+                          checked={selectedNiches.includes(niche)}
+                          onCheckedChange={() => handleNicheToggle(niche)}
+                        />
+                        <span className="flex-1 text-sm">{niche}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {getChannelCountByNiche(niche)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="pt-2 border-t border-border">
+                    <Button
+                      onClick={handleUpdateSelected}
+                      disabled={selectedNiches.length === 0}
+                      className="w-full gradient-primary"
+                      size="sm"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Atualizar {totalSelectedChannels} canal(is)
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+          </Popover>
+
+          <div className="w-px h-5 bg-white/[0.1] mx-0.5" />
+        {/* Selecionar */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
+          className={`text-xs h-8 px-3 border transition-all ${selectionMode
+            ? "bg-white/10 border-white/20 text-white"
+            : "bg-white/[0.04] border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white"
+          }`}
+        >
+          {selectionMode
+            ? <><Square className="w-3.5 h-3.5 mr-1.5" />Cancelar</>
+            : <><CheckSquare className="w-3.5 h-3.5 mr-1.5" />Selecionar</>
+          }
+        </Button>
+
+        {/* Gerenciar Nichos */}
+        <Dialog open={isManageNichesOpen} onOpenChange={setIsManageNichesOpen}>
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="sm" className="text-xs h-8 px-3 bg-white/[0.04] border border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white transition-all">
+              <Tag className="w-3.5 h-3.5 mr-1.5" />Nichos
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Gerenciar Nichos</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+              {niches.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Nenhum nicho cadastrado ainda.</p>
+              ) : (
+                niches.map((niche) => (
+                  <div key={niche} className="flex items-center gap-2">
+                    {editingNiche?.old === niche ? (
+                      <>
+                        <Input value={editingNiche.new} onChange={(e) => setEditingNiche({ old: niche, new: e.target.value })} className="flex-1" placeholder="Novo nome do nicho" />
+                        <Button size="sm" onClick={() => handleRenameNiche(editingNiche.old, editingNiche.new)}>Salvar</Button>
+                        <Button size="sm" variant="outline" onClick={() => setEditingNiche(null)}>Cancelar</Button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex-1 px-3 py-2 rounded-md bg-muted text-sm">{niche}</div>
+                        <Button size="sm" variant="outline" onClick={() => setEditingNiche({ old: niche, new: niche })}>Renomear</Button>
+                      </>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Tempo Relativo / Hora Exata */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowExactTime(!showExactTime)}
+          className={`text-xs h-8 px-3 border transition-all ${showExactTime
+            ? "bg-white/10 border-white/20 text-white"
+            : "bg-white/[0.04] border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white"
+          }`}
+        >
+          <Clock className="w-3.5 h-3.5 mr-1.5" />{showExactTime ? "Hora Exata" : "Tempo Relativo"}
+        </Button>
+
+        {/* Toggle de layout */}
+        <div className="flex items-center border border-white/[0.08] rounded-lg overflow-hidden shrink-0">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`h-8 px-2.5 flex items-center transition-colors ${viewMode === 'list' ? 'bg-white/[0.1] text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.05]'}`}
+            title="Modo lista"
+          >
+            <AlignJustify className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`h-8 px-2.5 flex items-center border-l border-white/[0.08] transition-colors ${viewMode === 'grid' ? 'bg-white/[0.1] text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.05]'}`}
+            title="Modo grade compacto"
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        </div>
+      </div>
+
       {/* ── Barra flutuante de ações em massa ───────────────────────────────── */}
       {selectionMode && selectedChannelIds.size > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl border border-border bg-background/95 backdrop-blur">
+        <div className="fixed bottom-20 left-1/2 md:left-[calc(50%+9.75rem)] -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl border border-border bg-background/95 backdrop-blur">
           <span className="text-sm font-semibold whitespace-nowrap">
             {selectedChannelIds.size} selecionado(s)
           </span>
