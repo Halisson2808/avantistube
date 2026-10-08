@@ -1374,7 +1374,7 @@ const RecentVideos = () => {
 
       {/* ── Barra flutuante de ferramentas (centralizada sobre o conteúdo) ───── */}
       <div className="fixed bottom-4 left-1/2 md:left-[calc(50%+9.75rem)] -translate-x-1/2 z-40 max-w-[calc(100vw-2rem)] md:max-w-[calc(100vw-21.5rem)]">
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hidden px-2.5 py-2 rounded-2xl border border-red-400/70 bg-red-600 shadow-[0_12px_40px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.15)] [&>*]:shrink-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hidden px-2.5 py-2 rounded-2xl border border-red-500/60 bg-[#1c1c1f]/95 backdrop-blur-xl shadow-[0_12px_40px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.08)] [&>*]:shrink-0">
           {/* Atualizar: todos (esquerda) ou por nicho (seta à direita) */}
           <div className="flex items-center rounded-lg overflow-hidden">
             <Button
@@ -1382,7 +1382,7 @@ const RecentVideos = () => {
               size="sm"
               onClick={() => { void updateAllChannels(); }}
               disabled={isUpdating || channels.length === 0}
-              className="text-xs h-8 px-3 rounded-r-none bg-red-800 text-white hover:bg-red-900 hover:text-white transition-all disabled:opacity-40"
+              className="text-xs h-8 px-3 rounded-r-none bg-red-600 text-white hover:bg-red-500 hover:text-white transition-all disabled:opacity-40"
             >
               <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isUpdating ? 'animate-spin' : ''}`} />Atualizar
             </Button>
@@ -1390,7 +1390,7 @@ const RecentVideos = () => {
             <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="sm" disabled={isUpdating || channels.length === 0} title="Atualizar por nicho" aria-label="Atualizar por nicho"
-                    className="h-8 w-8 p-0 rounded-l-none border-l border-black/20 bg-red-800 text-white hover:bg-red-900 hover:text-white disabled:opacity-40">
+                    className="h-8 w-8 p-0 rounded-l-none border-l border-black/20 bg-red-600 text-white hover:bg-red-500 hover:text-white disabled:opacity-40">
                     <ChevronDown className="w-3.5 h-3.5" />
                   </Button>
                 </PopoverTrigger>
@@ -1449,7 +1449,7 @@ const RecentVideos = () => {
           {/* Adicionar Canal */}
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-xs h-8 px-3 bg-red-700 border border-red-400/40 text-white hover:bg-red-800 hover:text-white transition-all">
+                <Button variant="ghost" size="sm" className="text-xs h-8 px-3 bg-red-500/15 border border-red-500/25 text-red-300 hover:bg-red-500/25 hover:text-red-200 transition-all">
                   <Plus className="w-3.5 h-3.5 mr-1.5" />Adicionar Canal
                 </Button>
               </DialogTrigger>
@@ -1535,7 +1535,7 @@ const RecentVideos = () => {
           {queue.length > 0 && (
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-xs h-8 px-3 bg-amber-500 border border-amber-300/60 text-black hover:bg-amber-400 transition-all">
+                <Button variant="ghost" size="sm" className="text-xs h-8 px-3 bg-amber-500/15 border border-amber-500/25 text-amber-300 hover:bg-amber-500/25 transition-all">
                   <Clock className="w-3.5 h-3.5 mr-1.5" />Fila ({queue.length})
                 </Button>
               </PopoverTrigger>
@@ -1563,15 +1563,15 @@ const RecentVideos = () => {
           )}
 
 
-          <div className="w-px h-5 bg-white/30 mx-0.5" />
+          <div className="w-px h-5 bg-white/[0.1] mx-0.5" />
         {/* Selecionar */}
         <Button
           variant="ghost"
           size="sm"
           onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
           className={`text-xs h-8 px-3 border transition-all ${selectionMode
-            ? "bg-red-900 border-white/40 text-white"
-            : "bg-red-700 border-red-400/40 text-white hover:bg-red-800 hover:text-white"
+            ? "bg-white/10 border-white/20 text-white"
+            : "bg-white/[0.04] border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white"
           }`}
         >
           {selectionMode
@@ -1583,7 +1583,7 @@ const RecentVideos = () => {
         {/* Gerenciar Nichos */}
         <Dialog open={isManageNichesOpen} onOpenChange={setIsManageNichesOpen}>
           <DialogTrigger asChild>
-            <Button variant="ghost" size="sm" className="text-xs h-8 px-3 bg-red-700 border border-red-400/40 text-white hover:bg-red-800 hover:text-white transition-all">
+            <Button variant="ghost" size="sm" className="text-xs h-8 px-3 bg-white/[0.04] border border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white transition-all">
               <Tag className="w-3.5 h-3.5 mr-1.5" />Nichos
             </Button>
           </DialogTrigger>
@@ -1622,25 +1622,25 @@ const RecentVideos = () => {
           size="sm"
           onClick={() => setShowExactTime(!showExactTime)}
           className={`text-xs h-8 px-3 border transition-all ${showExactTime
-            ? "bg-red-900 border-white/40 text-white"
-            : "bg-red-700 border-red-400/40 text-white hover:bg-red-800 hover:text-white"
+            ? "bg-white/10 border-white/20 text-white"
+            : "bg-white/[0.04] border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white"
           }`}
         >
           <Clock className="w-3.5 h-3.5 mr-1.5" />{showExactTime ? "Hora Exata" : "Tempo Relativo"}
         </Button>
 
         {/* Toggle de layout */}
-        <div className="flex items-center border border-red-400/40 bg-red-700 rounded-lg overflow-hidden shrink-0">
+        <div className="flex items-center border border-white/[0.08] rounded-lg overflow-hidden shrink-0">
           <button
             onClick={() => setViewMode('list')}
-            className={`h-8 px-2.5 flex items-center transition-colors ${viewMode === 'list' ? 'bg-red-900 text-white' : 'text-white/70 hover:text-white hover:bg-red-800'}`}
+            className={`h-8 px-2.5 flex items-center transition-colors ${viewMode === 'list' ? 'bg-white/[0.1] text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.05]'}`}
             title="Modo lista"
           >
             <AlignJustify className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => setViewMode('grid')}
-            className={`h-8 px-2.5 flex items-center border-l border-red-400/40 transition-colors ${viewMode === 'grid' ? 'bg-red-900 text-white' : 'text-white/70 hover:text-white hover:bg-red-800'}`}
+            className={`h-8 px-2.5 flex items-center border-l border-white/[0.08] transition-colors ${viewMode === 'grid' ? 'bg-white/[0.1] text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.05]'}`}
             title="Modo grade compacto"
           >
             <LayoutGrid className="w-3.5 h-3.5" />
