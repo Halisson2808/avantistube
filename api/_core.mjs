@@ -248,7 +248,7 @@ async function refreshChannelStatsBatch(channelIds) {
 /**
  * Acumula vídeos no cache do canal em vez de substituir: os que saíram da janela
  * de busca continuam guardados; os que voltaram têm views/título atualizados.
- * Limite de 50 por canal para o carregamento da tela continuar leve.
+ * Guarda só os 7 mais recentes por canal (pedido do usuário: nada além disso).
  */
 async function saveVideoCache(db, channelId, videos, { channelDeleted = false, channelExists = true, error = null } = {}) {
   const { data: prev } = await db.from("channel_video_cache").select("videos").eq("channel_id", channelId).maybeSingle();
@@ -256,7 +256,7 @@ async function saveVideoCache(db, channelId, videos, { channelDeleted = false, c
   for (const v of videos) byId.set(v.videoId, { ...byId.get(v.videoId), ...v });
   const merged = [...byId.values()]
     .sort((a, b) => Date.parse(b.publishedAt || 0) - Date.parse(a.publishedAt || 0))
-    .slice(0, 50);
+    .slice(0, 7);
   const { error: upErr } = await db.from("channel_video_cache").upsert({
     channel_id: channelId, videos: merged, channel_deleted: channelDeleted, channel_exists: channelExists,
     error, fetched_at: new Date().toISOString(),
