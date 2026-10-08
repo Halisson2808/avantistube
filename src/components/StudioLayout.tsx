@@ -34,7 +34,7 @@ export function StudioLayout({ children }: StudioLayoutProps) {
             <StudioSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col md:ml-[17.5rem] pt-14 md:pt-0 relative overflow-hidden">
+            <div className="flex-1 flex flex-col md:ml-[19.5rem] pt-14 md:pt-0 relative overflow-hidden">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-red-500/6 blur-[120px] rounded-full pointer-events-none" />
                 <main className="flex-1 p-4 md:p-6 z-10 w-full">
                     {children}

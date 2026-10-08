@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMonitoredChannels } from "@/hooks/use-monitored-channels";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 
 /** Módulo YouTube — tudo que trata de canais e vídeos. */
@@ -67,7 +66,7 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
 
     return (
         <div className={`
-            fixed left-3 top-3 bottom-3 w-64 z-50 flex flex-col overflow-hidden
+            fixed left-3 top-3 bottom-3 w-72 z-50 flex flex-col overflow-hidden
             rounded-3xl border border-white/[0.08] bg-[#0c0c0c] shadow-2xl shadow-black/60
             transition-transform duration-300 ease-in-out
             md:translate-x-0
@@ -104,8 +103,8 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
             </div>
 
             {/* Nav */}
-            <ScrollArea className="flex-1 px-3 py-2">
-                <div className="space-y-3">
+            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden px-3 py-2">
+                <div className="space-y-3 [&>div]:border-t [&>div]:border-white/[0.08] [&>div]:pt-3">
 
                     {/* Home */}
                     <NavLink to="/" end onClick={onClose} className={linkClass}>
@@ -208,7 +207,7 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
                         </div>
                     )}
                 </div>
-            </ScrollArea>
+            </div>
 
             {/* Footer — sair */}
             <div className="mx-3 mb-3 pt-3 border-t border-white/[0.08]">
