@@ -1374,17 +1374,77 @@ const RecentVideos = () => {
 
       {/* ── Barra flutuante de ferramentas (centralizada sobre o conteúdo) ───── */}
       <div className="fixed bottom-4 left-1/2 md:left-[calc(50%+9.75rem)] -translate-x-1/2 z-40 max-w-[calc(100vw-2rem)] md:max-w-[calc(100vw-21.5rem)]">
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hidden px-2 py-2 rounded-2xl border border-white/[0.1] bg-[#0c0c0c]/95 backdrop-blur shadow-2xl shadow-black/60 [&>*]:shrink-0">
-          {/* Atualizar todos */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => { void updateAllChannels(); }}
-            disabled={isUpdating || channels.length === 0}
-            className="text-xs h-8 px-3 bg-white/[0.06] border border-white/[0.1] text-white hover:bg-white/[0.12] transition-all disabled:opacity-40"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isUpdating ? 'animate-spin' : ''}`} />Atualizar
-          </Button>
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hidden px-2.5 py-2 rounded-2xl border border-white/20 bg-[#1c1c1f]/95 backdrop-blur-xl ring-1 ring-red-500/20 shadow-[0_12px_40px_rgba(0,0,0,0.85),0_0_32px_rgba(239,68,68,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] [&>*]:shrink-0">
+          {/* Atualizar: todos (esquerda) ou por nicho (seta à direita) */}
+          <div className="flex items-center rounded-lg overflow-hidden shadow-lg shadow-red-900/30">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { void updateAllChannels(); }}
+              disabled={isUpdating || channels.length === 0}
+              className="text-xs h-8 px-3 rounded-r-none bg-red-600 text-white hover:bg-red-500 hover:text-white transition-all disabled:opacity-40"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isUpdating ? 'animate-spin' : ''}`} />Atualizar
+            </Button>
+            {/* Atualizar por nicho (abre a lista) */}
+            <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" disabled={isUpdating || channels.length === 0} title="Atualizar por nicho" aria-label="Atualizar por nicho"
+                    className="h-8 w-8 p-0 rounded-l-none border-l border-black/20 bg-red-600 text-white hover:bg-red-500 hover:text-white disabled:opacity-40">
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-4" side="top" align="center">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-sm">Selecionar Nichos</h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleSelectAllNiches}
+                        className="h-7 text-xs"
+                      >
+                        {selectedNiches.length === availableNiches.length ? 'Desmarcar' : 'Selecionar'} Todos
+                      </Button>
+                    </div>
+
+                    <div ref={nicheListRef} className="max-h-60 overflow-y-auto space-y-2">
+                      {availableNiches.map((niche) => (
+                        <label
+                          key={niche}
+                          ref={(el) => {
+                            nicheItemRefs.current.set(niche, el);
+                          }}
+                          tabIndex={-1}
+                          className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer"
+                        >
+                          <Checkbox
+                            checked={selectedNiches.includes(niche)}
+                            onCheckedChange={() => handleNicheToggle(niche)}
+                          />
+                          <span className="flex-1 text-sm">{niche}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {getChannelCountByNiche(niche)}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className="pt-2 border-t border-border">
+                      <Button
+                        onClick={handleUpdateSelected}
+                        disabled={selectedNiches.length === 0}
+                        className="w-full gradient-primary"
+                        size="sm"
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Atualizar {totalSelectedChannels} canal(is)
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+            </Popover>
+          </div>
 
           {/* Adicionar Canal */}
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -1502,63 +1562,6 @@ const RecentVideos = () => {
             </Popover>
           )}
 
-          {/* Por Nicho */}
-          <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" disabled={isUpdating || channels.length === 0} className="text-xs h-8 px-3 bg-white/[0.04] border border-white/[0.08] text-white/70 hover:bg-white/[0.08] hover:text-white transition-all disabled:opacity-40">
-                  <Filter className="w-3.5 h-3.5 mr-1.5" />Nichos p/ atualizar<ChevronDown className="w-3 h-3 ml-1 opacity-60" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-72 p-4" side="top" align="center">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-sm">Selecionar Nichos</h4>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleSelectAllNiches}
-                      className="h-7 text-xs"
-                    >
-                      {selectedNiches.length === availableNiches.length ? 'Desmarcar' : 'Selecionar'} Todos
-                    </Button>
-                  </div>
-
-                  <div ref={nicheListRef} className="max-h-60 overflow-y-auto space-y-2">
-                    {availableNiches.map((niche) => (
-                      <label
-                        key={niche}
-                        ref={(el) => {
-                          nicheItemRefs.current.set(niche, el);
-                        }}
-                        tabIndex={-1}
-                        className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer"
-                      >
-                        <Checkbox
-                          checked={selectedNiches.includes(niche)}
-                          onCheckedChange={() => handleNicheToggle(niche)}
-                        />
-                        <span className="flex-1 text-sm">{niche}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {getChannelCountByNiche(niche)}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-
-                  <div className="pt-2 border-t border-border">
-                    <Button
-                      onClick={handleUpdateSelected}
-                      disabled={selectedNiches.length === 0}
-                      className="w-full gradient-primary"
-                      size="sm"
-                    >
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Atualizar {totalSelectedChannels} canal(is)
-                    </Button>
-                  </div>
-                </div>
-              </PopoverContent>
-          </Popover>
 
           <div className="w-px h-5 bg-white/[0.1] mx-0.5" />
         {/* Selecionar */}
