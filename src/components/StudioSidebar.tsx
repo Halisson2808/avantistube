@@ -45,13 +45,11 @@ function SectionLabel({
     dot: string;
 }) {
     return (
-        <div className="mb-1 flex w-full items-center px-3 py-2 rounded-lg bg-white/[0.05] border border-white/[0.08]">
-            <div className="flex items-center gap-2">
-                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-white">
-                    {label}
-                </span>
-            </div>
+        <div className="mb-1 flex items-center gap-2 px-3 pt-1 pb-1.5">
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">
+                {label}
+            </span>
         </div>
     );
 }
@@ -60,26 +58,23 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
     const { channels } = useMonitoredChannels();
     const { signOut } = useAuth();
 
-    const linkClass = (accent: "red" | "emerald" | "amber") => ({ isActive }: { isActive: boolean }) =>
-        `flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-all duration-200 group text-xs ${isActive
-            ? accent === "red"
-                ? "bg-red-500/15 text-white font-medium ring-1 ring-red-500/25"
-                : accent === "amber"
-                    ? "bg-amber-500/15 text-white font-medium ring-1 ring-amber-500/25"
-                    : "bg-emerald-500/15 text-white font-medium ring-1 ring-emerald-500/25"
-            : "text-white hover:bg-white/6"
+    // Estilo "flutuante": itens cinza, ativo destacado com fundo neutro e texto branco.
+    const linkClass = ({ isActive }: { isActive: boolean }) =>
+        `flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-150 group text-[13px] ${isActive
+            ? "bg-white/[0.08] text-white font-semibold"
+            : "text-white/60 hover:text-white hover:bg-white/[0.04]"
         }`;
 
     return (
         <div className={`
-            fixed left-0 top-0 h-full w-64 z-50 flex flex-col
-            bg-[rgba(10,10,14,0.98)] backdrop-blur-[14px] border-r border-white/5
+            fixed left-3 top-3 bottom-3 w-64 z-50 flex flex-col overflow-hidden
+            rounded-3xl border border-white/[0.08] bg-[#0c0c0c] shadow-2xl shadow-black/60
             transition-transform duration-300 ease-in-out
             md:translate-x-0
-            ${isOpen ? "translate-x-0" : "-translate-x-full"}
+            ${isOpen ? "translate-x-0" : "-translate-x-[calc(100%+1rem)]"}
         `}>
             {/* Header */}
-            <div className="p-5 border-b border-white/5 flex items-center justify-between">
+            <div className="px-5 pt-5 pb-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     {/* studiologo.png — garra branca com fundo vermelho */}
                     <div className="h-10 w-10 rounded-xl overflow-hidden flex-shrink-0 bg-red-600 flex items-center justify-center shadow-lg shadow-red-900/30">
@@ -109,12 +104,12 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
             </div>
 
             {/* Nav */}
-            <ScrollArea className="flex-1 px-3 py-4">
+            <ScrollArea className="flex-1 px-3 py-2">
                 <div className="space-y-3">
 
                     {/* Home */}
-                    <NavLink to="/" end onClick={onClose} className={linkClass("red")}>
-                        <Home className="h-3.5 w-3.5 flex-shrink-0" />
+                    <NavLink to="/" end onClick={onClose} className={linkClass}>
+                        <Home className="h-4 w-4 flex-shrink-0" />
                         <span>Início</span>
                     </NavLink>
 
@@ -131,9 +126,9 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
                                     to={item.url}
                                     end={item.end}
                                     onClick={onClose}
-                                    className={linkClass("red")}
+                                    className={linkClass}
                                 >
-                                    <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                                    <item.icon className="h-4 w-4 flex-shrink-0" />
                                     <span>{item.title}</span>
                                 </NavLink>
                             ))}
@@ -143,8 +138,8 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
                     {/* Módulo de ebooks — separado do YouTube */}
                     <div>
                         <SectionLabel label="Gerador de Ebook" dot="bg-amber-400" />
-                        <NavLink to="/pdf" onClick={onClose} className={linkClass("amber")}>
-                            <FileText className="h-3.5 w-3.5 flex-shrink-0" />
+                        <NavLink to="/pdf" onClick={onClose} className={linkClass}>
+                            <FileText className="h-4 w-4 flex-shrink-0" />
                             <span>Ebooks em PDF</span>
                         </NavLink>
                     </div>
@@ -162,9 +157,9 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
                                     to={item.url}
                                     end={item.end}
                                     onClick={onClose}
-                                    className={linkClass("emerald")}
+                                    className={linkClass}
                                 >
-                                    <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                                    <item.icon className="h-4 w-4 flex-shrink-0" />
                                     <span>{item.title}</span>
                                 </NavLink>
                             ))}
@@ -185,7 +180,7 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
                                             href={`https://youtube.com/channel/${channel.channelId}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white hover:bg-white/6 transition-colors group cursor-pointer"
+                                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.04] transition-colors group cursor-pointer"
                                         >
                                             {channel.channelThumbnail ? (
                                                 <img
@@ -199,7 +194,7 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
                                                 <div className="w-5 h-5 rounded-full bg-white/10 flex-shrink-0" />
                                             )}
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-xs text-white truncate leading-none">
+                                                <p className="text-xs truncate leading-none">
                                                     {channel.channelTitle}
                                                 </p>
                                                 {channel.niche && channel.contentType !== 'shorts' && (
@@ -216,13 +211,13 @@ export function StudioSidebar({ isOpen = true, onClose }: StudioSidebarProps) {
             </ScrollArea>
 
             {/* Footer — sair */}
-            <div className="p-3 border-t border-white/5">
+            <div className="mx-3 mb-3 pt-3 border-t border-white/[0.08]">
                 <button
                     onClick={() => { onClose?.(); signOut(); }}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-white/70 hover:text-white hover:bg-white/6 transition-all duration-200"
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-white/60 hover:text-white hover:bg-white/[0.04] transition-colors duration-150"
                 >
-                    <LogOut className="h-3.5 w-3.5 flex-shrink-0" />
-                    <span className="text-xs font-medium">Sair</span>
+                    <LogOut className="h-4 w-4 flex-shrink-0" />
+                    <span className="text-[13px]">Sair</span>
                 </button>
             </div>
         </div>
