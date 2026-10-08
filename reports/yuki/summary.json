@@ -1,0 +1,353 @@
+{
+  "extractedAt": "2026-10-07T16:16:34.180Z",
+  "first": "2026-09-17T11:02:01.467291+00:00",
+  "last": "2026-10-07T16:13:12.567719+00:00",
+  "explicitTestSessionsExcluded": 2,
+  "events": 1607,
+  "entryCounts": {
+    "sessions": 111,
+    "visitors": 97,
+    "started": 68,
+    "completed": 37
+  },
+  "open": {
+    "quiz_started": {
+      "events": 69,
+      "sessions": 69,
+      "visitors": 64
+    },
+    "quiz_question_answered": {
+      "events": 319,
+      "sessions": 55,
+      "visitors": 53
+    },
+    "lead_captured": {
+      "events": 32,
+      "sessions": 32,
+      "visitors": 31
+    },
+    "quiz_completed": {
+      "events": 38,
+      "sessions": 38,
+      "visitors": 37
+    },
+    "result_viewed": {
+      "events": 38,
+      "sessions": 38,
+      "visitors": 37
+    },
+    "offer_viewed": {
+      "events": 38,
+      "sessions": 38,
+      "visitors": 37
+    },
+    "checkout_started": {
+      "events": 14,
+      "sessions": 13,
+      "visitors": 13
+    }
+  },
+  "questions": [
+    {
+      "number": 1,
+      "key": "area",
+      "label": "Quais incômodos estão atrapalhando você hoje?",
+      "events": 56,
+      "sessions": 55,
+      "visitors": 53
+    },
+    {
+      "number": 2,
+      "key": "situacao",
+      "label": "Qual destas situações mais se parece com o seu dia?",
+      "events": 53,
+      "sessions": 53,
+      "visitors": 51
+    },
+    {
+      "number": 3,
+      "key": "frequencia",
+      "label": "Com que frequência esse incômodo aparece?",
+      "events": 53,
+      "sessions": 53,
+      "visitors": 51
+    },
+    {
+      "number": 4,
+      "key": "tempo",
+      "label": "Há quanto tempo isso vem chamando sua atenção?",
+      "events": 52,
+      "sessions": 52,
+      "visitors": 50
+    },
+    {
+      "number": 5,
+      "key": "tentativa",
+      "label": "O que você costuma fazer quando isso acontece?",
+      "events": 52,
+      "sessions": 52,
+      "visitors": 50
+    },
+    {
+      "number": 6,
+      "key": "frustracao",
+      "label": "O que mais incomoda nessa situação?",
+      "events": 53,
+      "sessions": 52,
+      "visitors": 50
+    }
+  ],
+  "funnel": [
+    {
+      "label": "Iniciou o quiz",
+      "count": 69
+    },
+    {
+      "label": "Pergunta 1",
+      "count": 54
+    },
+    {
+      "label": "Pergunta 2",
+      "count": 52
+    },
+    {
+      "label": "Pergunta 3",
+      "count": 52
+    },
+    {
+      "label": "Pergunta 4",
+      "count": 51
+    },
+    {
+      "label": "Pergunta 5",
+      "count": 51
+    },
+    {
+      "label": "Pergunta 6",
+      "count": 51
+    },
+    {
+      "label": "quiz_completed",
+      "count": 38
+    },
+    {
+      "label": "result_viewed",
+      "count": 38
+    },
+    {
+      "label": "offer_viewed",
+      "count": 37
+    },
+    {
+      "label": "checkout_started",
+      "count": 13
+    }
+  ],
+  "histogram": [
+    {
+      "questions": 0,
+      "sessions": 15
+    },
+    {
+      "questions": 1,
+      "sessions": 2
+    },
+    {
+      "questions": 2,
+      "sessions": 0
+    },
+    {
+      "questions": 3,
+      "sessions": 1
+    },
+    {
+      "questions": 4,
+      "sessions": 0
+    },
+    {
+      "questions": 5,
+      "sessions": 0
+    },
+    {
+      "questions": 6,
+      "sessions": 51
+    }
+  ],
+  "attempts": {
+    "total": 73,
+    "uniqueSessions": 73,
+    "completed": 39,
+    "completedSessions": 39,
+    "leads": 31,
+    "histogram": [
+      {
+        "questions": 0,
+        "attempts": 17
+      },
+      {
+        "questions": 1,
+        "attempts": 2
+      },
+      {
+        "questions": 2,
+        "attempts": 0
+      },
+      {
+        "questions": 3,
+        "attempts": 1
+      },
+      {
+        "questions": 4,
+        "attempts": 0
+      },
+      {
+        "questions": 5,
+        "attempts": 0
+      },
+      {
+        "questions": 6,
+        "attempts": 53
+      }
+    ]
+  },
+  "anomalies": {
+    "quizWithoutStart": 2,
+    "completedWithoutLead": 6,
+    "startWithoutEntry": 1
+  },
+  "daily": [
+    {
+      "day": "2026-09-17",
+      "entry": 29,
+      "started": 18,
+      "completed": 9,
+      "leads": 9
+    },
+    {
+      "day": "2026-09-18",
+      "entry": 23,
+      "started": 17,
+      "completed": 10,
+      "leads": 10
+    },
+    {
+      "day": "2026-09-19",
+      "entry": 12,
+      "started": 5,
+      "completed": 2,
+      "leads": 2
+    },
+    {
+      "day": "2026-09-20",
+      "entry": 10,
+      "started": 7,
+      "completed": 3,
+      "leads": 3
+    },
+    {
+      "day": "2026-09-21",
+      "entry": 7,
+      "started": 6,
+      "completed": 3,
+      "leads": 3
+    },
+    {
+      "day": "2026-09-22",
+      "entry": 9,
+      "started": 4,
+      "completed": 1,
+      "leads": 1
+    },
+    {
+      "day": "2026-09-23",
+      "entry": 4,
+      "started": 2,
+      "completed": 1,
+      "leads": 1
+    },
+    {
+      "day": "2026-09-24",
+      "entry": 0,
+      "started": 0,
+      "completed": 0,
+      "leads": 0
+    },
+    {
+      "day": "2026-09-25",
+      "entry": 4,
+      "started": 2,
+      "completed": 1,
+      "leads": 1
+    },
+    {
+      "day": "2026-09-26",
+      "entry": 0,
+      "started": 0,
+      "completed": 0,
+      "leads": 0
+    },
+    {
+      "day": "2026-09-28",
+      "entry": 1,
+      "started": 0,
+      "completed": 0,
+      "leads": 0
+    },
+    {
+      "day": "2026-09-29",
+      "entry": 2,
+      "started": 2,
+      "completed": 2,
+      "leads": 2
+    },
+    {
+      "day": "2026-09-30",
+      "entry": 1,
+      "started": 0,
+      "completed": 0,
+      "leads": 0
+    },
+    {
+      "day": "2026-10-01",
+      "entry": 1,
+      "started": 1,
+      "completed": 1,
+      "leads": 0
+    },
+    {
+      "day": "2026-10-02",
+      "entry": 2,
+      "started": 1,
+      "completed": 1,
+      "leads": 0
+    },
+    {
+      "day": "2026-10-03",
+      "entry": 1,
+      "started": 0,
+      "completed": 0,
+      "leads": 0
+    },
+    {
+      "day": "2026-10-04",
+      "entry": 2,
+      "started": 1,
+      "completed": 1,
+      "leads": 0
+    },
+    {
+      "day": "2026-10-05",
+      "entry": 2,
+      "started": 2,
+      "completed": 2,
+      "leads": 0
+    },
+    {
+      "day": "2026-10-07",
+      "entry": 1,
+      "started": 1,
+      "completed": 1,
+      "leads": 0
+    }
+  ]
+}

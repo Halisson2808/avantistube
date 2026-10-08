@@ -82,11 +82,14 @@ export function useVideoStorage() {
           channelExists: meta?.channelExists ?? true, error: meta?.error ?? null }),
       });
       if (!response.ok) throw new Error('Não foi possível salvar os vídeos no banco de dados.');
+      // O servidor devolve a lista acumulada (novos + antigos já guardados).
+      const saved: CachedVideo[] = (await response.json().catch(() => ({}))).videos || videos;
       cacheRef.current = { ...cacheRef.current, [channelId]: {
-        channelId, videos, lastFetched: new Date().toISOString(), ...meta,
+        channelId, videos: saved, lastFetched: new Date().toISOString(), ...meta,
       } };
       setRevision(n => n + 1);
       window.dispatchEvent(new Event(CACHE_CHANGED));
+      return saved;
     } finally {
       clearTimeout(timer);
     }

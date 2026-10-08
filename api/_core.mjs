@@ -1168,10 +1168,18 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const db = getSupabase();
     const { channelId, videos = [], channelDeleted = false, channelExists = true, error = null } = body;
     if (!channelId) return { status: 400, json: { error: "channelId é obrigatório" } };
+    // Acumula em vez de substituir: vídeos que saíram da janela de busca continuam
+    // guardados; os que voltaram têm views/título atualizados. Limite de 50 por canal.
+    const { data: prev } = await db.from("channel_video_cache").select("videos").eq("channel_id", channelId).maybeSingle();
+    const byId = new Map((prev?.videos || []).map((v) => [v.videoId, v]));
+    for (const v of videos) byId.set(v.videoId, { ...byId.get(v.videoId), ...v });
+    const merged = [...byId.values()]
+      .sort((a, b) => Date.parse(b.publishedAt || 0) - Date.parse(a.publishedAt || 0))
+      .slice(0, 50);
     const { error: upErr } = await db.from("channel_video_cache").upsert(
       {
         channel_id: channelId,
-        videos,
+        videos: merged,
         channel_deleted: channelDeleted,
         channel_exists: channelExists,
         error,
@@ -1180,7 +1188,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
       { onConflict: "channel_id" }
     );
     if (upErr) throw new Error(upErr.message);
-    return { status: 200, json: { ok: true } };
+    return { status: 200, json: { ok: true, videos: merged } };
   }
 
   if (path.startsWith("/videos/") && method === "DELETE") {

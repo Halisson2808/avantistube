@@ -1509,9 +1509,12 @@ const RecentVideos = () => {
                     </CardContent>
                   </Card>
                 ) : (
-                  /* Grid de Vídeos - 7 colunas no desktop, menor no mobile */
+                  /* Grid de Vídeos - só os 7 mais recentes; o resto fica guardado no banco */
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-2">
-                    {channelData.videos.map((video) => (
+                    {[...channelData.videos]
+                      .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+                      .slice(0, 7)
+                      .map((video) => (
                       <RecentVideoCard key={video.videoId} video={video} showExactTime={showExactTime} />
                     ))}
                   </div>

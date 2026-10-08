@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Avaliação da Avó Yuki · Entenda por onde começar</title>
+  <meta name="description" content="Responda algumas perguntas rápidas e descubra qual incômodo mais pesa na sua rotina e por onde começar a organizar seus cuidados caseiros.">
+  <meta name="theme-color" content="#fffaf1">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="Avó Yuki">
+  <meta property="og:title" content="Avaliação da Avó Yuki">
+  <meta property="og:description" content="Algumas perguntas rápidas para entender qual incômodo mais pesa na sua rotina.">
+  <meta property="og:url" content="https://yukinakamura.vercel.app/">
+  <meta property="og:image" content="https://yukinakamura.vercel.app/img/og-vovo-yuki-central-verde.jpg">
+  <link rel="preload" as="image" href="/img/avo-yuki-quiz-mobile.webp" type="image/webp" media="(max-width:680px)" fetchpriority="high">
+  <style>
+    :root {
+      --ink:#2b2018;
+      --muted:#756454;
+      --paper:#fffaf1;
+      --cream:#f3e5cf;
+      --cream-2:#ead7b9;
+      --white:#fff;
+      --red:#3f6b52;
+      --red-dark:#2f5140;
+      --urgent:#a82f22;
+      --urgent-dark:#7d2019;
+      --primary:#3f6b52;
+      --primary-dark:#2f5140;
+      --navy:#22354f;
+      --gold:#d9a52b;
+      --green:#3f6b52;
+      --line:#deceb5;
+      --shadow:0 20px 55px rgba(54,32,17,.14);
+      --radius:22px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;min-height:100vh;background:
+      radial-gradient(circle at 10% 0%,rgba(220,165,41,.12),transparent 28rem),
+      var(--paper);color:var(--ink);font-family:Arial,Helvetica,sans-serif;font-size:17px;line-height:1.5}
+    button,input{font:inherit}
+    button{cursor:pointer}
+    img{display:block;max-width:100%}
+    [hidden]{display:none!important}
+    .shell{width:min(760px,calc(100% - 28px));margin:0 auto;padding:20px 0 0}
+    .topbar{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:18px;text-align:center}
+    .brand{color:var(--primary);font:800 1.12rem Arial,Helvetica,sans-serif}
+    .card{background:rgba(255,255,255,.94);border:1px solid rgba(113,82,55,.14);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+    .intro{display:grid;grid-template-columns:.82fr 1.18fr;min-height:590px}
+    .intro-visual{position:relative;min-height:100%;background:var(--cream);border-radius:18px;overflow:hidden}
+    .intro-visual picture{display:block;width:100%;height:100%}
+    .intro-visual img{width:100%;height:100%;object-fit:cover}
+    .intro-visual:after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 55%,rgba(34,53,79,.74))}
+    .visual-note{position:absolute;z-index:1;left:20px;right:20px;bottom:20px;color:#fff;font-weight:800;text-align:center}
+    .intro-copy{padding:48px 44px;display:flex;flex-direction:column;justify-content:center}
+    .eyebrow{font-size:.75rem;line-height:1.2;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--primary);margin-bottom:12px}
+    h1,h2,h3{font-family:Arial,Helvetica,sans-serif;line-height:1.12;margin:0}
+    h1{font-size:clamp(2.45rem,5.6vw,3.55rem);letter-spacing:-.04em}
+    h2{font-size:clamp(1.8rem,4.5vw,2.55rem);letter-spacing:-.025em}
+    h3{font-size:1.32rem}
+    p{margin:0}
+    .lead{color:var(--muted);font-size:.96rem;margin:18px 0 22px}
+    .micro-list{display:grid;gap:10px;margin:0 0 26px;padding:0;list-style:none;color:var(--ink);font-size:.95rem}
+    .micro-list li{display:flex;gap:9px;align-items:flex-start}
+    .micro-list li:before{content:'✓';color:var(--green);font-weight:900}
+    .primary{border:0;border-radius:13px;background:var(--primary);color:#fff;font-weight:900;min-height:58px;padding:14px 24px;box-shadow:0 11px 25px rgba(63,107,82,.24);transition:.18s transform,.18s background}
+    .primary:hover{background:var(--primary-dark);transform:translateY(-1px)}
+    .primary:disabled{cursor:not-allowed;opacity:.45;transform:none;box-shadow:none}
+    .primary:focus-visible,.answer:focus-visible,.back:focus-visible,input:focus-visible{outline:3px solid rgba(220,165,41,.58);outline-offset:3px}
+    .quiz-card{padding:0;background:transparent}
+    .progress-wrap{padding:12px 28px 0}
+    .progress{height:9px;background:#eadfce;border-radius:99px;overflow:hidden}
+    .progress-bar{height:100%;width:0;background:linear-gradient(90deg,#80a78f,var(--primary));border-radius:inherit;transition:width .32s ease}
+    .question{padding:34px 38px 40px;min-height:570px;display:flex;flex-direction:column}
+    .question-head{margin-bottom:24px;text-align:center}
+    .question-head p{color:var(--muted);margin-top:12px}
+    .origin-hint{display:none;margin:0 0 18px;padding:12px 14px;background:#fff5dc;border:1px solid #ecd19a;border-radius:12px;color:#6d4c12;font-size:.88rem}
+    .origin-hint.show{display:block}
+    .answers{display:grid;gap:11px}
+    .answer{width:100%;border:1px solid var(--line);border-radius:14px;background:#fff;padding:16px 17px;color:var(--ink);font-family:Arial,Helvetica,sans-serif;text-align:left;font-weight:600;min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:14px;transition:.18s border,.18s background,.18s transform}
+    .answer:after{content:'›';font-size:1.45rem;color:var(--primary);line-height:1}
+    .answer:hover{border-color:#c29061;background:#fffaf4;transform:translateY(-1px)}
+    .answer.selected{border-color:var(--primary);background:#eef6f1;color:var(--primary-dark);box-shadow:0 0 0 2px rgba(63,107,82,.1)}
+    .answers.multiple .answer{justify-content:flex-start}
+    .answers.multiple .answer:before{content:'';width:21px;height:21px;flex:0 0 21px;border:2px solid #c5ae91;border-radius:5px;background:#fff;display:grid;place-items:center;color:#fff;font-size:.8rem;line-height:1}
+    .answers.multiple .answer:after{display:none}
+    .answers.multiple .answer.selected:before{content:'✓';border-color:var(--primary);background:var(--primary)}
+    .multi-next{margin-top:18px;width:100%}
+    .question-actions{margin-top:auto;padding-top:24px}
+    .back{border:0;background:transparent;color:var(--muted);font-size:.78rem;font-weight:700;padding:3px 0;opacity:.82}
+    .back:hover{opacity:1;text-decoration:underline}
+    .processing{padding:72px 40px;text-align:center;min-height:520px;display:grid;place-items:center}
+    .spinner{width:62px;height:62px;border:6px solid #dbe8df;border-top-color:var(--primary);border-radius:50%;animation:spin .9s linear infinite;margin:0 auto 22px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .result-card{background:transparent;border-radius:22px;overflow:hidden}
+    .result-head{padding:44px 42px;background:linear-gradient(145deg,var(--urgent),var(--urgent-dark));color:#fff;text-align:center}
+    .result-head .eyebrow{color:#ffe3b0}
+    .result-head p{color:#f3fff7;margin-top:16px}
+    .result-body{padding:36px 42px}
+    .result-points{display:grid;gap:12px;margin:22px 0 30px;padding:0;list-style:none}
+    .result-points li{padding:15px 16px;background:#eef6f1;border:1px solid #c6ddce;border-left:5px solid var(--red);border-radius:10px;font-weight:700;color:#234331}
+    .insight{padding:24px;background:#eef6f1;border:1px solid #c6ddce;border-radius:16px;margin-bottom:28px}
+    .insight h3{margin-bottom:10px}
+    #resultDirection{font-weight:700;color:#234331}
+    .bridge{padding:30px 42px;background:var(--green);color:#fff;text-align:center;border-radius:18px;margin:20px 22px 0}
+    .bridge .eyebrow{color:#ffe3b0}
+    .bridge p{color:#f3fff7;margin:14px auto 0;max-width:600px}
+    .offer{padding:38px 42px 42px;background:#fff}
+    .offer-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:28px;align-items:center}
+    .product-image{border-radius:17px;overflow:hidden;background:var(--cream);box-shadow:0 12px 28px rgba(61,39,21,.12)}
+    .offer-list{display:grid;gap:10px;margin:18px 0 22px;padding:0;list-style:none;font-size:.92rem}
+    .offer-list li{display:flex;gap:9px;align-items:flex-start}
+    .offer-list li:before{content:'✓';font-weight:900;color:var(--green)}
+    .price-label{font-size:.78rem;text-transform:uppercase;letter-spacing:.1em;font-weight:900;color:var(--muted)}
+    .price{font-family:Arial,Helvetica,sans-serif;font-size:3rem;line-height:1;color:var(--primary);font-weight:900;margin:5px 0 6px}
+    .payment{color:var(--muted);font-size:.88rem;margin-bottom:17px}
+    .checkout{display:flex;text-decoration:none;text-align:center;align-items:center;justify-content:center;width:100%}
+    .trust{font-size:.78rem;color:var(--muted);text-align:center;margin-top:11px}
+    .proof{padding:34px 42px;background:var(--paper);border-top:1px solid var(--line)}
+    .proof-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}
+    .proof figure{margin:0;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+    .product-image img{display:block;width:100%;height:auto;object-fit:contain}
+    .proof img{display:block;width:100%;height:auto;object-fit:contain;background:#fff}
+    .proof figcaption{padding:12px 14px;color:var(--muted);font-size:.8rem}
+    .guarantee{display:flex;align-items:center;gap:16px;padding:28px 42px;background:#fff;border-top:1px solid var(--line)}
+    .guarantee img{width:72px;height:72px;object-fit:contain;flex:0 0 auto}
+    .guarantee p{color:var(--muted);font-size:.88rem;margin-top:5px}
+    @media(max-width:680px){
+      .shell{width:min(100% - 20px,600px);padding-top:12px}
+      .topbar{margin-bottom:8px}
+      .intro{grid-template-columns:1fr;min-height:0}
+      .intro-visual{height:auto;aspect-ratio:3/2}
+      .intro-copy{padding:19px 21px 22px;text-align:center}
+      .intro-copy .eyebrow{margin-bottom:8px}
+      .intro-copy .lead{text-align:left}
+      .intro-copy .lead{margin:12px 0 14px;font-size:.91rem;line-height:1.4}
+      .micro-list{text-align:left;gap:6px;margin-bottom:16px;font-size:.88rem;line-height:1.35}
+      .intro-copy .primary{min-height:54px}
+      h1{font-size:2.08rem}
+      .question{padding:27px 21px 28px;min-height:calc(100vh - 130px)}
+      .progress-wrap{padding:18px 21px 0}
+      .answer{min-height:60px;padding:14px 15px}
+      .result-head,.result-body,.bridge,.offer,.proof,.guarantee{padding-left:22px;padding-right:22px}
+      .result-head{padding-top:36px;padding-bottom:36px}
+      .offer-grid{grid-template-columns:1fr}
+      .product-image{max-width:330px;margin:auto}
+      .proof-grid{grid-template-columns:1fr}
+      .guarantee{align-items:flex-start}
+    }
+    @media(max-width:390px){
+      body{font-size:16px}.brand{font-size:1.02rem}
+      h1{font-size:2.15rem}.question h2{font-size:1.72rem}
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">Avó Yuki</div>
+    </header>
+
+    <section id="intro" class="intro">
+      <div class="intro-visual">
+        <picture>
+          <source media="(max-width:680px)" srcset="/img/avo-yuki-quiz-mobile.webp" type="image/webp">
+          <img src="/img/avo-yuki-cha.jpg" alt="Avó Yuki tomando chá na cozinha" width="900" height="1200" fetchpriority="high" decoding="async">
+        </picture>
+        <div class="visual-note">Um passo de cada vez, filha.</div>
+      </div>
+      <div class="intro-copy">
+        <div class="eyebrow" id="introEyebrow">Avaliação da Avó Yuki</div>
+        <h1>Qual incômodo mais está pesando na sua rotina?</h1>
+        <p class="lead">Quando o corpo reclama sempre do mesmo jeito, salvar mais uma receita nem sempre resolve. Primeiro, vale entender o que mais incomoda você hoje.</p>
+        <ul class="micro-list">
+          <li>Responda algumas perguntas simples</li>
+          <li>Receba um resultado ligado às suas respostas</li>
+          <li>Veja por onde começar com mais clareza</li>
+        </ul>
+        <button id="startBtn" class="primary" type="button">COMEÇAR MINHA AVALIAÇÃO</button>
+      </div>
+    </section>
+
+    <section id="quiz" class="quiz-card" hidden aria-live="polite">
+      <div class="progress-wrap">
+        <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progressBar" class="progress-bar"></div></div>
+      </div>
+      <div class="question">
+        <div id="originHint" class="origin-hint"></div>
+        <div class="question-head">
+          <h2 id="questionTitle"></h2>
+          <p id="questionHelp"></p>
+        </div>
+        <div id="answers" class="answers"></div>
+        <div class="question-actions"><button id="backBtn" class="back" type="button">Voltar</button></div>
+      </div>
+    </section>
+
+    <section id="processing" class="processing" hidden>
+      <div><div class="spinner" aria-hidden="true"></div><h2>Avaliando suas respostas...</h2><p class="lead">Estamos ligando seu incômodo principal ao que você relatou sobre frequência, tentativas e rotina.</p></div>
+    </section>
+
+    <section id="result" class="result-card" hidden>
+      <div class="result-head">
+        <div class="eyebrow">Seu resultado</div>
+        <h2 id="resultTitle"></h2>
+        <p id="resultIntro"></p>
+      </div>
+      <div class="result-body">
+        <h3>O que suas respostas mostram</h3>
+        <ul id="resultPoints" class="result-points"></ul>
+        <div class="insight"><h3>O ponto que merece atenção</h3><p id="resultInsight"></p></div>
+        <p id="resultDirection"></p>
+      </div>
+      <div class="bridge">
+        <div class="eyebrow">Seu próximo passo</div>
+        <h2>Você não precisa continuar juntando receitas soltas</h2>
+        <p id="bridgeCopy"></p>
+      </div>
+      <div id="offer" class="offer">
+        <div class="offer-grid">
+          <div class="product-image"><img src="/img/caderno-oferta-verde.jpg" alt="O Caderno da Avó Yuki" width="1200" height="900" loading="lazy"></div>
+          <div>
+            <div class="eyebrow">O Caderno da Avó Yuki</div>
+            <h2 id="offerTitle">Tenha um caminho pronto para consultar quando o incômodo voltar</h2>
+            <ul class="offer-list">
+              <li>Mais de 70 receitas organizadas em 9 blocos por sintoma</li>
+              <li>Ingredientes medidos e preparo passo a passo</li>
+              <li>Frequência, limites e cuidados em cada receita</li>
+              <li>Ingredientes de feira e mercado</li>
+              <li>Livro digital para consultar no celular</li>
+            </ul>
+            <div class="price-label">Pagamento único</div>
+            <div class="price">R$ 37,90</div>
+            <div class="payment">Pix ou cartão · acesso enviado por e-mail</div>
+            <a id="checkoutBtn" class="primary checkout" href="/acesso">QUERO ACESSAR O CADERNO</a>
+            <p class="trust">Pagamento seguro · acesso vitalício · 7 dias de garantia</p>
+          </div>
+        </div>
+      </div>
+      <div class="proof">
+        <div class="eyebrow">Veja o que existe dentro</div>
+        <h2>Organizado para você achar, preparar e usar</h2>
+        <div class="proof-grid">
+          <figure><img src="/img/n07-indice.jpg" alt="Índice real com os nove blocos do caderno" width="1000" height="750" loading="lazy"><figcaption>O índice real separa mais de 70 preparos por incômodo.</figcaption></figure>
+          <figure><img src="/img/n06-dose.jpg" alt="Demonstração visual de quantidade e limite de uso" width="800" height="500" loading="lazy"><figcaption>Quantidade e limite fazem parte do preparo, não ficam escondidos.</figcaption></figure>
+        </div>
+      </div>
+      <div class="guarantee">
+        <img src="/img/selo-garantia.png" alt="Garantia de 7 dias" width="120" height="120" loading="lazy">
+        <div><h3>Você tem 7 dias para conferir</h3><p>Abra o material, veja como as receitas estão organizadas e decida se o caderno faz sentido para você. Se não fizer, pode solicitar o reembolso dentro do prazo.</p></div>
+      </div>
+    </section>
+  </main>
+
+  <script defer src="/_vercel/insights/script.js"></script>
+  <script>
+    if (!['localhost','127.0.0.1','::1'].includes(location.hostname)) {
+      const pixel=document.createElement('script');
+      pixel.defer=true;
+      pixel.src='https://avantisstudio.vercel.app/avantis-pixel.js';
+      pixel.dataset.site='avo-yuki';
+      pixel.dataset.siteName='Avó Yuki';
+      pixel.dataset.siteKind='organic';
+      pixel.dataset.scroll='25,50,75,90,100';
+      pixel.dataset.time='30,60,180';
+      document.head.appendChild(pixel);
+    }
+  </script>
+  <script>
+    (() => {
+      const checkout=`/acesso${location.search}`;
+      const captureEndpoint='https://avantisstudio.vercel.app/api/quiz/capture';
+      const quizVersion='v2-2026-09-17';
+      const params=new URLSearchParams(location.search);
+      const source={
+        tema:(params.get('tema')||'').toLowerCase(),
+        origem:params.get('origem')||'',
+        video:params.get('video')||'',
+        utm_source:params.get('utm_source')||'',
+        utm_medium:params.get('utm_medium')||'',
+        utm_campaign:params.get('utm_campaign')||'',
+        utm_content:params.get('utm_content')||'',
+        utm_term:params.get('utm_term')||'',
+        fbclid:params.get('fbclid')||'',
+        gclid:params.get('gclid')||'',
+        ttclid:params.get('ttclid')||'',
+        page_url:location.href,
+        referrer:document.referrer||''
+      };
+      const makeId=()=>crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const visitorId=(()=>{try{const key='avoYukiVisitorId';const found=localStorage.getItem(key);if(found)return found;const id=makeId();localStorage.setItem(key,id);return id}catch(e){return makeId()}})();
+      const sessionId=(()=>{try{const key='avoYukiSessionId';const found=sessionStorage.getItem(key);if(found)return found;const id=makeId();sessionStorage.setItem(key,id);return id}catch(e){return makeId()}})();
+      const state={step:0,answers:{},source,sync:{attemptId:null,leadId:null}};
+      const els={
+        intro:document.querySelector('#intro'),quiz:document.querySelector('#quiz'),processing:document.querySelector('#processing'),result:document.querySelector('#result'),
+        start:document.querySelector('#startBtn'),back:document.querySelector('#backBtn'),
+        title:document.querySelector('#questionTitle'),help:document.querySelector('#questionHelp'),answers:document.querySelector('#answers'),originHint:document.querySelector('#originHint'),
+        progressBar:document.querySelector('#progressBar'),progress:document.querySelector('#quiz .progress'),
+        resultTitle:document.querySelector('#resultTitle'),resultIntro:document.querySelector('#resultIntro'),resultPoints:document.querySelector('#resultPoints'),resultInsight:document.querySelector('#resultInsight'),resultDirection:document.querySelector('#resultDirection'),bridge:document.querySelector('#bridgeCopy'),offerTitle:document.querySelector('#offerTitle'),checkout:document.querySelector('#checkoutBtn')
+      };
+
+      const themeToArea={
+        osso:'articulacoes',ossos:'articulacoes',articulacao:'articulacoes',articulacoes:'articulacoes',dor:'articulacoes',
+        varizes:'circulacao',circulacao:'circulacao',pernas:'circulacao',
+        digestao:'digestao',barriga:'digestao',figado:'digestao',gordura:'digestao',
+        pulmao:'respiratorio',tosse:'respiratorio',imunidade:'respiratorio',
+        pele:'pele',fungo:'pele',
+        sono:'descanso',ansiedade:'descanso',cansaco:'descanso'
+      };
+      const areaLabels={
+        articulacoes:'Dores, ossos ou articulações',circulacao:'Varizes, circulação ou pernas pesadas',digestao:'Barriga, digestão ou fígado',respiratorio:'Pulmão, tosse ou imunidade',pele:'Pele',descanso:'Sono, ansiedade ou cansaço',outro:'Outro incômodo'
+      };
+
+      const situations={
+        articulacoes:[['rigidez','Acordo com o corpo travado e demoro a soltar'],['joelho','O joelho incomoda ao levantar, andar ou subir escada'],['maos','Mãos ou dedos ficam duros e desconfortáveis'],['coluna','Costas ou coluna incomodam durante o dia'],['difusa','A dor muda de lugar ou aparece em mais de uma região']],
+        circulacao:[['pesadas','As pernas ficam pesadas no fim do dia'],['marcas','Sapato, meia ou roupa deixam marcas'],['aparentes','Veias aparentes ou varizes chamam minha atenção'],['frias','Pés ficam frios, cansados ou desconfortáveis'],['parada','Piora quando passo muito tempo sentada ou em pé']],
+        digestao:[['estufa','A barriga estufa depois de comer'],['pesada','Sinto peso ou digestão lenta'],['amarga','Acordo com boca amarga ou desconforto após comida gordurosa'],['irregular','Meu intestino ou minha rotina digestiva é irregular'],['variada','Mais de uma dessas situações acontece comigo']],
+        respiratorio:[['tosse','A tosse ou o pigarro demora a passar'],['carregado','Sinto o peito carregado depois de gripe ou mudança de tempo'],['recorrente','Pego resfriados ou indisposições com frequência'],['garganta','Garganta e respiração incomodam em alguns períodos'],['variada','Mais de uma dessas situações acontece comigo']],
+        pele:[['seca','Minha pele fica seca, áspera ou desconfortável'],['coceira','Coceira ou irritação volta em alguns períodos'],['aparencia','A aparência envelhecida ou sem viço me incomoda'],['local','Tenho um incômodo localizado que precisa de atenção'],['variada','Mais de uma dessas situações acontece comigo']],
+        descanso:[['pegar','Demoro para pegar no sono'],['madrugada','Acordo de madrugada e não volto a dormir'],['cansada','Durmo, mas acordo cansada'],['acelerada','O corpo para, mas a cabeça continua acelerada'],['energia','O cansaço acompanha meu dia']],
+        outro:[['cabeca','Dor de cabeça ou sensação de peso'],['pressao','Pressão alta ou outra condição já diagnosticada'],['rins','Preocupação com rins ou sistema urinário'],['boca','Mau hálito, boca ou clareamento'],['outro_texto','É outro tipo de incômodo']]
+      };
+
+      const questions=[
+        {id:'area',multiple:true,title:'Quais incômodos estão atrapalhando você hoje?',help:'Selecione quantos quiser. A primeira escolha será usada como foco principal do seu resultado.',options:Object.entries(areaLabels)},
+        {id:'situacao',title:'Qual destas situações mais se parece com o seu dia?',help:'Não precisa encaixar perfeitamente. Escolha a mais próxima.',options:()=>situations[state.answers.area]||situations.outro},
+        {id:'frequencia',title:'Com que frequência esse incômodo aparece?',help:'Pense nas últimas semanas.',options:[['diaria','Quase todos os dias'],['semanal','Algumas vezes por semana'],['ocasional','De vez em quando'],['recente','Começou recentemente']]},
+        {id:'tempo',title:'Há quanto tempo isso vem chamando sua atenção?',help:'Essa resposta ajuda a entender o peso que isso já ganhou na sua rotina.',options:[['dias','Há poucos dias'],['semanas','Há algumas semanas'],['meses','Há alguns meses'],['ano','Há um ano ou mais']]},
+        {id:'tentativa',title:'O que você costuma fazer quando isso acontece?',help:'Escolha a alternativa que mais representa você.',options:[['salva','Salvo receitas ou dicas, mas depois não encontro'],['cha','Faço algum chá ou preparo que lembro'],['produto','Compro algum produto e testo por conta própria'],['pesquisa','Pesquiso na internet e fico em dúvida entre opções'],['nada','Acabo esperando passar porque não sei por onde começar']]},
+        {id:'frustracao',title:'O que mais incomoda nessa situação?',help:'Além do próprio incômodo, qual é a parte mais frustrante?',options:[['volta','Ele melhora e depois volta de novo'],['duvida','Nunca sei qual preparo escolher'],['medo','Tenho receio de exagerar ou misturar algo errado'],['gasto','Já gastei com coisas que não usei direito'],['rotina','Isso atrapalha meu descanso ou minhas tarefas']]}
+      ];
+
+      const profiles={
+        articulacoes:{title:'Seu foco principal está em mobilidade e articulações',intro:'Suas respostas mostram que dores ou rigidez já ocupam espaço na sua rotina.',direction:'Seu próximo passo é parar de depender da lembrança de uma dica isolada e ter opções organizadas para consultar com quantidade, frequência e cuidados claros.',bridge:'Para o seu perfil, o bloco de Dor e articulação funciona como ponto de partida. Ele reúne preparos que podem ser consultados sem precisar procurar tudo novamente quando o desconforto aparece.',offer:'Comece pelo bloco de Dor e articulação e tenha os outros oito blocos sempre à mão'},
+        circulacao:{title:'Seu foco principal está em circulação e pernas',intro:'O peso, as marcas ou o desconforto nas pernas parecem ser o que mais chama sua atenção hoje.',direction:'Organizar o que observar e quais cuidados caseiros consultar reduz a sensação de estar testando qualquer coisa toda vez que as pernas incomodam.',bridge:'Para o seu perfil, o bloco de Circulação e pernas é a entrada mais direta. O caderno também ajuda a consultar outros incômodos que podem aparecer na mesma rotina.',offer:'Comece pelo bloco de Circulação e pernas e consulte o caderno quando precisar'},
+        digestao:{title:'Seu foco principal está em digestão e inchaço',intro:'Barriga estufada, peso depois de comer ou desconforto digestivo parecem ser o centro da sua preocupação.',direction:'O mais útil agora é ter preparos separados por situação, com medidas e frequência, em vez de acumular receitas diferentes sem saber qual usar.',bridge:'Para o seu perfil, os blocos Digestão e inchaço e Fígado são os pontos de partida mais próximos do que você relatou.',offer:'Comece por Digestão e inchaço e encontre rapidamente o preparo mais próximo da sua rotina'},
+        respiratorio:{title:'Seu foco principal está em respiração e imunidade',intro:'Tosse, peito carregado ou indisposições recorrentes aparecem como o incômodo mais presente nas suas respostas.',direction:'Ter orientações organizadas ajuda a distinguir um cuidado cotidiano de uma situação que precisa de avaliação profissional, sem depender de dicas soltas.',bridge:'Para o seu perfil, os blocos Pulmão e tosse e Imunidade concentram os preparos mais próximos do que você marcou.',offer:'Comece por Pulmão, tosse e Imunidade e tenha medidas e cuidados organizados'},
+        pele:{title:'Seu foco principal está em pele e cuidados cotidianos',intro:'A aparência ou o desconforto da pele foi o ponto que mais se destacou nas suas respostas.',direction:'Antes de testar qualquer mistura, vale ter clareza sobre o preparo, o modo de usar e quando não insistir num cuidado caseiro.',bridge:'Para o seu perfil, o bloco Pele reúne os preparos compatíveis com a proposta do caderno. Incômodos persistentes ou localizados precisam ser avaliados adequadamente.',offer:'Veja o bloco Pele e consulte os cuidados antes de preparar qualquer receita'},
+        descanso:{title:'Seu foco principal está em descanso e energia',intro:'Sono interrompido, cabeça acelerada ou cansaço parecem estar pesando mais na sua rotina.',direction:'O caminho começa organizando o que acontece antes, durante e depois da noite, sem escolher uma receita diferente a cada tentativa.',bridge:'Para o seu perfil, os blocos Sono e Ansiedade e cansaço são os pontos de partida mais próximos das respostas.',offer:'Comece por Sono, ansiedade e cansaço e pare de escolher no escuro toda noite'},
+        outro:{title:'Seu incômodo pede uma análise mais cuidadosa',intro:'O tema que você marcou não se encaixa diretamente nos caminhos principais desta avaliação.',direction:'Não seria correto transformar sua resposta em diagnóstico nem prometer que um preparo caseiro resolve uma condição que precisa de avaliação própria.',bridge:'O Caderno da Avó Yuki reúne cuidados tradicionais para nove grupos de incômodos cotidianos. Você pode conhecer o conteúdo completo, mas use apenas os blocos que correspondem ao que está claramente descrito no material.',offer:'Conheça os nove blocos do caderno antes de decidir se ele combina com você'}
+      };
+
+      const optionLabel=(questionId,value)=>{
+        const q=questions.find(item=>item.id===questionId);
+        const options=typeof q?.options==='function'?q.options():q?.options;
+        return options?.find(([id])=>id===value)?.[1]||value;
+      };
+      const answersPayload=()=>questions.flatMap((question,index)=>{
+        const raw=question.multiple?state.answers.areas:state.answers[question.id];
+        if(raw===undefined||raw===null||(Array.isArray(raw)&&!raw.length))return[];
+        const values=Array.isArray(raw)?raw:[raw];
+        return [{
+          questionKey:question.id,
+          questionLabel:question.title,
+          answerKey:values.join(','),
+          answerLabel:values.map(value=>optionLabel(question.id,value)).join(', '),
+          answerValue:raw,
+          position:index
+        }];
+      });
+      let captureQueue=Promise.resolve();
+      const capture=(stage,result=null)=>{
+        captureQueue=captureQueue.then(async()=>{
+          const payload={
+            funnelKey:'avo-yuki',stage,attemptId:state.sync.attemptId,
+            visitorId,sessionId,quizVersion,origin:source,
+            answers:answersPayload(),
+            result
+          };
+          const response=await fetch(captureEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),keepalive:true});
+          if(!response.ok)throw new Error(`capture ${response.status}`);
+          const data=await response.json();
+          if(data.attemptId)state.sync.attemptId=data.attemptId;
+          if(data.leadId)state.sync.leadId=data.leadId;
+          save();
+        }).catch(()=>{});
+        return captureQueue;
+      };
+      const track=(name,meta={})=>{
+        const safeMeta={...source,...meta,quiz_version:quizVersion};
+        if(window.avantis&&typeof window.avantis.track==='function') window.avantis.track(name,{meta:safeMeta});
+      };
+      const save=()=>{
+        try{localStorage.setItem('avoYukiQuizV1',JSON.stringify(state));}catch(e){}
+      };
+      const showOnly=id=>{
+        [els.intro,els.quiz,els.processing,els.result].forEach(el=>el.hidden=el.id!==id);
+        scrollTo({top:0,behavior:'smooth'});
+      };
+      const suggested=themeToArea[source.tema];
+      if(suggested){
+        document.querySelector('#introEyebrow').textContent=`Avaliação sobre ${areaLabels[suggested].toLowerCase()}`;
+      }
+
+      function renderQuestion(){
+        const q=questions[state.step];
+        if(!q){showOnly('processing');setTimeout(buildResult,5000);return;}
+        showOnly('quiz');
+        const percent=Math.round(((state.step+1)/questions.length)*82);
+        els.progressBar.style.width=`${percent}%`;
+        els.progress.setAttribute('aria-valuenow',percent);
+        els.title.textContent=q.title;
+        els.help.textContent=q.help;
+        els.answers.innerHTML='';
+        els.answers.classList.toggle('multiple',!!q.multiple);
+        const options=typeof q.options==='function'?q.options():q.options;
+        options.forEach(([value,label])=>{
+          const btn=document.createElement('button');
+          btn.type='button';btn.className='answer';btn.textContent=label;
+          btn.dataset.value=value;
+          if(q.multiple&&(state.answers.areas||[]).includes(value)) btn.classList.add('selected');
+          btn.addEventListener('click',()=>answer(value));
+          els.answers.appendChild(btn);
+        });
+        if(q.multiple){
+          const next=document.createElement('button');
+          next.type='button';next.className='primary multi-next';next.textContent='CONTINUAR';
+          next.disabled=!(state.answers.areas||[]).length;
+          next.addEventListener('click',()=>{
+            const selected=state.answers.areas||[];
+            if(!selected.length)return;
+            state.answers.area=selected[0];
+            track('quiz_question_answered',{question_id:q.id,answer_ids:selected,step:state.step+1});
+            capture('quiz_question_answered');
+            state.step+=1;save();renderQuestion();
+          });
+          els.answers.appendChild(next);
+        }
+        els.back.hidden=state.step===0;
+        if(state.step===0&&suggested){
+          els.originHint.textContent=`Você chegou por um conteúdo sobre ${areaLabels[suggested].toLowerCase()}. Essa opção aparece na lista, mas escolha o que mais incomoda você hoje.`;
+          els.originHint.classList.add('show');
+          const target=els.answers.querySelector(`[data-value="${suggested}"]`);
+          if(target) target.style.borderColor='var(--gold)';
+        }else els.originHint.classList.remove('show');
+      }
+      function answer(value){
+        const q=questions[state.step];
+        if(q.multiple){
+          const selected=Array.isArray(state.answers.areas)?[...state.answers.areas]:[];
+          const index=selected.indexOf(value);
+          if(index>=0)selected.splice(index,1);else selected.push(value);
+          state.answers.areas=selected;
+          state.answers.area=selected[0]||'';
+          save();renderQuestion();return;
+        }
+        state.answers[q.id]=value;
+        track('quiz_question_answered',{question_id:q.id,answer_id:value,step:state.step+1});
+        capture('quiz_question_answered');
+        state.step+=1;save();renderQuestion();
+      }
+      function buildResult(){
+        const area=state.answers.area||'outro';
+        const profile=profiles[area]||profiles.outro;
+        els.resultTitle.textContent=`Seu foco hoje: ${profile.title.replace('Seu foco principal está em ','')}`;
+        els.resultIntro.textContent=profile.intro;
+        const selectedAreas=(state.answers.areas||[area]).map(id=>areaLabels[id]).filter(Boolean);
+        const points=[
+          `Você selecionou: ${selectedAreas.join(', ')}.`,
+          `A situação mais próxima da sua rotina foi: ${optionLabel('situacao',state.answers.situacao)}.`,
+          `A frequência informada foi: ${optionLabel('frequencia',state.answers.frequencia).toLowerCase()}.`,
+          `O que mais incomoda você: ${optionLabel('frustracao',state.answers.frustracao).toLowerCase()}.`
+        ];
+        els.resultPoints.innerHTML='';
+        points.forEach(text=>{const li=document.createElement('li');li.textContent=text;els.resultPoints.appendChild(li)});
+        const attempt=optionLabel('tentativa',state.answers.tentativa);
+        const frequency=optionLabel('frequencia',state.answers.frequencia).toLowerCase();
+        const frustration=optionLabel('frustracao',state.answers.frustracao).toLowerCase();
+        els.resultInsight.textContent=`Você indicou que isso aparece ${frequency} e que o que mais incomoda é que ${frustration}. Mesmo assim, hoje você costuma lidar com a situação assim: ${attempt.toLowerCase()}. Esse padrão mantém você presa entre esperar passar e testar coisas soltas, sem uma referência clara do que preparar, quanto usar e quando parar.`;
+        els.resultDirection.textContent=profile.direction;
+        els.bridge.textContent=profile.bridge;
+        els.offerTitle.textContent=profile.offer;
+        showOnly('result');
+        track('quiz_completed',{profile:area});
+        track('result_viewed',{profile:area});
+        const captureResult={key:area,label:profile.title};
+        capture('quiz_completed',captureResult);
+        capture('result_viewed',captureResult);
+        save();
+      }
+
+      els.start.addEventListener('click',()=>{state.step=0;track('quiz_started',{suggested_theme:suggested||''});capture('quiz_started');save();renderQuestion()});
+      els.back.addEventListener('click',()=>{if(state.step>0){state.step-=1;renderQuestion()}});
+      els.checkout.href=checkout;
+      els.checkout.addEventListener('click',()=>{track('checkout_started',{profile:state.answers.area||'outro',value:37.90,currency:'BRL'});const area=state.answers.area||'outro';capture('checkout_started',{key:area,label:(profiles[area]||profiles.outro).title})});
+      const offerObserver=new IntersectionObserver(entries=>{
+        if(entries.some(entry=>entry.isIntersecting)){const area=state.answers.area||'outro';track('offer_viewed',{profile:area});capture('offer_viewed',{key:area,label:(profiles[area]||profiles.outro).title});offerObserver.disconnect()}
+      },{threshold:.3});
+      offerObserver.observe(document.querySelector('#offer'));
+    })();
+  </script>
+</body>
+</html>

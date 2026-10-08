@@ -320,7 +320,18 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' | 'all' = 'monitorin
             duration: v.duration,
           }));
         }
-        await saveChannelVideos(channelId, cachedVideos, { channelDeleted: result.channelDeleted, channelExists: result.channelExists });
+        const saved = await saveChannelVideos(channelId, cachedVideos, { channelDeleted: result.channelDeleted, channelExists: result.channelExists });
+        // Mostra a lista acumulada do banco, não só o que veio nesta busca.
+        const fresh = new Map(videos.map(v => [v.videoId, v]));
+        videos = saved.map((v, index) => fresh.get(v.videoId) || {
+          ...v,
+          channelId,
+          channelName: channel.channelTitle,
+          channelThumbnail: channel.channelThumbnail,
+          timeAgo: calculateTimeAgo(v.publishedAt),
+          position: index + 1,
+          channelDeleted: result.channelDeleted,
+        });
 
         // Atualizar estado
         setChannelVideosData(prev => {
