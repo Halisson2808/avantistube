@@ -1374,9 +1374,9 @@ const RecentVideos = () => {
 
       {/* ── Barra flutuante de ferramentas (centralizada sobre o conteúdo) ───── */}
       <div className="fixed bottom-4 left-1/2 md:left-[calc(50%+9.75rem)] -translate-x-1/2 z-40 max-w-[calc(100vw-2rem)] md:max-w-[calc(100vw-21.5rem)]">
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hidden px-2.5 py-2 rounded-2xl border border-white/20 bg-[#1c1c1f]/95 backdrop-blur-xl ring-1 ring-red-500/20 shadow-[0_12px_40px_rgba(0,0,0,0.85),0_0_32px_rgba(239,68,68,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] [&>*]:shrink-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hidden px-2.5 py-2 rounded-2xl border border-red-500/60 bg-[#1c1c1f]/95 backdrop-blur-xl shadow-[0_12px_40px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.08)] [&>*]:shrink-0">
           {/* Atualizar: todos (esquerda) ou por nicho (seta à direita) */}
-          <div className="flex items-center rounded-lg overflow-hidden shadow-lg shadow-red-900/30">
+          <div className="flex items-center rounded-lg overflow-hidden">
             <Button
               variant="ghost"
               size="sm"
