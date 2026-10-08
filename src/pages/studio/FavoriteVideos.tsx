@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Search, Star, Video } from 'lucide-react';
 import { useVideoFavorites } from '@/hooks/use-video-favorites';
 import { VideoFavoriteButton } from '@/components/VideoFavoriteButton';
-import { formatDuration, formatNumber } from '@/lib/youtube-api';
+import { formatDuration, formatNumber, ytThumb } from '@/lib/youtube-api';
 
 const date = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 export default function FavoriteVideos() {
@@ -43,7 +43,7 @@ export default function FavoriteVideos() {
             <article key={video.videoId} className="overflow-hidden rounded-xl border border-white/10 bg-[#0b0b0b]">
               <div className="relative">
                 <a href={`https://www.youtube.com/watch?v=${video.videoId}`} target="_blank" rel="noopener noreferrer" className="block aspect-video bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-400">
-                  {video.thumbnailUrl ? <img src={video.thumbnailUrl} alt={video.title} loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : <Video className="mx-auto h-full w-10 text-white/30" />}
+                  {video.thumbnailUrl ? <img src={ytThumb(video.videoId, video.thumbnailUrl)} decoding="async" alt={video.title} loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : <Video className="mx-auto h-full w-10 text-white/30" />}
                 </a>
                 <VideoFavoriteButton video={video} className="absolute right-2 top-2" />
                 {video.duration && <span className="pointer-events-none absolute bottom-2 right-2 rounded bg-black/85 px-1 text-xs">{formatDuration(video.duration)}</span>}

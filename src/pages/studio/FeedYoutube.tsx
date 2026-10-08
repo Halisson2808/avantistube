@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { Clock3, Film, RefreshCw, Smartphone, TrendingUp, Users, Video } from "lucide-react";
 import { useRecentVideos } from "@/hooks/use-recent-videos";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { calculateTimeAgo, formatDuration } from "@/lib/youtube-api";
+import { calculateTimeAgo, formatDuration, ytThumb } from "@/lib/youtube-api";
 import { getFeedChannels, getFeedPeriods, formatPublicationTime, type FeedVideo } from "@/lib/youtube-feed";
 
 import "./FeedYoutube.css";
@@ -143,7 +143,7 @@ function FeedCard({ video, rank, shorts, showPublicationTime }: {
       <a href={`https://www.youtube.com/watch?v=${video.videoId}`} target="_blank" rel="noopener noreferrer"
         className="group block rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-400">
         <div className={`relative overflow-hidden rounded-lg bg-white/5 ${shorts ? "aspect-[9/16]" : "aspect-video"}`}>
-          <img src={video.thumbnailUrl} alt={video.title} loading="lazy" referrerPolicy="no-referrer"
+          <img src={ytThumb(video.videoId, video.thumbnailUrl, shorts ? "hq" : "mq")} decoding="async" alt={video.title} loading="lazy" referrerPolicy="no-referrer"
             className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105" />
           <span className="absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-md bg-black/85 px-1 text-[10px] font-bold">{rank}</span>
           {video.duration && <span className="absolute bottom-1.5 right-1.5 rounded bg-black/80 px-1 py-0.5 text-[10px]">{formatDuration(video.duration)}</span>}

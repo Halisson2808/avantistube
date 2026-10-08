@@ -143,3 +143,10 @@ export const calculateTimeAgo = (publishedAt: string): string => {
   if (diffWeeks < 4) return `${diffWeeks} semanas atrás`;
   return `${diffMonths} meses atrás`;
 };
+/**
+ * Thumb leve servida pelo CDN do YouTube. As salvas no banco são maxres (~150 KB);
+ * em cards pequenos isso multiplicava o peso da página. mq = 320x180, hq = 480x360.
+ */
+export function ytThumb(videoId: string | undefined, fallback?: string, size: 'mq' | 'hq' = 'mq'): string | undefined {
+  return videoId && /^[\w-]{11}$/.test(videoId) ? `https://i.ytimg.com/vi/${videoId}/${size}default.jpg` : fallback;
+}

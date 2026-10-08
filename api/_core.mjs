@@ -245,6 +245,99 @@ async function refreshChannelStatsBatch(channelIds) {
   return { updated: found.length };
 }
 
+/**
+ * Acumula vídeos no cache do canal em vez de substituir: os que saíram da janela
+ * de busca continuam guardados; os que voltaram têm views/título atualizados.
+ * Limite de 50 por canal para o carregamento da tela continuar leve.
+ */
+async function saveVideoCache(db, channelId, videos, { channelDeleted = false, channelExists = true, error = null } = {}) {
+  const { data: prev } = await db.from("channel_video_cache").select("videos").eq("channel_id", channelId).maybeSingle();
+  const byId = new Map((prev?.videos || []).map((v) => [v.videoId, v]));
+  for (const v of videos) byId.set(v.videoId, { ...byId.get(v.videoId), ...v });
+  const merged = [...byId.values()]
+    .sort((a, b) => Date.parse(b.publishedAt || 0) - Date.parse(a.publishedAt || 0))
+    .slice(0, 50);
+  const { error: upErr } = await db.from("channel_video_cache").upsert({
+    channel_id: channelId, videos: merged, channel_deleted: channelDeleted, channel_exists: channelExists,
+    error, fetched_at: new Date().toISOString(),
+  }, { onConflict: "channel_id" });
+  if (upErr) throw new Error(upErr.message);
+  return merged;
+}
+
+/** Busca os vídeos dos últimos 7 dias (+ os 7 mais recentes) de um canal e grava no cache. Roda no servidor. */
+async function refreshChannelVideos(db, channel) {
+  const channelId = channel.channel_id;
+  const since = new Date();
+  since.setHours(0, 0, 0, 0);
+  since.setDate(since.getDate() - 6);
+  const found = new Map();
+  let pageToken = "";
+  const seen = new Set();
+  do {
+    const page = await getFeedVideoPage(ytFetch, channelId, since.toISOString(), pageToken);
+    for (const v of page.videos) found.set(v.videoId, v);
+    pageToken = page.nextPageToken || "";
+    if (seen.has(pageToken)) break;
+    seen.add(pageToken);
+  } while (pageToken);
+
+  let videos = [...found.values()];
+  let channelDeleted = false, channelExists = true;
+  if (!videos.length) {
+    // Sem nenhum vídeo público: descobre se o canal sumiu ou só está sem vídeos.
+    // Playlist de uploads 404 = canal existe mas sem nenhum vídeo público.
+    const latest = await getLatestVideos(channelId, 7).catch((err) => {
+      if (/^YouTube API error 404:/.test(err.message || "")) return { videos: [], channelDown: true, channelExists: true };
+      throw err;
+    });
+    videos = latest.videos;
+    channelDeleted = latest.channelDown;
+    channelExists = latest.channelExists;
+  }
+  const avgViews = (channel.view_count || 0) / Math.max(channel.video_count || 0, 1);
+  const cached = videos.map((v, index) => {
+    const days = Math.max(1, Math.floor((Date.now() - Date.parse(v.publishedAt)) / 86400000));
+    return { ...v, position: index + 1, isViral: v.viewCount > 100000 || v.viewCount / days > avgViews * 3 };
+  });
+  // Canal caiu: mantém as últimas thumbs já guardadas (o merge não apaga nada).
+  return saveVideoCache(db, channelId, cached, { channelDeleted, channelExists });
+}
+
+/**
+ * Atualiza TODOS os canais no servidor: stats + histórico em lote e vídeos por canal.
+ * Usado pelo agendamento (scripts/refresh-all.mjs) — não depende do navegador aberto.
+ */
+export async function refreshAllChannels({ concurrency = 8, log = console.log } = {}) {
+  const db = getSupabase();
+  const { data: channels, error } = await db.from("channels").select("channel_id, channel_name, view_count, video_count");
+  if (error) throw new Error(error.message);
+  const ids = channels.map((c) => c.channel_id);
+  const started = Date.now();
+  let statsOk = 0, ok = 0, failed = 0, quota = false;
+
+  for (let i = 0; i < ids.length && !quota; i += 50) {
+    try { statsOk += (await refreshChannelStatsBatch(ids.slice(i, i + 50))).updated; }
+    catch (err) { if (err.code === "YOUTUBE_QUOTA_EXCEEDED") quota = true; else log(`stats falhou: ${err.message}`); }
+  }
+
+  let next = 0;
+  await Promise.all(Array.from({ length: concurrency }, async () => {
+    while (!quota && next < channels.length) {
+      const ch = channels[next++];
+      try { await refreshChannelVideos(db, ch); ok++; }
+      catch (err) {
+        if (err.code === "YOUTUBE_QUOTA_EXCEEDED") { quota = true; break; }
+        failed++;
+        log(`falhou ${ch.channel_name} (${ch.channel_id}): ${err.message}`);
+      }
+    }
+  }));
+  const summary = { channels: channels.length, statsOk, videosOk: ok, failed, quotaExceeded: quota, seconds: Math.round((Date.now() - started) / 1000) };
+  log(JSON.stringify(summary));
+  return summary;
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** channel_ids do YouTube são "UCxxxx" (nunca uuid) → distingue a coluna-alvo. */
 function idColumn(id) {
@@ -879,7 +972,12 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
   if (path === "/channels" && method === "POST") {
     const db = getSupabase();
     try {
-      return await addChannelFromInput(db, body);
+      const result = await addChannelFromInput(db, body);
+      // Canal novo já sai com vídeos: o servidor busca na hora, sem depender da tela.
+      if (result.status === 201) {
+        try { await refreshChannelVideos(db, result.json.channel); } catch (err) { console.error("[add] vídeos:", err.message); }
+      }
+      return result;
     } catch (err) {
       // Cota do YouTube esgotada: guarda na fila para adicionar depois, em vez de perder o link.
       if (err.code === "YOUTUBE_QUOTA_EXCEEDED" && !body.isOwnChannel) {
@@ -917,7 +1015,11 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
         const r = await addChannelFromInput(db, {
           channelInput: item.input, niche: item.niche, notes: item.notes, contentType: item.content_type,
         });
-        if (r.status === 201) { added++; addedIds.push(r.json.channel.channel_id); } else duplicated++;
+        if (r.status === 201) {
+          added++;
+          addedIds.push(r.json.channel.channel_id);
+          try { await refreshChannelVideos(db, r.json.channel); } catch (e) { if (e.code === "YOUTUBE_QUOTA_EXCEEDED") throw e; }
+        } else duplicated++;
         await db.from("channel_queue").delete().eq("id", item.id);
       } catch (err) {
         if (err.code === "YOUTUBE_QUOTA_EXCEEDED") { quotaExceeded = true; break; }
@@ -1168,26 +1270,7 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const db = getSupabase();
     const { channelId, videos = [], channelDeleted = false, channelExists = true, error = null } = body;
     if (!channelId) return { status: 400, json: { error: "channelId é obrigatório" } };
-    // Acumula em vez de substituir: vídeos que saíram da janela de busca continuam
-    // guardados; os que voltaram têm views/título atualizados. Limite de 50 por canal.
-    const { data: prev } = await db.from("channel_video_cache").select("videos").eq("channel_id", channelId).maybeSingle();
-    const byId = new Map((prev?.videos || []).map((v) => [v.videoId, v]));
-    for (const v of videos) byId.set(v.videoId, { ...byId.get(v.videoId), ...v });
-    const merged = [...byId.values()]
-      .sort((a, b) => Date.parse(b.publishedAt || 0) - Date.parse(a.publishedAt || 0))
-      .slice(0, 50);
-    const { error: upErr } = await db.from("channel_video_cache").upsert(
-      {
-        channel_id: channelId,
-        videos: merged,
-        channel_deleted: channelDeleted,
-        channel_exists: channelExists,
-        error,
-        fetched_at: new Date().toISOString(),
-      },
-      { onConflict: "channel_id" }
-    );
-    if (upErr) throw new Error(upErr.message);
+    const merged = await saveVideoCache(db, channelId, videos, { channelDeleted, channelExists, error });
     return { status: 200, json: { ok: true, videos: merged } };
   }
 

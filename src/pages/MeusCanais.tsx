@@ -1,3 +1,4 @@
+import { ytThumb } from "@/lib/youtube-api";
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -63,7 +64,7 @@ const CompactChannelCard = ({
             <div className="grid grid-cols-3 gap-1 opacity-50 grayscale">
               {top3.map(v => (
                 <div key={v.videoId} className="relative block aspect-video rounded overflow-hidden bg-white/[0.05]">
-                  {v.thumbnailUrl && <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />}
+                  {v.thumbnailUrl && <img src={ytThumb(v.videoId, v.thumbnailUrl)} decoding="async" alt={v.title} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />}
                 </div>
               ))}
             </div>
@@ -104,7 +105,7 @@ const CompactChannelCard = ({
         <div className="grid grid-cols-3 gap-1">
           {top3.map(v => (
             <a key={v.videoId} href={`https://youtube.com/watch?v=${v.videoId}`} target="_blank" rel="noopener noreferrer" className="relative block aspect-video rounded overflow-hidden bg-white/[0.05]">
-              {v.thumbnailUrl && <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />}
+              {v.thumbnailUrl && <img src={ytThumb(v.videoId, v.thumbnailUrl)} decoding="async" alt={v.title} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />}
               <span className="absolute bottom-0.5 right-0.5 bg-black/80 text-[8px] px-1 py-0.5 rounded font-medium leading-none">{formatNumber(v.viewCount)}</span>
             </a>
           ))}

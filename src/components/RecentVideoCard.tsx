@@ -1,3 +1,4 @@
+import { ytThumb } from "@/lib/youtube-api";
 import { VideoFavoriteButton } from "@/components/VideoFavoriteButton";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -80,7 +81,8 @@ export const RecentVideoCard = ({ video, onVideoClick, showExactTime = false }: 
       >
         {video.thumbnailUrl ? (
           <img
-            src={video.thumbnailUrl}
+            src={ytThumb(video.videoId, video.thumbnailUrl)}
+            decoding="async"
             alt={video.title}
             className={`w-full aspect-video object-cover rounded-lg transition-opacity ${isDeleted ? 'grayscale' : 'group-hover:opacity-80'
               }`}

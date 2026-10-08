@@ -1,3 +1,4 @@
+import { ytThumb } from "@/lib/youtube-api";
 import { VideoFavoriteButton } from "@/components/VideoFavoriteButton";
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -113,7 +114,7 @@ const CompactChannelCard = ({ channelData, isUpdating, isDeleted, channelExists,
             <div className="grid grid-cols-3 gap-1 opacity-50 grayscale">
               {top3Down.map(v => (
                 <div key={v.videoId} className="relative block aspect-video rounded overflow-hidden bg-white/[0.05]">
-                  {v.thumbnailUrl && <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />}
+                  {v.thumbnailUrl && <img src={ytThumb(v.videoId, v.thumbnailUrl)} decoding="async" alt={v.title} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />}
                   <VideoFavoriteButton video={{ ...v, channelId: channel.channelId, channelName: channel.channelTitle, channelThumbnail: channel.channelThumbnail }} className="absolute right-1 top-1 h-6 w-6" />
                 </div>
               ))}
@@ -199,7 +200,7 @@ const CompactChannelCard = ({ channelData, isUpdating, isDeleted, channelExists,
           {top3.map(v => (
             <div key={v.videoId} className="relative aspect-video rounded overflow-hidden bg-white/[0.05]">
             <a href={`https://youtube.com/watch?v=${v.videoId}`} target="_blank" rel="noopener noreferrer" className="block h-full">
-              {v.thumbnailUrl && <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />}
+              {v.thumbnailUrl && <img src={ytThumb(v.videoId, v.thumbnailUrl)} decoding="async" alt={v.title} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />}
               <span className="absolute bottom-0.5 right-0.5 bg-black/80 text-[8px] px-1 py-0.5 rounded font-medium leading-none">{formatNumber(v.viewCount)}</span>
             </a>
             <VideoFavoriteButton video={{ ...v, channelId: channel.channelId, channelName: channel.channelTitle, channelThumbnail: channel.channelThumbnail }} className="absolute right-1 top-1 h-6 w-6" />
@@ -335,7 +336,7 @@ const RecentVideos = () => {
     updateChannelStats,
     moveChannelToOwn,
     loadChannels,
-    updateChannelHistory,
+    reloadVideos,
   } = useRecentVideos();
 
   const { niches, renameNiche, loadNiches } = useNiches();
@@ -382,20 +383,11 @@ const RecentVideos = () => {
     }
   };
 
-  // Canais recém-adicionados já puxam vídeos e histórico, sem precisar clicar em Atualizar.
+  // O servidor já busca os vídeos do canal novo ao adicioná-lo; a tela só relê o banco.
   const fetchNewChannels = async (ids: string[]) => {
     if (!ids.length) return;
     await loadChannels();
-    toast.info(`Buscando vídeos de ${ids.length} canal(is) novo(s)...`);
-    let next = 0;
-    const worker = async () => {
-      while (next < ids.length) {
-        const id = ids[next++];
-        try { await updateChannelVideos(id, true); await updateChannelHistory(id); } catch {}
-      }
-    };
-    await Promise.all(Array.from({ length: Math.min(8, ids.length) }, worker));
-    await loadChannels();
+    await reloadVideos();
   };
 
   const handleRemoveFromQueue = async (id: string) => {

@@ -112,6 +112,7 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' | 'all' = 'monitorin
     isCacheValid,
     getAllCachedChannels,
     removeChannelFromCache,
+    reloadVideos,
   } = useVideoStorage();
 
   const [selectedChannelIds, setSelectedChannelIds] = useState<Set<string>>(new Set());
@@ -760,5 +761,6 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' | 'all' = 'monitorin
     moveChannelToOwn,
     loadChannels,
     updateChannelHistory,
+    reloadVideos,
   };
 };
