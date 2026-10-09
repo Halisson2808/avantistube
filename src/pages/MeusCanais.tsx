@@ -143,6 +143,7 @@ const MeusCanais = () => {
     updateChannelStats,
     removeChannel,
     updateAllChannels,
+    syncAddedChannels,
   } = useRecentVideos('own');
 
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -176,7 +177,7 @@ const MeusCanais = () => {
     setIsBulkMode(false);
   };
 
-  const addOneChannel = async (url: string): Promise<{ status: 'added' | 'duplicate'; channelId?: string }> => {
+  const addOneChannel = async (url: string): Promise<{ status: 'added' | 'duplicate'; channelId?: string; videosReady?: boolean }> => {
     const res = await fetch(`${LOCAL_API}/channels`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -187,7 +188,7 @@ const MeusCanais = () => {
       return { status: 'duplicate' };
     }
     if (!res.ok) throw new Error(data.error || `Erro ao adicionar "${url}"`);
-    return { status: 'added', channelId: data.channel?.channel_id };
+    return { status: 'added', channelId: data.channel?.channel_id, videosReady: !!data.videosReady };
   };
 
   const addManyChannels = async (urls: string[]) => {
@@ -199,10 +200,14 @@ const MeusCanais = () => {
     setIsAdding(true);
     const settled = await Promise.allSettled(lines.map(url => addOneChannel(url)));
     let added = 0, duplicated = 0, failed = 0;
+    const newOnes: { channelId: string; videosReady?: boolean }[] = [];
     settled.forEach(r => {
       if (r.status === 'fulfilled') {
         if (r.value.status === 'duplicate') duplicated++;
-        else { added++; }
+        else {
+          added++;
+          if (r.value.channelId) newOnes.push({ channelId: r.value.channelId, videosReady: r.value.videosReady });
+        }
       } else failed++;
     });
     const parts = [`${added} canal(is) adicionado(s)`];
@@ -212,6 +217,7 @@ const MeusCanais = () => {
     setIsAddOpen(false);
     resetAddForm();
     setIsAdding(false);
+    void syncAddedChannels(newOnes);
   };
 
   const handleAdd = async () => {
@@ -238,10 +244,11 @@ const MeusCanais = () => {
       if (result.status === 'duplicate') {
         toast.info('Este canal já está salvo');
       } else {
-        toast.success('Canal salvo! Use Atualizar quando quiser capturar os vídeos.');
+        toast.success('Canal salvo!');
       }
       setIsAddOpen(false);
       resetAddForm();
+      if (result.status === 'added' && result.channelId) void syncAddedChannels([{ channelId: result.channelId, videosReady: result.videosReady }]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao adicionar canal');
     } finally {

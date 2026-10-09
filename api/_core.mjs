@@ -974,8 +974,11 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     try {
       const result = await addChannelFromInput(db, body);
       // Canal novo já sai com vídeos: o servidor busca na hora, sem depender da tela.
-      if (result.status === 201) {
-        try { await refreshChannelVideos(db, result.json.channel); } catch (err) { console.error("[add] vídeos:", err.message); }
+      if (result.status === 201 || result.json?.moved) {
+        try {
+          await refreshChannelVideos(db, result.json.channel);
+          result.json.videosReady = true;
+        } catch (err) { console.error("[add] vídeos:", err.message); }
       }
       return result;
     } catch (err) {

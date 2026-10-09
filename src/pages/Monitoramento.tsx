@@ -338,6 +338,7 @@ const RecentVideos = () => {
     moveChannelToOwn,
     loadChannels,
     reloadVideos,
+    syncAddedChannels,
   } = useRecentVideos();
 
   const { niches, renameNiche, loadNiches } = useNiches();
@@ -375,7 +376,7 @@ const RecentVideos = () => {
       }
       await loadChannels();
       loadNiches();
-      await fetchNewChannels(data.addedIds || []);
+      await fetchNewChannels((data.addedIds || []).map((channelId: string) => ({ channelId, videosReady: true })));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao processar fila');
     } finally {
@@ -385,11 +386,7 @@ const RecentVideos = () => {
   };
 
   // O servidor já busca os vídeos do canal novo ao adicioná-lo; a tela só relê o banco.
-  const fetchNewChannels = async (ids: string[]) => {
-    if (!ids.length) return;
-    await loadChannels();
-    await reloadVideos();
-  };
+  const fetchNewChannels = (added: { channelId: string; videosReady?: boolean }[]) => syncAddedChannels(added);
 
   const handleRemoveFromQueue = async (id: string) => {
     await fetch(`${LOCAL_API}/channel-queue/${encodeURIComponent(id)}`, { method: 'DELETE' });
@@ -551,7 +548,7 @@ const RecentVideos = () => {
     niche: string,
     ct: "longform" | "shorts",
     notes: string,
-  ): Promise<{ status: "added" | "duplicate" | "queued"; channelId?: string }> => {
+  ): Promise<{ status: "added" | "duplicate" | "queued"; channelId?: string; videosReady?: boolean }> => {
     const res = await fetch(`${LOCAL_API}/channels`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -564,7 +561,7 @@ const RecentVideos = () => {
     }
     if (res.status === 202 && data.queued) return { status: 'queued' };
     if (!res.ok) throw new Error(data.error || `Erro ao adicionar "${url}"`);
-    return { status: 'added', channelId: data.channel?.channel_id };
+    return { status: 'added', channelId: data.channel?.channel_id, videosReady: !!data.videosReady };
   };
 
   const handleAddChannel = async () => {
@@ -603,7 +600,7 @@ const RecentVideos = () => {
       setIsAddDialogOpen(false);
       resetAddForm();
       loadNiches();
-      if (result.status === 'added' && result.channelId) void fetchNewChannels([result.channelId]);
+      if (result.status === 'added' && result.channelId) void fetchNewChannels([{ channelId: result.channelId, videosReady: result.videosReady }]);
       loadQueue();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao adicionar canal';
@@ -634,14 +631,14 @@ const RecentVideos = () => {
     );
 
     let added = 0, duplicated = 0, failed = 0, queued = 0;
-    const newIds: string[] = [];
+    const newIds: { channelId: string; videosReady?: boolean }[] = [];
     settled.forEach((r) => {
       if (r.status === 'fulfilled') {
         if (r.value.status === 'duplicate') duplicated++;
         else if (r.value.status === 'queued') queued++;
         else {
           added++;
-          if (r.value.channelId) newIds.push(r.value.channelId);
+          if (r.value.channelId) newIds.push({ channelId: r.value.channelId, videosReady: r.value.videosReady });
         }
       } else {
         failed++;

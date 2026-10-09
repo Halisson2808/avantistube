@@ -636,6 +636,25 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' | 'all' = 'monitorin
     return filteredVideos.reduce((sum, v) => sum + (v.viewCount || 0), 0);
   }, [filterVideosByDatePeriod]);
 
+  /**
+   * Depois de adicionar canais: recarrega a lista e os vídeos do banco. Se o servidor
+   * não conseguiu buscar os vídeos (videosReady=false), busca daqui mesmo.
+   */
+  const syncAddedChannels = useCallback(async (added: { channelId: string; videosReady?: boolean }[]) => {
+    if (!added.length) return;
+    await loadChannels();
+    const pending = added.filter(a => !a.videosReady).map(a => a.channelId);
+    let next = 0;
+    await Promise.all(Array.from({ length: Math.min(8, pending.length) }, async () => {
+      while (next < pending.length) {
+        const id = pending[next++];
+        try { await updateChannelVideos(id, true); await updateChannelHistory(id); } catch { /* erro já marcado no card */ }
+      }
+    }));
+    await reloadVideos();
+    await loadChannels();
+  }, [loadChannels, updateChannelVideos, updateChannelHistory, reloadVideos]);
+
   // Atualizar um único canal (vídeos + histórico)
   const updateSingleChannel = useCallback(async (channelId: string) => {
     try {
@@ -762,5 +781,6 @@ export const useRecentVideos = (scope: 'monitoring' | 'own' | 'all' = 'monitorin
     loadChannels,
     updateChannelHistory,
     reloadVideos,
+    syncAddedChannels,
   };
 };
