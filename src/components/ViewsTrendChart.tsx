@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { format, parseISO, differenceInCalendarDays } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { formatNumber } from "@/lib/youtube-api";
@@ -27,8 +27,8 @@ function loadHistory(force = false): Promise<HistoryMap> {
   return inflight;
 }
 
-/** Recarrega o histórico (ex.: depois de atualizar canais). */
-export const refreshViewsHistory = () => loadHistory(true);
+/** Recarrega o histórico se algum gráfico já o carregou (ex.: depois de atualizar canais). */
+export const refreshViewsHistory = () => (cache ? loadHistory(true) : Promise.resolve(null));
 
 export function useChannelHistory(channelId: string, enabled: boolean) {
   const [map, setMap] = useState<HistoryMap | null>(cache);
@@ -130,15 +130,22 @@ export const ViewsTrendChart = ({ channelId, className = "", compact = false }: 
       </div>
       <div className="flex-1 min-h-0 mt-1.5">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={gains} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+          <LineChart data={gains} margin={{ top: 6, right: 6, bottom: 0, left: 6 }}>
             <XAxis dataKey="label" hide={compact} tick={{ fontSize: 9, fill: "rgba(255,255,255,0.3)" }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-            <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-            <Bar dataKey="views" radius={[2, 2, 0, 0]} isAnimationActive={false}>
-              {gains.map(g => (
-                <Cell key={g.date} fill={g.spike ? "rgb(239,68,68)" : "rgba(255,255,255,0.35)"} />
-              ))}
-            </Bar>
-          </BarChart>
+            <YAxis hide domain={[0, "dataMax"]} />
+            <Tooltip content={<ChartTooltip />} cursor={{ stroke: "rgba(255,255,255,0.15)" }} />
+            <Line
+              type="linear"
+              dataKey="views"
+              stroke="rgba(255,255,255,0.75)"
+              strokeWidth={1.75}
+              isAnimationActive={false}
+              dot={(p: any) => p.payload.spike
+                ? <circle key={p.index} cx={p.cx} cy={p.cy} r={3} fill="rgb(239,68,68)" stroke="none" />
+                : <g key={p.index} />}
+              activeDot={{ r: 3.5, fill: "#fff", stroke: "none" }}
+            />
+          </LineChart>
         </ResponsiveContainer>
       </div>
     </div>

@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { useNiches } from "@/hooks/use-niches";
 import { formatNumber } from "@/lib/youtube-api";
 const LOCAL_API = '/api';
-import { ViewsTrendChart } from "@/components/ViewsTrendChart";
+import { ViewsTrendChart, refreshViewsHistory } from "@/components/ViewsTrendChart";
 
 /* Sub-componente: chip de filtro inline */
 type FilterChipProps = {
@@ -345,6 +345,9 @@ const RecentVideos = () => {
     reloadVideos,
     syncAddedChannels,
   } = useRecentVideos();
+
+  // Toda atualização de canal recarrega a lista; aproveita para renovar o histórico dos gráficos.
+  useEffect(() => { refreshViewsHistory(); }, [channels]);
 
   const { niches, renameNiche, loadNiches } = useNiches();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
