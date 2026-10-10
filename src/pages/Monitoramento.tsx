@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { useNiches } from "@/hooks/use-niches";
 import { formatNumber } from "@/lib/youtube-api";
 const LOCAL_API = '/api';
-import { ChannelGrowthChart } from "@/components/ChannelGrowthChart";
+import { ViewsTrendChart } from "@/components/ViewsTrendChart";
 
 /* Sub-componente: chip de filtro inline */
 type FilterChipProps = {
@@ -72,9 +72,10 @@ type CompactCardProps = {
   onEdit: () => void;
   onDelete: () => void;
   onChart: () => void;
+  showChart: boolean;
 };
 
-const CompactChannelCard = ({ channelData, isUpdating, isDeleted, channelExists, selectionMode, isSelected, onToggleSelect, onUpdate, onEdit, onDelete, onChart }: CompactCardProps) => {
+const CompactChannelCard = ({ channelData, isUpdating, isDeleted, channelExists, selectionMode, isSelected, onToggleSelect, onUpdate, onEdit, onDelete, onChart, showChart }: CompactCardProps) => {
   const { channel, videos, lastFetched } = channelData;
 
   if (isDeleted) {
@@ -188,14 +189,17 @@ const CompactChannelCard = ({ channelData, isUpdating, isDeleted, channelExists,
               <div className="flex gap-0.5">
                 <Button variant="ghost" size="sm" onClick={onUpdate} disabled={isUpdating} className="h-5 w-5 p-0 hover:bg-white/[0.08]"><RefreshCw className="w-2.5 h-2.5" /></Button>
                 <Button variant="ghost" size="sm" onClick={onEdit} className="h-5 w-5 p-0 hover:bg-white/[0.08]"><Pencil className="w-2.5 h-2.5" /></Button>
-                <Button variant="ghost" size="sm" onClick={onChart} className="h-5 w-5 p-0 hover:bg-white/[0.08]"><BarChart3 className="w-2.5 h-2.5" /></Button>
+                <Button variant="ghost" size="sm" onClick={onChart} title={showChart ? "Mostrar thumbnails" : "Mostrar gráfico de views"} className={`h-5 w-5 p-0 hover:bg-white/[0.08] ${showChart ? 'text-red-400' : ''}`}><BarChart3 className="w-2.5 h-2.5" /></Button>
                 <Button variant="ghost" size="sm" onClick={onDelete} className="h-5 w-5 p-0 text-destructive/60 hover:text-destructive hover:bg-destructive/10"><Trash2 className="w-2.5 h-2.5" /></Button>
               </div>
             )}
           </div>
         </div>
 
-        {/* 3 thumbnails */}
+        {/* 3 thumbnails ou gráfico de views */}
+        {showChart ? (
+          <ViewsTrendChart channelId={channel.channelId} compact className="aspect-[16/3.4] min-h-[68px]" />
+        ) : (
         <div className="grid grid-cols-3 gap-1">
           {top3.map(v => (
             <div key={v.videoId} className="relative aspect-video rounded overflow-hidden bg-white/[0.05]">
@@ -210,6 +214,7 @@ const CompactChannelCard = ({ channelData, isUpdating, isDeleted, channelExists,
             <div key={i} className="aspect-video rounded bg-white/[0.03] border border-white/[0.05]" />
           ))}
         </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-1">
@@ -409,7 +414,24 @@ const RecentVideos = () => {
   const [showNotesDialog, setShowNotesDialog] = useState<{ channelId: string; notes: string } | null>(null);
   const [showEditDialog, setShowEditDialog] = useState<{ channelId: string; niche: string; contentType: 'longform' | 'shorts' } | null>(null);
   const [showDeleteAlert, setShowDeleteAlert] = useState<string | null>(null);
-  const [showChartDialog, setShowChartDialog] = useState<{ channelId: string; channelTitle: string } | null>(null);
+  // Gráfico de views no lugar das thumbs: modo global + inversões por canal
+  const [showCharts, setShowCharts] = useState<boolean>(() => {
+    try { return localStorage.getItem('monitor-show-charts') === '1'; } catch { return false; }
+  });
+  const [chartFlipped, setChartFlipped] = useState<Set<string>>(new Set());
+  const isChartOn = (id: string) => showCharts !== chartFlipped.has(id);
+  const toggleChannelChart = (id: string) => setChartFlipped(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+  const toggleAllCharts = () => {
+    setShowCharts(v => {
+      try { localStorage.setItem('monitor-show-charts', v ? '0' : '1'); } catch { /* ignore */ }
+      return !v;
+    });
+    setChartFlipped(new Set());
+  };
   const [editedCustomNiche, setEditedCustomNiche] = useState("");
   const [showExactTime, setShowExactTime] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
@@ -971,7 +993,8 @@ const RecentVideos = () => {
                   onUpdate={async () => { await updateChannelVideos(channelData.channel.channelId, true); await updateChannelStats(channelData.channel.channelId); }}
                   onEdit={() => setShowEditDialog({ channelId: channelData.channel.channelId, niche: channelData.channel.niche || '', contentType: channelData.channel.contentType as 'longform' | 'shorts' || 'longform' })}
                   onDelete={() => setShowDeleteAlert(channelData.channel.channelId)}
-                  onChart={() => setShowChartDialog({ channelId: channelData.channel.channelId, channelTitle: channelData.channel.channelTitle })}
+                  onChart={() => toggleChannelChart(channelData.channel.channelId)}
+                  showChart={isChartOn(channelData.channel.channelId)}
                 />
               );
             }
@@ -1100,12 +1123,9 @@ const RecentVideos = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setShowChartDialog({
-                            channelId: channelData.channel.channelId,
-                            channelTitle: channelData.channel.channelTitle
-                          })}
-                          className="h-7 px-2"
-                          title="Ver gráfico"
+                          onClick={() => toggleChannelChart(channelData.channel.channelId)}
+                          className={`h-7 px-2 ${isChartOn(channelData.channel.channelId) ? 'text-red-400' : ''}`}
+                          title={isChartOn(channelData.channel.channelId) ? "Mostrar vídeos" : "Mostrar gráfico de views"}
                         >
                           <BarChart3 className="w-3 h-3" />
                         </Button>
@@ -1209,8 +1229,10 @@ const RecentVideos = () => {
                   </div>
                 </div>
 
-                {/* Loading State */}
-                {channelData.isLoading ? (
+                {/* Gráfico de views no lugar dos vídeos */}
+                {isChartOn(channelData.channel.channelId) ? (
+                  <ViewsTrendChart channelId={channelData.channel.channelId} className="h-44" />
+                ) : channelData.isLoading ? (
                   <Card>
                     <CardContent className="flex items-center justify-center py-8">
                       <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -1359,15 +1381,6 @@ const RecentVideos = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Gráfico de Crescimento */}
-      {showChartDialog && (
-        <ChannelGrowthChart
-          channelId={showChartDialog.channelId}
-          channelTitle={showChartDialog.channelTitle}
-          isOpen={!!showChartDialog}
-          onClose={() => setShowChartDialog(null)}
-        />
-      )}
 
       {/* ── Barra flutuante de ferramentas (centralizada sobre o conteúdo) ───── */}
       <div className="fixed bottom-4 left-1/2 md:left-[calc(50%+9.75rem)] -translate-x-1/2 z-40 max-w-[calc(100vw-2rem)] md:max-w-[calc(100vw-21.5rem)]">
@@ -1624,6 +1637,17 @@ const RecentVideos = () => {
           }`}
         >
           <Clock className="w-3.5 h-3.5 mr-1.5" />{showExactTime ? "Hora Exata" : "Tempo Relativo"}
+        </Button>
+
+        {/* Thumbs ↔ gráfico de views em todos os canais */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={toggleAllCharts}
+          className={`h-8 px-2.5 text-xs shrink-0 ${showCharts ? 'bg-red-500/15 text-red-300 hover:bg-red-500/20' : 'text-white/60 hover:text-white'}`}
+          title={showCharts ? "Voltar para as thumbnails" : "Mostrar gráfico de views em todos os canais"}
+        >
+          <BarChart3 className="w-3.5 h-3.5 mr-1.5" />{showCharts ? "Thumbs" : "Gráfico"}
         </Button>
 
         {/* Toggle de layout */}
