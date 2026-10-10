@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { format, parseISO, differenceInCalendarDays } from "date-fns";
+import { format, parseISO, differenceInCalendarDays, subDays } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { formatNumber } from "@/lib/youtube-api";
 
@@ -43,8 +43,8 @@ export function useChannelHistory(channelId: string, enabled: boolean) {
 
 export type DailyGain = { date: string; label: string; views: number; subs: number; spike: boolean };
 
-/** Ganho diário de views: último registro de cada dia menos o do dia anterior. */
-export function computeDailyGains(points: HistoryPoint[], days = 14): DailyGain[] {
+/** Ganho diário de views dos últimos `days` dias (até hoje); dia sem dado = 0. */
+export function computeDailyGains(points: HistoryPoint[], days = 7): DailyGain[] {
   const byDay = new Map<string, HistoryPoint>();
   for (const p of points) {
     const key = format(new Date(p.recorded_at), "yyyy-MM-dd");
@@ -52,25 +52,27 @@ export function computeDailyGains(points: HistoryPoint[], days = 14): DailyGain[
     if (!cur || new Date(p.recorded_at) > new Date(cur.recorded_at)) byDay.set(key, p);
   }
   const keys = [...byDay.keys()].sort();
-  const gains: DailyGain[] = [];
+  const perDay = new Map<string, { views: number; subs: number }>();
   for (let i = 1; i < keys.length; i++) {
     const prev = byDay.get(keys[i - 1])!;
     const cur = byDay.get(keys[i])!;
-    // se faltou dia(s), divide o ganho pelo intervalo pra não criar pico falso
+    // se faltou dia(s), espalha o ganho pelo intervalo pra não criar pico falso
     const gap = Math.max(1, differenceInCalendarDays(parseISO(keys[i]), parseISO(keys[i - 1])));
-    gains.push({
-      date: keys[i],
-      label: format(parseISO(keys[i]), "dd/MM"),
-      views: Math.max(0, Math.round((cur.view_count - prev.view_count) / gap)),
-      subs: Math.round((cur.subscriber_count - prev.subscriber_count) / gap),
-      spike: false,
-    });
+    const views = Math.max(0, Math.round((cur.view_count - prev.view_count) / gap));
+    const subs = Math.round((cur.subscriber_count - prev.subscriber_count) / gap);
+    for (let d = 0; d < gap; d++) perDay.set(format(subDays(parseISO(keys[i]), d), "yyyy-MM-dd"), { views, subs });
   }
-  const recent = gains.slice(-days);
-  // pico = dia com 2,5x+ a mediana dos demais
+  const today = new Date();
+  const recent: DailyGain[] = Array.from({ length: days }, (_, k) => {
+    const day = subDays(today, days - 1 - k);
+    const key = format(day, "yyyy-MM-dd");
+    const g = perDay.get(key);
+    return { date: key, label: format(day, "dd/MM"), views: g?.views ?? 0, subs: g?.subs ?? 0, spike: false };
+  });
+  // pico = dia com 2,5x+ a mediana
   const sorted = recent.map(g => g.views).sort((a, b) => a - b);
-  const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
-  for (const g of recent) g.spike = recent.length >= 3 && median > 0 && g.views >= median * 2.5;
+  const median = sorted[Math.floor(sorted.length / 2)];
+  for (const g of recent) g.spike = median > 0 && g.views >= median * 2.5;
   return recent;
 }
 
@@ -100,14 +102,7 @@ export const ViewsTrendChart = ({ channelId, className = "", compact = false }: 
     );
   }
 
-  const gains = computeDailyGains(points, compact ? 14 : 30);
-  if (gains.length < 2) {
-    return (
-      <div className={`flex items-center justify-center rounded-lg bg-white/[0.03] border border-white/[0.06] px-3 text-center text-[10px] text-white/35 ${className}`}>
-        Sem histórico suficiente — o gráfico aparece após alguns dias de atualizações.
-      </div>
-    );
-  }
+  const gains = computeDailyGains(points, 7);
 
   const last = gains[gains.length - 1];
   const prevDays = gains.slice(0, -1);
@@ -131,8 +126,8 @@ export const ViewsTrendChart = ({ channelId, className = "", compact = false }: 
       <div className="flex-1 min-h-0 mt-1.5">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={gains} margin={{ top: 6, right: 6, bottom: 0, left: 6 }}>
-            <XAxis dataKey="label" hide={compact} tick={{ fontSize: 9, fill: "rgba(255,255,255,0.3)" }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-            <YAxis hide domain={[0, "dataMax"]} />
+            <XAxis dataKey="label" tick={{ fontSize: 9, fill: "rgba(255,255,255,0.3)" }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+            <YAxis hide domain={[0, (max: number) => Math.max(max, 1)]} />
             <Tooltip content={<ChartTooltip />} cursor={{ stroke: "rgba(255,255,255,0.15)" }} />
             <Line
               type="linear"
