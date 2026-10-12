@@ -17,6 +17,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { fetchTrackingEvents, buildSequentialFunnel, quizFunnelSteps } from "./_analytics.mjs";
 import { getFeedVideoPage } from "./_youtube-feed.mjs";
+import { parseProfileUrl, fetchProfileColumns } from "./_social.mjs";
 import { createYouTubeQuotaGuard } from "./_youtube-quota.mjs";
 const guardedYouTubeRequest = createYouTubeQuotaGuard();
 
@@ -1117,6 +1118,60 @@ export async function handleApiRequest({ method, pathname, searchParams, body, a
     const db = getSupabase();
     const id = decodeURIComponent(path.split("/")[2]);
     const { error } = await db.from("social_links").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return { status: 200, json: { ok: true } };
+  }
+
+  // ── Outras Redes (TikTok / Instagram / Facebook) ───────────────────────────
+  if (path === "/social-profiles" && method === "GET") {
+    const db = getSupabase();
+    const { data, error } = await db.from("social_profiles").select("*").order("added_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return { status: 200, json: data || [] };
+  }
+
+  if (path === "/social-profiles" && method === "POST") {
+    const parsed = parseProfileUrl(body.url);
+    if (!parsed) return { status: 400, json: { error: "Link inválido. Use o link do perfil do TikTok, Instagram ou Facebook." } };
+    const db = getSupabase();
+    const { data: existing } = await db.from("social_profiles").select("id")
+      .eq("platform", parsed.platform).eq("username", parsed.username).maybeSingle();
+    if (existing) return { status: 409, json: { error: "Esse perfil já está salvo." } };
+    const cols = await fetchProfileColumns(db, parsed);
+    const row = { ...parsed, ...cols, niche: str(body.niche, 80) || null };
+    if (!row.display_name) row.display_name = parsed.username;
+    const { data, error } = await db.from("social_profiles").insert(row).select().single();
+    if (error) throw new Error(error.message);
+    return { status: 201, json: data };
+  }
+
+  if (path.startsWith("/social-profiles/") && path.endsWith("/refresh") && method === "POST") {
+    const db = getSupabase();
+    const id = decodeURIComponent(path.split("/")[2]);
+    const { data: prof, error: e1 } = await db.from("social_profiles").select("*").eq("id", id).single();
+    if (e1 || !prof) return { status: 404, json: { error: "Perfil não encontrado" } };
+    const cols = await fetchProfileColumns(db, prof);
+    const { data, error } = await db.from("social_profiles").update(cols).eq("id", id).select().single();
+    if (error) throw new Error(error.message);
+    return { status: 200, json: data };
+  }
+
+  if (path.startsWith("/social-profiles/") && method === "PUT") {
+    const db = getSupabase();
+    const id = decodeURIComponent(path.split("/")[2]);
+    const updates = {};
+    if (body.display_name !== undefined) updates.display_name = str(body.display_name, 120) || null;
+    if (body.avatar_url !== undefined) updates.avatar_url = str(body.avatar_url, 2000) || null;
+    if (body.niche !== undefined) updates.niche = str(body.niche, 80) || null;
+    const { data, error } = await db.from("social_profiles").update(updates).eq("id", id).select().single();
+    if (error) return { status: 404, json: { error: error.message } };
+    return { status: 200, json: data };
+  }
+
+  if (path.startsWith("/social-profiles/") && method === "DELETE") {
+    const db = getSupabase();
+    const id = decodeURIComponent(path.split("/")[2]);
+    const { error } = await db.from("social_profiles").delete().eq("id", id);
     if (error) throw new Error(error.message);
     return { status: 200, json: { ok: true } };
   }

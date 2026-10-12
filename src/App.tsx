@@ -16,6 +16,7 @@ import Home from "./pages/Home";
 // Módulo YouTube — dados de canais e vídeos (rotas em /youtube)
 import Search from "./pages/Search";
 import Monitoramento from "./pages/Monitoramento";
+import OutrasRedes from "./pages/OutrasRedes";
 import MeusCanais from "./pages/MeusCanais";
 import Exportar from "./pages/Exportar";
 import PerfisSociais from "./pages/PerfisSociais";
@@ -68,6 +69,7 @@ function ProtectedApp() {
       <Route path="/youtube/meus-canais" element={wrap(<MeusCanais />)} />
       <Route path="/youtube/exportar" element={wrap(<Exportar />)} />
       <Route path="/youtube/perfis" element={wrap(<PerfisSociais />)} />
+      <Route path="/youtube/redes" element={wrap(<OutrasRedes />)} />
 
       {/* Módulo Sites & Tráfego */}
       <Route path="/analytics" element={wrap(<AnalyticsDashboard />)} />

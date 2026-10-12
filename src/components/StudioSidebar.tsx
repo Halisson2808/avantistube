@@ -4,7 +4,7 @@ import {
     X, Download,
     Search, TrendingUp, Star,
     ExternalLink, LogOut, Link2, Video,
-    BarChart3, Globe, Filter, Activity, Youtube, FileText, ClipboardList,
+    BarChart3, Globe, Filter, Activity, Youtube, FileText, ClipboardList, Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMonitoredChannels } from "@/hooks/use-monitored-channels";
@@ -17,6 +17,7 @@ const youtubeItems = [
     { title: "Favoritos", url: "/youtube/favoritos", icon: Star },
     { title: "Monitoramento", url: "/youtube/monitoramento", icon: TrendingUp },
     { title: "Meus Canais", url: "/youtube/meus-canais", icon: Video },
+    { title: "Outras Redes", url: "/youtube/redes", icon: Share2 },
     { title: "Exportar Dados", url: "/youtube/exportar", icon: Download },
     { title: "Perfis Salvos", url: "/youtube/perfis", icon: Link2 },
 ];
